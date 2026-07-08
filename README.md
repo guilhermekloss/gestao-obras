@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gestão de Obras
 
-## Getting Started
+Plataforma web (responsiva/PWA) de gestão de obras: notas fiscais com rateio entre obras, contas a pagar, diário de obra mobile, orçamento vs. realizado, medições e dashboard. Substitui as planilhas de quantitativo e financeiro.
 
-First, run the development server:
+Documentação completa do produto: pasta `../Gestão de Obras/` (vault Obsidian).
+
+## Rodando local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose up -d        # PostgreSQL
+npm install
+npx prisma migrate dev      # cria as tabelas
+npm run db:seed             # admin + 6 lotes com etapas padrão
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Login inicial: `admin@obras.local` / `admin123` (troque na tela Usuários).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Para testar no celular: acesse `http://<IP-da-máquina>:3000` na mesma rede Wi-Fi e use "Adicionar à tela inicial".
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Testes
 
-## Learn More
+```bash
+npm test                # Vitest — services (parcelas, rateio, fluxo, importação)
+npx playwright test     # e2e — fluxo crítico: NF → pagar → custo na obra
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + Prisma 6 · Auth.js v5 · Recharts. Dinheiro em centavos (Int); percentuais em basis points. Regras de negócio em `src/services/` (puras, testadas).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estrutura
 
-## Deploy on Vercel
+- `src/app/(app)/` — módulos: obras, fornecedores, notas, contas, diario, medicoes, orcamento, importar, usuarios, dashboard
+- `src/services/` — parcelas, rateio, financeiro, obra, importacao (funções puras)
+- `src/lib/` — prisma, auth (`exigirPapel`), format (moeda/data BR), custos, storage
+- `prisma/` — schema, seed, `teste-fluxo.ts` (dados de demonstração)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Papéis
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Papel | Acesso |
+|---|---|
+| ADMIN | tudo + usuários |
+| ESCRITORIO | NFs, financeiro, orçamento, importação |
+| CAMPO | RDO, medições, obras — sem valores financeiros (bloqueado no servidor) |
+
+## Pendências conscientes
+
+- Service worker (cache offline) não instalado — o PWA é instalável via manifest; Serwist fica para quando o deploy for definido.
+- Rateio é por nota (aplicado a todos os itens); para destinar um item a outra obra, lance em linhas/notas separadas.
+- Editar NF recria as parcelas como abertas (aviso na tela quando há parcela paga).
+- Importador espera o formato documentado na tela Importar — valide com as planilhas reais exportadas em CSV.

@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: gestao-obras-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: obras
+      POSTGRES_PASSWORD: obras
+      POSTGRES_DB: gestao_obras
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

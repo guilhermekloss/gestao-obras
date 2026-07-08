@@ -1,0 +1,214 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { startOfMonth, addDays, startOfDay, subMonths } from "date-fns";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { realizadoPorObra } from "@/lib/custos";
+import { custoRateado } from "@/services/rateio";
+import { avancoPonderado } from "@/services/obra";
+import { formatarMoeda } from "@/lib/format";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  GastoMensalChart,
+  OrcadoRealizadoChart,
+  AvancoChart,
+} from "./dashboard-charts";
+
+const MESES_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+export default async function DashboardPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  if (session.user.role === "CAMPO") redirect("/diario");
+
+  const hoje = new Date();
+  const inicioMes = startOfMonth(hoje);
+  const inicio12Meses = startOfMonth(subMonths(hoje, 11));
+
+  const [
+    notasDoMes,
+    aVencer7,
+    obras,
+    rateiosPeriodo,
+    realizado,
+    etapasComMedicoes,
+  ] = await Promise.all([
+    prisma.notaFiscal.aggregate({
+      where: { dataCompra: { gte: inicioMes } },
+      _sum: { totalCents: true },
+    }),
+    prisma.parcela.aggregate({
+      where: {
+        status: "ABERTA",
+        vencimento: { gte: startOfDay(hoje), lte: addDays(hoje, 7) },
+      },
+      _sum: { valorCents: true },
+      _count: true,
+    }),
+    prisma.obra.findMany({
+      orderBy: { codigo: "asc" },
+      include: { etapas: { select: { id: true, orcamentoCents: true } } },
+    }),
+    prisma.rateioItem.findMany({
+      where: { item: { nota: { dataCompra: { gte: inicio12Meses } } } },
+      include: {
+        item: { select: { totalCents: true, nota: { select: { dataCompra: true } } } },
+        obra: { select: { nome: true } },
+      },
+    }),
+    realizadoPorObra(),
+    prisma.medicao.findMany({ orderBy: [{ data: "asc" }, { id: "asc" }] }),
+  ]);
+
+  // Divergências: notas cujo total difere da soma dos itens
+  const notas = await prisma.notaFiscal.findMany({
+    select: { id: true, totalCents: true, itens: { select: { totalCents: true } } },
+  });
+  const divergencias = notas.filter(
+    (n) => n.itens.reduce((a, i) => a + i.totalCents, 0) !== n.totalCents,
+  ).length;
+
+  // Gasto mensal por obra (12 meses, empilhado por data de compra)
+  const porMes = new Map<string, Record<string, number>>();
+  for (const r of rateiosPeriodo) {
+    const d = r.item.nota.dataCompra;
+    const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const linha = porMes.get(chave) ?? {};
+    linha[r.obra.nome] = (linha[r.obra.nome] ?? 0) + custoRateado(r.item.totalCents, r.fracaoBp);
+    porMes.set(chave, linha);
+  }
+  const mesesOrdenados = [...porMes.keys()].sort();
+  const obrasComGasto = obras.filter((o) => realizado.has(o.id)).map((o) => o.nome);
+  const gastoMensalData = mesesOrdenados.map((chave) => {
+    const [ano, mes] = chave.split("-");
+    return {
+      mes: `${MESES_LABEL[parseInt(mes) - 1]}/${ano.slice(2)}`,
+      ...porMes.get(chave),
+    };
+  });
+
+  // Orçado vs. realizado por obra
+  const orcadoRealizadoData = obras
+    .map((o) => ({
+      obra: o.nome,
+      Orçado: o.etapas.reduce((a, e) => a + e.orcamentoCents, 0),
+      Realizado: realizado.get(o.id) ?? 0,
+    }))
+    .filter((d) => d.Orçado > 0 || d.Realizado > 0);
+
+  // Avanço físico por obra
+  const ultimaMedicaoPorEtapa = new Map<string, number>();
+  for (const m of etapasComMedicoes) ultimaMedicaoPorEtapa.set(m.etapaId, m.percentBp);
+  const avancoData = obras
+    .filter((o) => o.status === "ANDAMENTO" && o.etapas.length > 0)
+    .map((o) => ({
+      obra: o.nome,
+      avanco:
+        avancoPonderado(
+          o.etapas.map((e) => ({
+            orcamentoCents: e.orcamentoCents,
+            percentBp: ultimaMedicaoPorEtapa.get(e.id) ?? 0,
+          })),
+        ) / 100,
+    }));
+
+  const obrasAtivas = obras.filter((o) => o.status === "ANDAMENTO").length;
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <CardStat
+          titulo="Gasto no mês"
+          valor={formatarMoeda(notasDoMes._sum.totalCents ?? 0)}
+        />
+        <CardStat
+          titulo="A vencer em 7 dias"
+          valor={formatarMoeda(aVencer7._sum.valorCents ?? 0)}
+          rodape={`${aVencer7._count} parcela(s)`}
+          href="/contas?visao=semana"
+        />
+        <CardStat titulo="Obras ativas" valor={String(obrasAtivas)} href="/obras" />
+        <CardStat
+          titulo="Divergências itens × nota"
+          valor={String(divergencias)}
+          alerta={divergencias > 0}
+          href="/notas"
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Gasto mensal por obra</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {gastoMensalData.length === 0 ? (
+              <Vazio texto="Sem compras registradas nos últimos 12 meses." />
+            ) : (
+              <GastoMensalChart data={gastoMensalData} obras={obrasComGasto} />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Orçado vs. realizado</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {orcadoRealizadoData.length === 0 ? (
+              <Vazio texto="Defina orçamentos em Orçamento para ver a comparação." />
+            ) : (
+              <OrcadoRealizadoChart data={orcadoRealizadoData} />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Avanço físico</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {avancoData.length === 0 ? (
+              <Vazio texto="Registre medições para acompanhar o avanço." />
+            ) : (
+              <AvancoChart data={avancoData} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function CardStat({
+  titulo,
+  valor,
+  rodape,
+  href,
+  alerta = false,
+}: {
+  titulo: string;
+  valor: string;
+  rodape?: string;
+  href?: string;
+  alerta?: boolean;
+}) {
+  const conteudo = (
+    <Card className={href ? "transition-colors hover:bg-accent/50" : undefined}>
+      <CardContent className="pt-4">
+        <p className="text-xs text-muted-foreground">{titulo}</p>
+        <p className={`mt-1 text-2xl font-semibold ${alerta ? "text-destructive" : ""}`}>
+          {valor}
+        </p>
+        {rodape && <p className="mt-0.5 text-xs text-muted-foreground">{rodape}</p>}
+      </CardContent>
+    </Card>
+  );
+  return href ? <Link href={href}>{conteudo}</Link> : conteudo;
+}
+
+function Vazio({ texto }: { texto: string }) {
+  return <p className="py-10 text-center text-sm text-muted-foreground">{texto}</p>;
+}

@@ -1,0 +1,37 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/prisma";
+import { exigirPapel } from "@/lib/auth";
+import { moedaParaCents } from "@/lib/format";
+import type { ActionResult } from "../obras/actions";
+
+/** Salva os orçamentos de todas as etapas da obra de uma vez (campos etapa-<id>). */
+export async function salvarOrcamentos(
+  obraId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  await exigirPapel("ADMIN", "ESCRITORIO");
+
+  const etapas = await prisma.etapa.findMany({
+    where: { obraId },
+    select: { id: true },
+  });
+
+  await prisma.$transaction(
+    etapas
+      .map((e) => {
+        const valor = formData.get(`etapa-${e.id}`);
+        if (valor === null) return null;
+        return prisma.etapa.update({
+          where: { id: e.id },
+          data: { orcamentoCents: moedaParaCents(String(valor)) },
+        });
+      })
+      .filter((op) => op !== null),
+  );
+
+  revalidatePath("/orcamento");
+  revalidatePath(`/obras/${obraId}`);
+  return { ok: true };
+}
