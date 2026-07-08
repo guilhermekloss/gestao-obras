@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { SelectNativo } from "@/components/select-nativo";
+import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Input } from "@/components/ui/input";
 import { formatarMoeda, formatarData } from "@/lib/format";
 import { Plus } from "lucide-react";
@@ -71,21 +71,25 @@ export default async function NotasPage({
       <form method="get" className="flex flex-wrap items-end gap-2">
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">Fornecedor</label>
-          <SelectNativo name="fornecedor" defaultValue={fornecedor ?? ""} className="w-48">
-            <option value="">Todos</option>
-            {fornecedores.map((f) => (
-              <option key={f.id} value={f.id}>{f.nome}</option>
-            ))}
-          </SelectNativo>
+          <ComboboxFiltro
+            name="fornecedor"
+            defaultValue={fornecedor ?? ""}
+            todosLabel="Todos"
+            placeholder="Todos"
+            className="w-48"
+            options={fornecedores.map((f) => ({ value: f.id, label: f.nome }))}
+          />
         </div>
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">Obra</label>
-          <SelectNativo name="obra" defaultValue={obra ?? ""} className="w-36">
-            <option value="">Todas</option>
-            {obras.map((o) => (
-              <option key={o.id} value={o.id}>{o.nome}</option>
-            ))}
-          </SelectNativo>
+          <ComboboxFiltro
+            name="obra"
+            defaultValue={obra ?? ""}
+            todosLabel="Todas"
+            placeholder="Todas"
+            className="w-40"
+            options={obras.map((o) => ({ value: o.id, label: o.nome }))}
+          />
         </div>
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">De</label>

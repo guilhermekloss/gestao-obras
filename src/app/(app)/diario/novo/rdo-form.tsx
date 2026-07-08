@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SelectNativo } from "@/components/select-nativo";
+import { Combobox } from "@/components/combobox";
+import { LabelAjuda } from "@/components/campo-ajuda";
 import { cn } from "@/lib/utils";
 import { criarRdo } from "../actions";
 import { Camera, Minus, Plus, X } from "lucide-react";
@@ -117,12 +118,14 @@ export function RdoForm({ obras }: { obras: { id: string; nome: string }[] }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="grid gap-1.5">
           <Label>Obra</Label>
-          <SelectNativo value={obraId} onChange={(e) => setObraId(e.target.value)} className="h-11">
-            <option value="">Selecione...</option>
-            {obras.map((o) => (
-              <option key={o.id} value={o.id}>{o.nome}</option>
-            ))}
-          </SelectNativo>
+          <Combobox
+            value={obraId}
+            onChange={setObraId}
+            placeholder="Buscar obra..."
+            vazio="Nenhuma obra encontrada"
+            inputClassName="h-11"
+            options={obras.map((o) => ({ value: o.id, label: o.nome }))}
+          />
         </div>
         <div className="grid gap-1.5">
           <Label>Data</Label>
@@ -131,7 +134,9 @@ export function RdoForm({ obras }: { obras: { id: string; nome: string }[] }) {
       </div>
 
       <div className="grid gap-1.5">
-        <Label>Clima</Label>
+        <LabelAjuda ajuda="Condição do tempo no dia. Importante para justificar a produtividade e eventuais paralisações por chuva.">
+          Clima
+        </LabelAjuda>
         <div className="flex flex-wrap gap-2">
           {CLIMAS.map((c) => (
             <button
@@ -150,7 +155,9 @@ export function RdoForm({ obras }: { obras: { id: string; nome: string }[] }) {
       </div>
 
       <div className="grid gap-1.5">
-        <Label>Efetivo</Label>
+        <LabelAjuda titulo="Efetivo" ajuda="Quantidade de trabalhadores presentes na obra hoje, por função. Use os botões + e − para contar cada categoria.">
+          Efetivo
+        </LabelAjuda>
         <div className="grid gap-2">
           {FUNCOES.map((funcao) => {
             const qtd = efetivo.find((e) => e.funcao === funcao)?.qtd ?? 0;
@@ -173,7 +180,9 @@ export function RdoForm({ obras }: { obras: { id: string; nome: string }[] }) {
       </div>
 
       <div className="grid gap-1.5">
-        <Label>Atividades executadas</Label>
+        <LabelAjuda ajuda="Descreva o que foi feito na obra hoje. É o conteúdo principal do relatório diário (RDO).">
+          Atividades executadas
+        </LabelAjuda>
         <Textarea
           rows={3}
           value={atividades}
@@ -183,7 +192,9 @@ export function RdoForm({ obras }: { obras: { id: string; nome: string }[] }) {
       </div>
 
       <div className="grid gap-1.5">
-        <Label>Ocorrências (opcional)</Label>
+        <LabelAjuda ajuda="Registre imprevistos do dia: atrasos, faltas, acidentes, falta de material ou chuva que parou o serviço.">
+          Ocorrências (opcional)
+        </LabelAjuda>
         <Textarea
           rows={2}
           value={ocorrencias}

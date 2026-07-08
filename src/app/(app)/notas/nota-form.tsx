@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { toast } from "sonner";
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectNativo } from "@/components/select-nativo";
+import { Combobox } from "@/components/combobox";
+import { LabelAjuda, CampoAjuda } from "@/components/campo-ajuda";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +23,7 @@ import { gerarParcelas } from "@/services/parcelas";
 import { dividirIgualmente, calcularTotalItem, BP_TOTAL } from "@/services/rateio";
 import { salvarNota, criarFornecedorInline } from "./actions";
 import type { NotaInput } from "@/schemas/nota";
-import { cn } from "@/lib/utils";
-import { Plus, Trash2, Wand2, ChevronsUpDown, Check } from "lucide-react";
+import { Plus, Trash2, Wand2 } from "lucide-react";
 
 export type FornecedorOption = { id: string; nome: string; cnpj?: string | null };
 export type ObraOption = {
@@ -232,17 +233,31 @@ export function NotaForm({
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="grid gap-2 sm:col-span-2">
-            <Label>Fornecedor *</Label>
+            <LabelAjuda ajuda="Empresa ou pessoa que emitiu a nota. Busque por nome ou CNPJ; se ainda não existir, use o botão + ao lado para cadastrar na hora.">
+              Fornecedor *
+            </LabelAjuda>
             <div className="flex gap-2">
               <Controller
                 control={control}
                 name="fornecedorId"
                 rules={{ required: true }}
-                render={({ field }) => (
-                  <FornecedorCombobox
-                    fornecedores={fornecedores}
+                render={({ field, fieldState }) => (
+                  <Combobox
+                    options={fornecedores.map((f) => ({
+                      value: f.id,
+                      label: f.nome,
+                      descricao: f.cnpj ? formatarCnpj(f.cnpj) : null,
+                    }))}
                     value={field.value}
                     onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    erro={fieldState.invalid}
+                    placeholder="Buscar por nome ou CNPJ..."
+                    vazio="Nenhum fornecedor encontrado"
+                    mensagemErro="Selecione um fornecedor"
+                    aoSelecionar={(o) =>
+                      o && toast.success(`Fornecedor selecionado: ${o.label}`)
+                    }
                   />
                 )}
               />
@@ -258,19 +273,31 @@ export function NotaForm({
             </div>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="numero">Nº da NF *</Label>
+            <LabelAjuda
+              htmlFor="numero"
+              titulo="Nº da NF (Nota Fiscal)"
+              ajuda="Número impresso na nota fiscal. A combinação fornecedor + número não pode se repetir — evita lançar a mesma nota duas vezes."
+            >
+              Nº da NF *
+            </LabelAjuda>
             <Input id="numero" {...register("numero", { required: true })} />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="dataCompra">Data da compra *</Label>
+            <LabelAjuda htmlFor="dataCompra" ajuda="Data de emissão da nota. Serve de base para os relatórios por período e para calcular os vencimentos das parcelas.">
+              Data da compra *
+            </LabelAjuda>
             <Input id="dataCompra" type="date" {...register("dataCompra", { required: true })} />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="total">Valor total (R$) *</Label>
+            <LabelAjuda htmlFor="total" ajuda="Valor total da nota, em reais. A soma dos itens abaixo deve fechar com este valor (o sistema avisa se não bater).">
+              Valor total (R$) *
+            </LabelAjuda>
             <Input id="total" inputMode="decimal" placeholder="0,00" {...register("total", { required: true })} />
           </div>
           <div className="grid gap-2 sm:col-span-2 lg:col-span-3">
-            <Label htmlFor="obs">Observações</Label>
+            <LabelAjuda htmlFor="obs" ajuda="Anotações livres sobre a nota (ex.: pedido de compra, condição negociada).">
+              Observações
+            </LabelAjuda>
             <Input id="obs" {...register("obs")} />
           </div>
         </CardContent>
@@ -279,7 +306,16 @@ export function NotaForm({
       {/* Itens */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Itens</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Itens
+            <CampoAjuda titulo="Itens da nota">
+              Detalhe o que foi comprado, linha a linha. Colunas: <b>Tipo</b> (Material,
+              Serviço, Frete ou Encargo — classifica o custo nos relatórios); <b>Qtde</b> e{" "}
+              <b>Und</b> (quantidade e unidade, ex.: 10 SC, 2 M³); <b>Unitário</b> (preço de
+              uma unidade) e <b>Desconto</b> (abatimento em R$). O subtotal é calculado
+              automaticamente, e a soma dos itens deve fechar com o valor total da nota.
+            </CampoAjuda>
+          </CardTitle>
           <span
             className={
               totalCents > 0 && somaItensCents !== totalCents
@@ -350,7 +386,16 @@ export function NotaForm({
       {/* Rateio */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Rateio entre obras</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Rateio entre obras
+            <CampoAjuda titulo="Rateio entre obras">
+              Distribui o valor desta nota entre uma ou mais obras, em percentual. A soma
+              precisa fechar <b>100%</b> (o indicador ao lado fica verde quando bate). Informe
+              a <b>etapa</b> se quiser lançar o custo num estágio específico da obra. Use{" "}
+              <b>Dividir igualmente</b> para repartir automaticamente entre as obras
+              adicionadas.
+            </CampoAjuda>
+          </CardTitle>
           <span
             className={
               somaRateioBp === BP_TOTAL
@@ -366,12 +411,23 @@ export function NotaForm({
             const obraSelecionada = obras.find((o) => o.id === rateios[i]?.obraId);
             return (
               <div key={field.id} className="grid grid-cols-[1fr_90px_36px] gap-2 md:grid-cols-[1fr_1fr_110px_36px]">
-                <SelectNativo {...register(`rateios.${i}.obraId`, { required: true })}>
-                  <option value="">Obra...</option>
-                  {obras.map((o) => (
-                    <option key={o.id} value={o.id}>{o.nome}</option>
-                  ))}
-                </SelectNativo>
+                <Controller
+                  control={control}
+                  name={`rateios.${i}.obraId`}
+                  rules={{ required: true }}
+                  render={({ field, fieldState }) => (
+                    <Combobox
+                      options={obras.map((o) => ({ value: o.id, label: o.nome }))}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      erro={fieldState.invalid}
+                      placeholder="Obra..."
+                      vazio="Nenhuma obra encontrada"
+                      mensagemErro="Selecione a obra"
+                    />
+                  )}
+                />
                 <SelectNativo {...register(`rateios.${i}.etapaId`)} className="hidden md:block">
                   <option value="">Etapa (opcional)</option>
                   {obraSelecionada?.etapas.map((e) => (
@@ -417,7 +473,15 @@ export function NotaForm({
       {/* Pagamento */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Pagamento</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Pagamento
+            <CampoAjuda titulo="Pagamento">
+              Escolha a <b>forma</b> (PIX, Cartão, Débito ou Boleto) e o número de{" "}
+              <b>parcelas</b>. Depois clique em <b>Gerar parcelas</b> para o sistema criar os
+              vencimentos automaticamente — você ainda pode ajustar cada valor e data. A soma
+              das parcelas deve fechar com o valor total da nota.
+            </CampoAjuda>
+          </CardTitle>
           <span
             className={
               parcelas.length > 0 && somaParcelasCents !== totalCents
@@ -493,166 +557,10 @@ export function NotaForm({
   );
 }
 
-/** Remove acentos e normaliza para busca insensível a maiúsculas/acentos. */
-function normalizar(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
 function formatarCnpj(cnpj: string): string {
   const d = cnpj.replace(/\D/g, "");
   if (d.length !== 14) return cnpj;
   return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-}
-
-/** Campo de fornecedor com busca dinâmica por nome ou CNPJ. */
-function FornecedorCombobox({
-  fornecedores,
-  value,
-  onChange,
-}: {
-  fornecedores: FornecedorOption[];
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const [aberto, setAberto] = useState(false);
-  const [busca, setBusca] = useState("");
-  const [destaque, setDestaque] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const selecionado = fornecedores.find((f) => f.id === value) ?? null;
-
-  const filtrados = useMemo(() => {
-    const termo = normalizar(busca);
-    const digitos = busca.replace(/\D/g, "");
-    if (!termo) return fornecedores.slice(0, 50);
-    return fornecedores
-      .filter((f) => {
-        const nomeMatch = normalizar(f.nome).includes(termo);
-        const cnpjMatch =
-          digitos.length > 0 && !!f.cnpj && f.cnpj.replace(/\D/g, "").includes(digitos);
-        return nomeMatch || cnpjMatch;
-      })
-      .slice(0, 50);
-  }, [busca, fornecedores]);
-
-  // Fecha ao clicar fora
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setAberto(false);
-        setBusca("");
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  function buscar(texto: string) {
-    setBusca(texto);
-    setDestaque(0);
-    setAberto(true);
-  }
-
-  function selecionar(f: FornecedorOption) {
-    onChange(f.id);
-    setAberto(false);
-    setBusca("");
-    inputRef.current?.blur();
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!aberto && (e.key === "ArrowDown" || e.key === "Enter")) {
-      setAberto(true);
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setDestaque((d) => Math.min(d + 1, filtrados.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setDestaque((d) => Math.max(d - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const f = filtrados[destaque];
-      if (f) selecionar(f);
-    } else if (e.key === "Escape") {
-      setAberto(false);
-      setBusca("");
-    }
-  }
-
-  return (
-    <div ref={containerRef} className="relative w-full">
-      {/* Campo oculto para validação nativa de "required" */}
-      <input
-        tabIndex={-1}
-        aria-hidden
-        className="pointer-events-none absolute size-0 opacity-0"
-        value={value}
-        required
-        onChange={() => {}}
-      />
-      <div className="relative">
-        <Input
-          ref={inputRef}
-          value={aberto ? busca : selecionado?.nome ?? ""}
-          placeholder="Buscar por nome ou CNPJ..."
-          onFocus={() => {
-            setAberto(true);
-            setBusca("");
-          }}
-          onChange={(e) => buscar(e.target.value)}
-          onKeyDown={onKeyDown}
-          className="pr-8"
-          autoComplete="off"
-        />
-        <ChevronsUpDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-      </div>
-
-      {aberto && (
-        <ul className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md border bg-popover p-1 text-sm shadow-md">
-          {filtrados.length === 0 ? (
-            <li className="px-2 py-2 text-muted-foreground">Nenhum fornecedor encontrado</li>
-          ) : (
-            filtrados.map((f, i) => (
-              <li key={f.id}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setDestaque(i)}
-                  onMouseDown={(e) => {
-                    // evita blur do input antes do clique
-                    e.preventDefault();
-                    selecionar(f);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left",
-                    i === destaque && "bg-accent text-accent-foreground",
-                  )}
-                >
-                  <Check
-                    className={cn("size-4 shrink-0", f.id === value ? "opacity-100" : "opacity-0")}
-                  />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate">{f.nome}</span>
-                    {f.cnpj && (
-                      <span className="truncate text-xs text-muted-foreground">
-                        {formatarCnpj(f.cnpj)}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      )}
-    </div>
-  );
 }
 
 function NovoFornecedorInline({

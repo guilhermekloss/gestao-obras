@@ -5,6 +5,7 @@ import { FormDialog } from "@/components/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LabelAjuda } from "@/components/campo-ajuda";
 import { SelectNativo } from "@/components/select-nativo";
 import { criarObra, atualizarObra } from "./actions";
 import { Plus, Pencil } from "lucide-react";
@@ -20,26 +21,40 @@ function CamposObra({ obra }: { obra?: Obra }) {
   return (
     <>
       <div className="grid gap-2">
-        <Label htmlFor="nome">Nome *</Label>
+        <LabelAjuda htmlFor="nome" ajuda="Nome pelo qual você identifica a obra no dia a dia (ex.: Lote 03, Residência Silva).">
+          Nome *
+        </LabelAjuda>
         <Input id="nome" name="nome" required defaultValue={obra?.nome} placeholder="Lote 03" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="codigo">Código *</Label>
+          <LabelAjuda htmlFor="codigo" ajuda="Sigla curta e única para identificar a obra em listas, filtros e relatórios (ex.: L03).">
+            Código *
+          </LabelAjuda>
           <Input id="codigo" name="codigo" required defaultValue={obra?.codigo} placeholder="L03" />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="cno">CNO</Label>
+          <LabelAjuda
+            htmlFor="cno"
+            titulo="CNO — Cadastro Nacional de Obras"
+            ajuda="Registro da obra na Receita Federal (substituiu a antiga matrícula CEI). Serve para o INSS da construção e para emitir a CND da obra. Como preencher: informe os 12 dígitos do CNO gerado no portal e-CAC. Deixe vazio se a obra ainda não foi registrada."
+          >
+            CNO
+          </LabelAjuda>
           <Input id="cno" name="cno" defaultValue={obra?.cno ?? ""} />
         </div>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="endereco">Endereço</Label>
+        <LabelAjuda htmlFor="endereco" ajuda="Local da obra. Ajuda a localizá-la e aparece nos relatórios.">
+          Endereço
+        </LabelAjuda>
         <Input id="endereco" name="endereco" defaultValue={obra?.endereco ?? ""} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="status">Status</Label>
+          <LabelAjuda htmlFor="status" ajuda="Situação atual da obra. Obras em Planejamento ou Em andamento são as que aparecem nas telas de lançamento de nota.">
+            Status
+          </LabelAjuda>
           <SelectNativo id="status" name="status" defaultValue={obra?.status ?? "ANDAMENTO"}>
             {Object.entries(STATUS_LABELS).map(([v, l]) => (
               <option key={v} value={v}>{l}</option>
@@ -47,7 +62,9 @@ function CamposObra({ obra }: { obra?: Obra }) {
           </SelectNativo>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="inicioEm">Início</Label>
+          <LabelAjuda htmlFor="inicioEm" ajuda="Data em que a obra começou (ou a previsão de início). Usada para acompanhar prazos.">
+            Início
+          </LabelAjuda>
           <Input
             id="inicioEm"
             name="inicioEm"

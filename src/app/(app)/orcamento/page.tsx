@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { realizadoPorEtapa } from "@/lib/custos";
-import { SelectNativo } from "@/components/select-nativo";
+import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Button } from "@/components/ui/button";
 import { OrcamentoForm, type LinhaOrcamento } from "./orcamento-form";
 
@@ -49,11 +49,14 @@ export default async function OrcamentoPage({
       <form method="get" className="flex items-end gap-2">
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">Obra</label>
-          <SelectNativo name="obra" defaultValue={obraId ?? ""} className="w-48">
-            {obras.map((o) => (
-              <option key={o.id} value={o.id}>{o.nome}</option>
-            ))}
-          </SelectNativo>
+          <ComboboxFiltro
+            name="obra"
+            defaultValue={obraId ?? ""}
+            placeholder="Buscar obra..."
+            className="w-56"
+            autoSubmit
+            options={obras.map((o) => ({ value: o.id, label: o.nome }))}
+          />
         </div>
         <Button type="submit" variant="secondary" size="sm">Ver</Button>
       </form>

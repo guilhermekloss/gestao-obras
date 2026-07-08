@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { SelectNativo } from "@/components/select-nativo";
+import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { ConfirmButton } from "@/components/confirm-button";
 import { excluirRdo } from "./actions";
 import { formatarData } from "@/lib/format";
@@ -45,12 +45,15 @@ export default async function DiarioPage({
       <form method="get" className="flex items-end gap-2">
         <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">Obra</label>
-          <SelectNativo name="obra" defaultValue={obra ?? ""} className="w-44">
-            <option value="">Todas</option>
-            {obras.map((o) => (
-              <option key={o.id} value={o.id}>{o.nome}</option>
-            ))}
-          </SelectNativo>
+          <ComboboxFiltro
+            name="obra"
+            defaultValue={obra ?? ""}
+            todosLabel="Todas"
+            placeholder="Todas"
+            className="w-48"
+            autoSubmit
+            options={obras.map((o) => ({ value: o.id, label: o.nome }))}
+          />
         </div>
         <Button type="submit" variant="secondary" size="sm">Filtrar</Button>
       </form>
