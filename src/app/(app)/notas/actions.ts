@@ -72,6 +72,8 @@ export async function salvarNota(input: NotaInput): Promise<SalvarNotaResult> {
     totalCents: d.totalCents,
     formaPagto: d.formaPagto,
     obs: d.obs || null,
+    anexoUrl: d.anexoUrl || null,
+    anexoNome: d.anexoNome || null,
   };
 
   const id = await prisma.$transaction(async (tx) => {

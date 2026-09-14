@@ -29,6 +29,8 @@ export const notaSchema = z.object({
   totalCents: z.number().int().positive("Valor total deve ser maior que zero"),
   formaPagto: z.enum(["PIX", "CARTAO", "DEBITO", "BOLETO"]),
   obs: z.string().optional(),
+  anexoUrl: z.string().optional(),
+  anexoNome: z.string().optional(),
   itens: z.array(itemNotaSchema).min(1, "A nota precisa de ao menos 1 item"),
   rateios: z.array(rateioSchema).min(1, "Defina o rateio entre obras"),
   parcelas: z.array(parcelaSchema).min(1, "A nota precisa de ao menos 1 parcela"),

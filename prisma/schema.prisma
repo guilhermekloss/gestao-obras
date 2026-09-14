@@ -92,6 +92,8 @@ model NotaFiscal {
   totalCents   Int // valor da nota
   formaPagto   FormaPagto
   obs          String?
+  anexoUrl     String?
+  anexoNome    String? // nome original do arquivo, para exibir no link
   itens        ItemNota[]
   parcelas     Parcela[]
   createdBy    String?

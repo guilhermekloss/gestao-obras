@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { storage } from "@/lib/storage";
 
-const EXTENSOES = new Set(["jpg", "jpeg", "png", "webp"]);
+const EXTENSOES = new Set(["jpg", "jpeg", "png", "webp", "pdf"]);
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function POST(req: Request) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ import { gerarParcelas } from "@/services/parcelas";
 import { dividirIgualmente, calcularTotalItem, BP_TOTAL } from "@/services/rateio";
 import { salvarNota, criarFornecedorInline } from "./actions";
 import type { NotaInput } from "@/schemas/nota";
-import { Plus, Trash2, Wand2 } from "lucide-react";
+import { Paperclip, Plus, Trash2, Wand2, X } from "lucide-react";
 
 export type FornecedorOption = { id: string; nome: string; cnpj?: string | null };
 export type ObraOption = {
@@ -52,6 +52,8 @@ type NotaFormValues = {
   formaPagto: "PIX" | "CARTAO" | "DEBITO" | "BOLETO";
   numParcelas: string;
   obs: string;
+  anexoUrl: string;
+  anexoNome: string;
   itens: ItemForm[];
   rateios: RateioForm[];
   parcelas: ParcelaForm[];
@@ -114,6 +116,8 @@ export function NotaForm({
         formaPagto: "PIX",
         numParcelas: "1",
         obs: "",
+        anexoUrl: "",
+        anexoNome: "",
         itens: [ITEM_VAZIO],
         rateios: [{ obraId: obras[0]?.id ?? "", etapaId: "", percent: "100" }],
         parcelas: [],
@@ -125,10 +129,43 @@ export function NotaForm({
   const rateiosArr = useFieldArray({ control, name: "rateios" });
   const parcelasArr = useFieldArray({ control, name: "parcelas" });
 
+  const inputAnexoRef = useRef<HTMLInputElement>(null);
+  const [enviandoAnexo, setEnviandoAnexo] = useState(false);
+
   const itens = watch("itens");
   const rateios = watch("rateios");
   const parcelas = watch("parcelas");
   const total = watch("total");
+  const anexoUrl = watch("anexoUrl");
+  const anexoNome = watch("anexoNome");
+
+  async function anexarArquivo(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setEnviandoAnexo(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        const { erro } = await res.json().catch(() => ({ erro: null }));
+        throw new Error(erro ?? "Falha no upload");
+      }
+      const { url } = await res.json();
+      setValue("anexoUrl", url);
+      setValue("anexoNome", file.name);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao enviar arquivo — verifique a conexão e tente de novo");
+    } finally {
+      setEnviandoAnexo(false);
+      if (inputAnexoRef.current) inputAnexoRef.current.value = "";
+    }
+  }
+
+  function removerAnexo() {
+    setValue("anexoUrl", "");
+    setValue("anexoNome", "");
+  }
 
   const somaItensCents = useMemo(
     () =>
@@ -189,6 +226,8 @@ export function NotaForm({
       totalCents: moedaParaCents(v.total),
       formaPagto: v.formaPagto,
       obs: v.obs || undefined,
+      anexoUrl: v.anexoUrl || undefined,
+      anexoNome: v.anexoNome || undefined,
       itens: v.itens.map((i) => ({
         descricao: i.descricao,
         tipo: i.tipo,
@@ -299,6 +338,53 @@ export function NotaForm({
               Observações
             </LabelAjuda>
             <Input id="obs" {...register("obs")} />
+          </div>
+          <div className="grid gap-2 sm:col-span-2 lg:col-span-4">
+            <LabelAjuda ajuda="Anexe o arquivo da nota fiscal (PDF ou foto do documento). Ajuda a conferir a compra depois, sem precisar guardar o papel.">
+              Arquivo da nota
+            </LabelAjuda>
+            <input
+              ref={inputAnexoRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => anexarArquivo(e.target.files)}
+            />
+            {anexoUrl ? (
+              <div className="flex items-center gap-2 rounded-md border p-2 text-sm">
+                <Paperclip className="size-4 shrink-0 text-muted-foreground" />
+                <a
+                  href={anexoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate hover:underline"
+                >
+                  {anexoNome || "Ver arquivo anexado"}
+                </a>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="ml-auto size-7"
+                  onClick={removerAnexo}
+                  title="Remover anexo"
+                >
+                  <X className="size-4 text-muted-foreground" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                disabled={enviandoAnexo}
+                onClick={() => inputAnexoRef.current?.click()}
+              >
+                <Paperclip className="size-4" />
+                {enviandoAnexo ? "Enviando..." : "Anexar nota fiscal"}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -533,7 +619,7 @@ export function NotaForm({
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={pendente}>
+        <Button type="submit" disabled={pendente || enviandoAnexo}>
           {pendente ? "Salvando..." : notaId ? "Salvar alterações" : "Lançar nota"}
         </Button>
       </div>

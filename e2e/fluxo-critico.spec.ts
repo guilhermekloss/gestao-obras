@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { prisma } from "../src/lib/prisma";
 
 /**
  * Fluxo crítico do MVP: lançar NF → parcela aparece em contas →
@@ -15,12 +16,32 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard");
 }
 
+// Fornecedor e obra usam o componente Combobox (busca + lista em portal), não
+// um <select> nativo — abre o campo, digita e clica na opção da lista.
+async function selecionarCombobox(page: Page, placeholder: string, texto: string) {
+  const campo = page.getByPlaceholder(placeholder);
+  await campo.click();
+  await campo.fill(texto);
+  await page.locator("ul li button", { hasText: texto }).first().click();
+}
+
+// NFs de execuções anteriores desta spec ficam no banco (número único por run),
+// o que infla o custo acumulado do Lote 21 a cada corrida. Limpa antes e depois
+// para o teste ser idempotente independente de quantas vezes rodar.
+test.beforeEach(async () => {
+  await prisma.notaFiscal.deleteMany({ where: { numero: { startsWith: "E2E-" } } });
+});
+
+test.afterEach(async () => {
+  await prisma.notaFiscal.deleteMany({ where: { numero: { startsWith: "E2E-" } } });
+});
+
 test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
   await login(page);
 
   // 1. Lançar a NF: R$ 1.200,00, 1 item, 100% no Lote 21, PIX à vista
   await page.goto("/notas/nova");
-  await page.selectOption('select[name="fornecedorId"]', { label: "Aço Forte Distribuidora" });
+  await selecionarCombobox(page, "Buscar por nome ou CNPJ...", "Aço Forte Distribuidora");
   await page.fill("#numero", NUMERO_NF);
   await page.fill("#total", "1200,00");
 
@@ -29,7 +50,7 @@ test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
   await page.fill('input[name="itens.0.unidade"]', "SC");
   await page.fill('input[name="itens.0.unit"]', "30,00");
 
-  await page.selectOption('select[name="rateios.0.obraId"]', { label: "Lote 21" });
+  await selecionarCombobox(page, "Obra...", "Lote 21");
   await page.fill('input[name="rateios.0.percent"]', "100");
 
   await page.selectOption('select[name="formaPagto"]', "PIX");

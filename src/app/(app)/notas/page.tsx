@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Input } from "@/components/ui/input";
 import { formatarMoeda, formatarData } from "@/lib/format";
-import { Plus } from "lucide-react";
+import { Paperclip, Plus } from "lucide-react";
 
 const FORMA_LABELS: Record<string, string> = {
   PIX: "PIX",
@@ -130,7 +130,22 @@ export default async function NotasPage({
                       {n.fornecedor.nome}
                     </Link>
                   </TableCell>
-                  <TableCell>{n.numero}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {n.numero}
+                      {n.anexoUrl && (
+                        <a
+                          href={n.anexoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Ver anexo"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Paperclip className="size-3.5 text-muted-foreground hover:text-foreground" />
+                        </a>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="hidden md:table-cell">{FORMA_LABELS[n.formaPagto]}</TableCell>
                   <TableCell className="hidden md:table-cell">{n._count.itens}</TableCell>
                   <TableCell>

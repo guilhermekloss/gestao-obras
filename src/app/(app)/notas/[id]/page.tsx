@@ -49,6 +49,8 @@ export default async function EditarNotaPage({
     formaPagto: nota.formaPagto,
     numParcelas: String(nota.parcelas.length),
     obs: nota.obs ?? "",
+    anexoUrl: nota.anexoUrl ?? undefined,
+    anexoNome: nota.anexoNome ?? undefined,
     itens: nota.itens.map((i) => ({
       descricao: i.descricao,
       tipo: i.tipo,
