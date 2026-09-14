@@ -48,7 +48,7 @@ export function FormDialog({
 
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
-      <DialogTrigger render={<span>{trigger}</span>} />
+      <DialogTrigger nativeButton={false} render={<span>{trigger}</span>} />
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>

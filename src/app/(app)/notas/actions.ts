@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { notaSchema, type NotaInput } from "@/schemas/nota";
 import { validarParcelas } from "@/services/parcelas";
 import { validarRateio, calcularTotalItem, somaItens } from "@/services/rateio";
+import { fornecedorSchema, criarFornecedorValidado } from "@/services/fornecedores";
 import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 
@@ -152,15 +153,18 @@ export type CriarFornecedorInlineResult = ActionResult & {
 export const criarFornecedorInline = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"] },
   async (_user, nome: string, cnpj?: string): Promise<CriarFornecedorInlineResult> => {
-    if (!nome.trim()) return { ok: false, erro: "Nome é obrigatório" };
+    const parsed = fornecedorSchema.safeParse({ nome, cnpj: cnpj?.trim() || undefined });
+    if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
 
-    if (cnpj?.trim()) {
-      const existente = await prisma.fornecedor.findUnique({ where: { cnpj: cnpj.trim() } });
-      if (existente) return { ok: false, erro: `CNPJ já cadastrado para "${existente.nome}"` };
-    }
-    const f = await prisma.fornecedor.create({
-      data: { nome: nome.trim(), cnpj: cnpj?.trim() || null },
-    });
-    return { ok: true, fornecedor: { id: f.id, nome: f.nome, cnpj: f.cnpj } };
+    const resultado = await criarFornecedorValidado(parsed.data);
+    if (!resultado.ok) return { ok: false, erro: resultado.erro };
+    return {
+      ok: true,
+      fornecedor: {
+        id: resultado.fornecedor.id,
+        nome: resultado.fornecedor.nome,
+        cnpj: resultado.fornecedor.cnpj,
+      },
+    };
   },
 );

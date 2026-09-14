@@ -106,7 +106,15 @@ export default async function FornecedorDetalhePage({
           <h1 className="text-2xl font-semibold">{fornecedor.nome}</h1>
           {dep && <DependenciaBadge nivel={dep.nivel} score={dep.score} />}
         </div>
-        <EditarFornecedorDialog fornecedor={fornecedor} />
+        <EditarFornecedorDialog
+          fornecedor={{
+            id: fornecedor.id,
+            nome: fornecedor.nome,
+            cnpj: fornecedor.cnpj,
+            fone: fornecedor.fone,
+            obs: fornecedor.obs,
+          }}
+        />
       </div>
 
       {fornecedor.cnpj || fornecedor.fone ? (

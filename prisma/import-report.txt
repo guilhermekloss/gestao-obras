@@ -1,0 +1,337 @@
+ARCELOR MITTAL BRASIL S.A. NF 000371632: soma das parcelas (3854.44) difere do total (3854.43) — o "comparador FALSO" da planilha
+ACGRAN MARMORES E GRANITOS LTDA - ME NF 000002107: soma das parcelas (2750.00) difere do total (5315.31) — o "comparador FALSO" da planilha
+ACGRAN MARMORES E GRANITOS LTDA - ME NF 000002107: soma das parcelas (2450.00) difere do total (0.00) — o "comparador FALSO" da planilha
+ACGRAN MARMORES E GRANITOS LTDA - ME NF 000002108: soma das parcelas (2750.00) difere do total (5315.31) — o "comparador FALSO" da planilha
+ACGRAN MARMORES E GRANITOS LTDA - ME NF 000002108: soma das parcelas (2450.00) difere do total (0.00) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818108: soma das parcelas (697.48) difere do total (697.49) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818109: soma das parcelas (699.67) difere do total (699.66) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818110: soma das parcelas (1743.83) difere do total (1743.82) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818112: soma das parcelas (135.95) difere do total (135.94) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818113: soma das parcelas (715.72) difere do total (715.70) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818114: soma das parcelas (540.88) difere do total (540.86) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818115: soma das parcelas (2763.08) difere do total (2763.06) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818118: soma das parcelas (7427.80) difere do total (7427.81) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818119: soma das parcelas (5064.60) difere do total (5064.59) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818120: soma das parcelas (205.32) difere do total (205.33) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818362: soma das parcelas (577.93) difere do total (1048.24) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 852225: soma das parcelas (40.98) difere do total (40.97) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 852226: soma das parcelas (655.59) difere do total (655.58) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 852227: soma das parcelas (3848.40) difere do total (3848.41) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 856441: soma das parcelas (570.90) difere do total (570.89) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 856970: soma das parcelas (4639.92) difere do total (4639.91) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 860855: soma das parcelas (-4639.92) difere do total (-4639.91) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 863140: soma das parcelas (4639.92) difere do total (4639.91) — o "comparador FALSO" da planilha
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 695509: soma das parcelas (279.93) difere do total (279.92) — o "comparador FALSO" da planilha
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151: soma das parcelas (1406.10) difere do total (1406.08) — o "comparador FALSO" da planilha
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431: soma das parcelas (1425.60) difere do total (1425.58) — o "comparador FALSO" da planilha
+CASSOL CENTERLAR NF 1385711: soma das parcelas (2774.76) difere do total (2774.77) — o "comparador FALSO" da planilha
+CASSOL CENTERLAR NF 1385712: soma das parcelas (174.40) difere do total (174.41) — o "comparador FALSO" da planilha
+CASSOL CENTERLAR NF 1385713: soma das parcelas (174.40) difere do total (174.41) — o "comparador FALSO" da planilha
+CASSOL CENTERLAR NF 502643: soma das parcelas (1723.33) difere do total (2904.04) — o "comparador FALSO" da planilha
+CASSOL CENTERLAR NF 1401079: soma das parcelas (744.52) difere do total (744.50) — o "comparador FALSO" da planilha
+GMB TINTAS E MATERIAIS P/ CONSTRUÇÃO CIVIL LTDA NF 000013296: soma das parcelas (578.01) difere do total (578.00) — o "comparador FALSO" da planilha
+ITAIPU LAJES ESTRUTURAIS E PRÉ MOLDADAS NF 000004234: soma das parcelas (2969.28) difere do total (4453.92) — o "comparador FALSO" da planilha
+ITAIPU LAJES ESTRUTURAIS E PRÉ MOLDADAS NF 000004234: soma das parcelas (1484.64) difere do total (0.00) — o "comparador FALSO" da planilha
+ITAIPU LAJES ESTRUTURAIS E PRÉ MOLDADAS NF 000004235: soma das parcelas (2969.28) difere do total (4453.92) — o "comparador FALSO" da planilha
+ITAIPU LAJES ESTRUTURAIS E PRÉ MOLDADAS NF 000004235: soma das parcelas (1484.64) difere do total (0.00) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000411359: soma das parcelas (68.19) difere do total (68.20) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF SEM NF: soma das parcelas (134.61) difere do total (134.62) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000411808: soma das parcelas (202.59) difere do total (202.60) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000412492: soma das parcelas (1611.99) difere do total (1612.00) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000412546: soma das parcelas (1611.99) difere do total (1612.00) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000412698: soma das parcelas (966.99) difere do total (967.00) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000415088: soma das parcelas (811.28) difere do total (811.27) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000415662: soma das parcelas (983.74) difere do total (983.73) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000417643: soma das parcelas (122.01) difere do total (122.00) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000417686: soma das parcelas (674.01) difere do total (674.00) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000418968: soma das parcelas (165.72) difere do total (165.73) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000418235: soma das parcelas (657.99) difere do total (658.00) — o "comparador FALSO" da planilha
+Financeiro linha 229 (JAWAL MATERIAS DE CONSTRUÇÃO NF 000427154): data inválida "07/10/20258" — ignorada
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000428843: soma das parcelas (651.60) difere do total (651.59) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000428844: soma das parcelas (290.42) difere do total (290.41) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000430778: soma das parcelas (734.00) difere do total (734.01) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000430780: soma das parcelas (734.00) difere do total (734.01) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000431340: soma das parcelas (93.72) difere do total (93.70) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000431330: soma das parcelas (19.89) difere do total (19.90) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000434425: soma das parcelas (16.92) difere do total (16.90) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000434678: soma das parcelas (1175.04) difere do total (1175.02) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000436077: soma das parcelas (32.46) difere do total (32.45) — o "comparador FALSO" da planilha
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000438277: soma das parcelas (174.12) difere do total (174.10) — o "comparador FALSO" da planilha
+MAFREI MATERIAIS DE CONSTRUCAO NF 000246389: soma das parcelas (4410.08) difere do total (4410.07) — o "comparador FALSO" da planilha
+MAFREI MATERIAIS DE CONSTRUCAO NF 000246391: soma das parcelas (3589.92) difere do total (3589.93) — o "comparador FALSO" da planilha
+MAFREI MATERIAIS DE CONSTRUCAO NF 000250493: soma das parcelas (1135.50) difere do total (1135.49) — o "comparador FALSO" da planilha
+ORPEC ENGENHARIA INDUSTRIA E COMERCIO S.A. NF 000027853: soma das parcelas (22200.00) difere do total (22200.07) — o "comparador FALSO" da planilha
+MÃO DE OBRA ELETRICISTA JOSE NF 29: soma das parcelas (4775.00) difere do total (1475.00) — o "comparador FALSO" da planilha
+MÃO DE OBRA ELETRICISTA JOSE NF 30: soma das parcelas (4775.00) difere do total (1475.00) — o "comparador FALSO" da planilha
+MÃO DE OBRA EMERSON FARIA NF 2: soma das parcelas (20000.00) difere do total (24750.00) — o "comparador FALSO" da planilha
+MÃO DE OBRA EMERSON FARIA NF 3: soma das parcelas (18225.00) difere do total (24750.00) — o "comparador FALSO" da planilha
+Financeiro linha 413 (MÃO DE OBRA EMERSON FARIA NF 4): sem parcelas — criada parcela única no valor total
+MÃO DE OBRA EMERSON FARIA NF 5: soma das parcelas (5000.00) difere do total (6750.00) — o "comparador FALSO" da planilha
+MÃO DE OBRA EMERSON FARIA NF 7: soma das parcelas (5000.00) difere do total (6750.00) — o "comparador FALSO" da planilha
+MÃO DE OBRA GESSEIRO NF 10: soma das parcelas (2300.00) difere do total (9100.05) — o "comparador FALSO" da planilha
+Financeiro linha 450 (MÃO DE OBRA GESSEIRO NF 10): forma de pagamento "" não reconhecida — usando PIX
+MÃO DE OBRA GESSEIRO NF 10: soma das parcelas (4825.00) difere do total (0.00) — o "comparador FALSO" da planilha
+Financeiro linha 451 (MÃO DE OBRA GESSEIRO NF 10): forma de pagamento "" não reconhecida — usando PIX
+MÃO DE OBRA GESSEIRO NF 10: soma das parcelas (1500.00) difere do total (0.00) — o "comparador FALSO" da planilha
+MÃO DE OBRA GESSEIRO NF 13: soma das parcelas (1000.00) difere do total (7304.76) — o "comparador FALSO" da planilha
+MÃO DE OBRA GESSEIRO NF 13: soma das parcelas (3750.02) difere do total (0.00) — o "comparador FALSO" da planilha
+Itens linha 100 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 101 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 102 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 103 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 104 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 105 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 106 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 107 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 108 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 109 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 110 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 111 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 112 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 113 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 114 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 115 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 116 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219151): sem rateio de obra — atribuído 100% a L03
+Itens linha 117 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 118 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 119 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 120 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 121 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 122 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 123 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 124 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 125 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 126 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 127 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 128 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 129 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 130 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 131 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 132 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 133 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 134 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+Itens linha 135 (CAMPO LARGO MATERIAIS ELÉTRICOS NF 219431): sem rateio de obra — atribuído 100% a L03
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 28639: presente nos itens mas ausente no financeiro — criada sem parcelas
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 28640: presente nos itens mas ausente no financeiro — criada sem parcelas
+CASSOL CENTERLAR NF 1371142: presente nos itens mas ausente no financeiro — criada sem parcelas
+CARREFOUR NF CUPOM FISCAL: presente nos itens mas ausente no financeiro — criada sem parcelas
+Itens linha 393 (CARREFOUR NF CUPOM FISCAL): sem rateio de obra — atribuído 100% a L03
+Itens linha 394 (CARREFOUR NF 10321553): sem rateio de obra — atribuído 100% a L03
+Itens linha 395 (CARREFOUR NF 10321553): sem rateio de obra — atribuído 100% a L03
+Itens linha 396 (CARREFOUR NF 10321553): sem rateio de obra — atribuído 100% a L03
+CENPAFER CENTRAL DE PARAFUSOS E FERRAGENS LTDA NF 000001703: presente nos itens mas ausente no financeiro — criada sem parcelas
+COM DE TINTAS MAT ELE HID VERGINIA LTDA NF 000232769: presente nos itens mas ausente no financeiro — criada sem parcelas
+Itens linha 412 (COMERCIAL GERDAU NF 000158160): sem rateio de obra — atribuído 100% a L03
+Itens linha 426 (COMERCIAL GERDAU NF 000161984): sem rateio de obra — atribuído 100% a L03
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 000310075: presente nos itens mas ausente no financeiro — criada sem parcelas
+Itens linha 466: fornecedor, nf ou descrição ausente — ignorada
+Itens linha 469: fornecedor, nf ou descrição ausente — ignorada
+Itens linha 472: fornecedor, nf ou descrição ausente — ignorada
+Itens linha 475 (COSMOS INDUSTRIA DE TIJOLOS NF 6755): sem rateio de obra — atribuído 100% a L03
+Itens linha 478 (COSMOS INDUSTRIA DE TIJOLOS NF 6756): sem rateio de obra — atribuído 100% a L03
+Itens linha 484 (COSMOS INDUSTRIA DE TIJOLOS NF 6848): sem rateio de obra — atribuído 100% a L03
+MAFREI MATERIAIS DE CONSTRUCAO NF 000397: presente nos itens mas ausente no financeiro — criada sem parcelas
+MAFREI MATERIAIS DE CONSTRUCAO NF 000399: presente nos itens mas ausente no financeiro — criada sem parcelas
+Itens linha 567 (GESSO ALVES COMERCIAL LTDA NF 000125849): sem rateio de obra — atribuído 100% a L03
+Itens linha 568 (GESSO ALVES COMERCIAL LTDA NF 000125849): sem rateio de obra — atribuído 100% a L03
+Itens linha 569 (GESSO ALVES COMERCIAL LTDA NF 000125849): sem rateio de obra — atribuído 100% a L03
+Itens linha 570 (GESSO ALVES COMERCIAL LTDA NF 000125849): sem rateio de obra — atribuído 100% a L03
+Itens linha 571 (GESSO ALVES COMERCIAL LTDA NF 000125849): sem rateio de obra — atribuído 100% a L03
+Itens linha 572 (GESSO ALVES COMERCIAL LTDA NF 000125849): sem rateio de obra — atribuído 100% a L03
+Itens linha 573 (GESSO ALVES COMERCIAL LTDA NF 000125851): sem rateio de obra — atribuído 100% a L03
+Itens linha 574 (GESSO ALVES COMERCIAL LTDA NF 000125853): sem rateio de obra — atribuído 100% a L03
+Itens linha 612 (JAWAL MATERIAS DE CONSTRUÇÃO NF 000410231): sem rateio de obra — atribuído 100% a L03
+Itens linha 613 (JAWAL MATERIAS DE CONSTRUÇÃO NF 000410231): sem rateio de obra — atribuído 100% a L03
+Itens linha 614 (JAWAL MATERIAS DE CONSTRUÇÃO NF 000410231): sem rateio de obra — atribuído 100% a L03
+Itens linha 615 (JAWAL MATERIAS DE CONSTRUÇÃO NF 000410231): sem rateio de obra — atribuído 100% a L03
+Itens linha 616 (JAWAL MATERIAS DE CONSTRUÇÃO NF 000410231): sem rateio de obra — atribuído 100% a L03
+Itens linha 685 (JAWAL MATERIAS DE CONSTRUÇÃO NF SEM NF): sem rateio de obra — atribuído 100% a L03
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000427154: presente nos itens mas ausente no financeiro — criada sem parcelas
+MAFREI MATERIAIS DE CONSTRUCAO NF 000423896: presente nos itens mas ausente no financeiro — criada sem parcelas
+Itens linha 896 (MAFREI MATERIAIS DE CONSTRUCAO NF 000423896): sem rateio de obra — atribuído 100% a L03
+Itens linha 905 (MAFREI MATERIAIS DE CONSTRUCAO NF 000245301): sem rateio de obra — atribuído 100% a L03
+Itens linha 1049 (MEGAMAMUTE COMERCIO ON LINE DE ELETRONICOS E NF 2449417): sem rateio de obra — atribuído 100% a L03
+NICHELE MATERIAIS DE CONSTRUÇÃO LTDA NF 11986: presente nos itens mas ausente no financeiro — criada sem parcelas
+ONOGRAF COPIAS LTDA NF 000420389: presente nos itens mas ausente no financeiro — criada sem parcelas
+REIS COMERCIO FERRO E AÇO NF S/ NOTA: presente nos itens mas ausente no financeiro — criada sem parcelas
+CBM LOCAÇÕES EQPTO CONST CIVIL - ANDAIMES FACHADEIROS NF 28810: presente nos itens mas ausente no financeiro — criada sem parcelas
+Itens linha 1203 (ORPEC ENGENHARIA INDUSTRIA E COMERCIO S.A. NF 000027637): sem rateio de obra — atribuído 100% a L03
+RESPONSABILIDADE TECNICA OBRAS ROGÉRIO BASAGLIA NF S/NF: presente nos itens mas ausente no financeiro — criada sem parcelas
+Itens linha 1229 (MÃO DE OBRA ELETRICISTA JOSE NF 19): sem rateio de obra — atribuído 100% a L03
+MÃO DE OBRA EMERSON FARIA NF S/NF: presente nos itens mas ausente no financeiro — criada sem parcelas
+MÃO DE OBRA ALCEU FARIA NF X: presente nos itens mas ausente no financeiro — criada sem parcelas
+CONTRIB PREVIDENCIÁRIA EMPRESA/EMPREGADOR NF X: presente nos itens mas ausente no financeiro — criada sem parcelas
+ARMAZÉM DAS MADEIRAS NF 00021604: soma dos itens (837.00) difere do total da nota (927.00)
+ARMAZÉM DAS MADEIRAS NF 00021605: soma dos itens (837.00) difere do total da nota (927.00)
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 818118: soma dos itens (7427.80) difere do total da nota (7427.81)
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 852225: soma dos itens (43.92) difere do total da nota (40.97)
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 856441: soma dos itens (653.81) difere do total da nota (570.89)
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 856970: soma dos itens (5316.99) difere do total da nota (4639.91)
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 860855: soma dos itens (0.00) difere do total da nota (-4639.91)
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 863140: soma dos itens (0.00) difere do total da nota (4639.91)
+BALAROTI COM DE MATS DE CONSTRUÇAO S.A. NF 870583: soma dos itens (181.50) difere do total da nota (158.84)
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 28229: soma dos itens (2022.56) difere do total da nota (2022.50)
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 28230: soma dos itens (1997.17) difere do total da nota (1997.11)
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 28348: soma dos itens (1391.64) difere do total da nota (1392.28)
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 28368: soma dos itens (1388.08) difere do total da nota (1388.11)
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 29639: sem itens na planilha de quantitativo
+CAMPO LARGO MATERIAIS ELÉTRICOS NF 29640: sem itens na planilha de quantitativo
+CASA BRANCA COMERCIO PRODUTO LIMPEZA NF 34968: soma dos itens (42.00) difere do total da nota (42.10)
+CASSOL CENTERLAR NF \: sem itens na planilha de quantitativo
+CASSOL CENTERLAR NF 502643: soma dos itens (4084.75) difere do total da nota (2904.04)
+CARREFOUR NF SEM NF: sem itens na planilha de quantitativo
+CARREFOUR NF 10321553: soma dos itens (298.49) difere do total da nota (250.09)
+COM DE TINTAS MAT ELE HID VERGINIA LTDA NF 000232695: soma dos itens (1493.00) difere do total da nota (495.00)
+COMERCIAL GERDAU NF 000158166: soma dos itens (20513.27) difere do total da nota (20511.23)
+COMERCIAL GERDAU NF 000158160: soma dos itens (24574.09) difere do total da nota (24678.96)
+COMERCIAL GERDAU NF 000159271: soma dos itens (3197.58) difere do total da nota (3178.44)
+COMERCIAL GERDAU NF 000161984: soma dos itens (3787.14) difere do total da nota (3798.26)
+COMERCIAL GERDAU NF 000171314: soma dos itens (1501.15) difere do total da nota (1501.29)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030601: soma dos itens (1100.75) difere do total da nota (1100.02)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030602: soma dos itens (1100.75) difere do total da nota (1100.02)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030606: soma dos itens (1100.75) difere do total da nota (1100.02)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030607: soma dos itens (1100.75) difere do total da nota (1100.02)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030616: soma dos itens (1100.75) difere do total da nota (1100.02)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030617: soma dos itens (1100.75) difere do total da nota (1100.02)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030624: soma dos itens (1100.75) difere do total da nota (1100.02)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030725: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030726: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030727: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030728: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030757: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030758: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030793: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00030960: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031075: sem itens na planilha de quantitativo
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 000311135: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 000311154: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031203: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031222: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031462: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031463: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031464: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031552: soma dos itens (1100.75) difere do total da nota (1100.00)
+COM E EXT DE MINERIOS BALSA NOVA LTDA NF 00031563: soma dos itens (1100.75) difere do total da nota (1100.00)
+COSMOS INDUSTRIA DE TIJOLOS NF 6679: soma dos itens (4353.20) difere do total da nota (4300.00)
+COSMOS INDUSTRIA DE TIJOLOS NF 6717: soma dos itens (2072.80) difere do total da nota (2000.00)
+COSMOS INDUSTRIA DE TIJOLOS NF 6718: soma dos itens (2072.80) difere do total da nota (2000.00)
+DIPROTEC DISTR DE PROD TECN P/ CONST CIVIL LTDA NF 000350774: soma dos itens (326.00) difere do total da nota (324.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000383: soma dos itens (2950.00) difere do total da nota (1770.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000384: soma dos itens (2950.00) difere do total da nota (1770.00)
+GESSO ALVES COMERCIAL LTDA NF 000013818: soma dos itens (2000.00) difere do total da nota (2000.04)
+IMPERMIX COM DE MATERIAIS DE CONSTRUCAO LTDA NF 68950: soma dos itens (1406.00) difere do total da nota (1456.02)
+IMPERMIX COM DE MATERIAIS DE CONSTRUCAO LTDA NF 68952: soma dos itens (1406.00) difere do total da nota (1456.02)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000411359: soma dos itens (68.22) difere do total da nota (68.20)
+JAWAL MATERIAS DE CONSTRUÇÃO NF SEM NF: soma dos itens (134.78) difere do total da nota (1450.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000411808: soma dos itens (202.59) difere do total da nota (202.60)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000412492: soma dos itens (1612.10) difere do total da nota (1612.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000412546: soma dos itens (1612.10) difere do total da nota (1612.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000412698: soma dos itens (966.97) difere do total da nota (967.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000413110: soma dos itens (1612.01) difere do total da nota (1612.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000413423: soma dos itens (3000.24) difere do total da nota (3000.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000413541: soma dos itens (92.13) difere do total da nota (92.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000413620: soma dos itens (72.04) difere do total da nota (72.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000414586: soma dos itens (282.10) difere do total da nota (282.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000414627: soma dos itens (1612.01) difere do total da nota (1612.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000415015: soma dos itens (76.75) difere do total da nota (100.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000415088: soma dos itens (811.24) difere do total da nota (811.27)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000415275: soma dos itens (90.05) difere do total da nota (90.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000415662: soma dos itens (983.70) difere do total da nota (983.73)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000415663: soma dos itens (949.84) difere do total da nota (950.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000416520: soma dos itens (94.11) difere do total da nota (94.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000416766: soma dos itens (987.09) difere do total da nota (987.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000416850: soma dos itens (135.14) difere do total da nota (135.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000417643: soma dos itens (121.98) difere do total da nota (122.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000418968: soma dos itens (165.76) difere do total da nota (165.73)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000420276: soma dos itens (338.53) difere do total da nota (338.50)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000420277: soma dos itens (338.53) difere do total da nota (338.50)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000420842: soma dos itens (338.53) difere do total da nota (338.50)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000420843: soma dos itens (338.53) difere do total da nota (338.50)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000421537: soma dos itens (348.23) difere do total da nota (348.24)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000421538: soma dos itens (348.23) difere do total da nota (348.24)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000423120: soma dos itens (522.04) difere do total da nota (522.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000423945: soma dos itens (93.48) difere do total da nota (93.50)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000428843: soma dos itens (651.60) difere do total da nota (651.59)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000428844: soma dos itens (290.40) difere do total da nota (290.41)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000428974: soma dos itens (94.99) difere do total da nota (95.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000429075: soma dos itens (518.21) difere do total da nota (517.99)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000429124: soma dos itens (169.87) difere do total da nota (169.99)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000429467: soma dos itens (880.44) difere do total da nota (880.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000429468: soma dos itens (1292.18) difere do total da nota (1292.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000430410: soma dos itens (845.18) difere do total da nota (845.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000430778: soma dos itens (734.00) difere do total da nota (734.01)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000430780: soma dos itens (734.00) difere do total da nota (734.01)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000431340: soma dos itens (93.69) difere do total da nota (93.70)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000431968: soma dos itens (489.02) difere do total da nota (489.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000432197: soma dos itens (794.99) difere do total da nota (795.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000433368: soma dos itens (764.93) difere do total da nota (765.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000433470: soma dos itens (745.57) difere do total da nota (747.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000434139: soma dos itens (473.98) difere do total da nota (474.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000434722: soma dos itens (280.14) difere do total da nota (280.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000434719: soma dos itens (155.00) difere do total da nota (-155.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000434854: soma dos itens (119.12) difere do total da nota (119.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000436251: soma dos itens (87.01) difere do total da nota (87.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000440165: soma dos itens (156.99) difere do total da nota (157.00)
+JAWAL MATERIAS DE CONSTRUÇÃO NF 000440167: soma dos itens (156.99) difere do total da nota (157.00)
+LIDER ARTEFATOS CIMENTO NF 000019809: soma dos itens (1410.00) difere do total da nota (1560.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000242311: soma dos itens (2050.65) difere do total da nota (2115.76)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000245300: soma dos itens (450.04) difere do total da nota (450.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000245301: soma dos itens (450.04) difere do total da nota (450.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000245833: soma dos itens (2057.53) difere do total da nota (2057.50)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000245834: soma dos itens (2057.53) difere do total da nota (2057.50)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000246389: soma dos itens (4422.38) difere do total da nota (4410.07)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000246391: soma dos itens (3589.74) difere do total da nota (3589.93)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000247421: soma dos itens (382.96) difere do total da nota (380.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000247422: soma dos itens (150.14) difere do total da nota (148.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000247525: soma dos itens (984.12) difere do total da nota (984.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000248497: soma dos itens (1640.20) difere do total da nota (1640.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000248499: soma dos itens (492.06) difere do total da nota (492.00)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000249756: soma dos itens (101.48) difere do total da nota (101.50)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000250493: soma dos itens (1135.50) difere do total da nota (1135.49)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000251240: soma dos itens (1509.64) difere do total da nota (1509.62)
+MAFREI MATERIAIS DE CONSTRUCAO NF 000252072: soma dos itens (734.15) difere do total da nota (734.16)
+MEGAMAMUTE COMERCIO ON LINE DE ELETRONICOS E NF 2449417: soma dos itens (743.35) difere do total da nota (746.35)
+NICHELE MATERIAIS DE CONSTRUÇÃO LTDA NF 4362: soma dos itens (10026.00) difere do total da nota (401.04)
+NICHELE MATERIAIS DE CONSTRUÇÃO LTDA NF 4391: soma dos itens (3419.00) difere do total da nota (136.76)
+NICHELE MATERIAIS DE CONSTRUÇÃO LTDA NF 4722: soma dos itens (20350.00) difere do total da nota (203.50)
+NOVAMIX ARGAMASSA CONCR LTDA NF 55465: soma dos itens (1990.00) difere do total da nota (2190.00)
+NOVAMIX ARGAMASSA CONCR LTDA NF 56359: soma dos itens (6521.60) difere do total da nota (1100.00)
+NOVAMIX ARGAMASSA CONCR LTDA NF 56736: soma dos itens (5743.90) difere do total da nota (1000.00)
+NOVAMIX ARGAMASSA CONCR LTDA NF 55990: soma dos itens (3662.61) difere do total da nota (3662.60)
+NOVAMIX ARGAMASSA CONCR LTDA NF 56317: soma dos itens (6921.60) difere do total da nota (1500.00)
+NOVAMIX ARGAMASSA CONCR LTDA NF 56735: soma dos itens (5743.90) difere do total da nota (1000.00)
+ONOGRAF COPIAS LTDA NF S/NOTA: sem itens na planilha de quantitativo
+REIS COMERCIO FERRO E AÇO NF S/NOTA: sem itens na planilha de quantitativo
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 36716: soma dos itens (11250.00) difere do total da nota (225.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 30140: soma dos itens (238.08) difere do total da nota (238.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 30333: soma dos itens (168.08) difere do total da nota (168.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 30452: soma dos itens (168.08) difere do total da nota (168.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 30639: soma dos itens (168.08) difere do total da nota (168.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 30805: soma dos itens (168.08) difere do total da nota (168.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 30959: soma dos itens (168.08) difere do total da nota (168.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 0009: soma dos itens (168.08) difere do total da nota (168.00)
+FAZ LOCAÇÕES EQPTO CONST CIVIL NF 0174: soma dos itens (168.08) difere do total da nota (168.00)
+ORPEC ENGENHARIA INDUSTRIA E COMERCIO S.A. NF 000027637: soma dos itens (27657.00) difere do total da nota (28007.00)
+ORPEC ENGENHARIA INDUSTRIA E COMERCIO S.A. NF 000027853: soma dos itens (22200.00) difere do total da nota (22200.07)
+CALIARI PERFURAÇÕES NF RECIBO: soma dos itens (7000.00) difere do total da nota (1000.00)
+Ana Cristina Ross Dybax - Construcoes e Terraplanagem NF 49: soma dos itens (1.00) difere do total da nota (10415.00)
+Ana Cristina Ross Dybax - Construcoes e Terraplanagem NF 48: soma dos itens (1.00) difere do total da nota (15315.00)
+TR AIPHA MONTAGEM MANUTENÇÃO E TERRAPLANAGEM LTDA NF 6: sem itens na planilha de quantitativo
+IMPERCRIL - IVONETE COLASSO DA ROSA DESPLANCHES CONSTRUCAO CIVIL LTDA NF 115: soma dos itens (4250.00) difere do total da nota (2125.00)
+IMPERCRIL - IVONETE COLASSO DA ROSA DESPLANCHES CONSTRUCAO CIVIL LTDA NF 117: soma dos itens (4250.00) difere do total da nota (2125.00)
+MÃO DE OBRA EMERSON FARIA NF SEM NF: sem itens na planilha de quantitativo
+MÃO DE OBRA EMERSON FARIA NF 2: soma dos itens (20000.00) difere do total da nota (24750.00)
+MÃO DE OBRA EMERSON FARIA NF 3: soma dos itens (18225.00) difere do total da nota (24750.00)
+MÃO DE OBRA EMERSON FARIA NF 4: soma dos itens (0.00) difere do total da nota (24750.00)
+MÃO DE OBRA EMERSON FARIA NF 5: soma dos itens (5000.00) difere do total da nota (6750.00)
+MÃO DE OBRA EMERSON FARIA NF 6: soma dos itens (10000.00) difere do total da nota (6750.00)
+MÃO DE OBRA EMERSON FARIA NF 7: soma dos itens (5000.00) difere do total da nota (6750.00)
+MÃO DE OBRA ALCEU FARIA NF SEM NF: sem itens na planilha de quantitativo
+MÃO DE OBRA MARCELO RUMBLESPERGER ERCOLE NF SEM NF: soma dos itens (2950.00) difere do total da nota (1550.00)
+MESCLA ARQUITETURA DE INTERIORES NF 1: sem itens na planilha de quantitativo
+CONTRIB PREVIDENCIÁRIA EMPRESA/EMPREGADOR NF 03: sem itens na planilha de quantitativo
+CONTRIB PREVIDENCIÁRIA EMPRESA/EMPREGADOR NF 19: sem itens na planilha de quantitativo
+SANEPAR NF 41042036: soma dos itens (1920.40) difere do total da nota (99.42)
+SANEPAR NF 41041986: soma dos itens (1792.64) difere do total da nota (99.42)
+COPEL NF 114113912: soma dos itens (1345.71) difere do total da nota (90.89)
+COPEL NF 114113874: soma dos itens (1463.98) difere do total da nota (88.41)

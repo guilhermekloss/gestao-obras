@@ -14,7 +14,7 @@
  *
  * Datas em dd/mm/aaaa; valores em formato BR (1.234,56).
  */
-import { BP_TOTAL, custoRateado } from "./rateio";
+import { BP_TOTAL, custoRateado, distribuirBpPorPeso } from "./rateio";
 
 export type ItemImportado = {
   descricao: string;
@@ -254,19 +254,13 @@ export function importarPlanilhas(
     const pesos = colunasObras
       .map((o) => ({ codigo: o.codigo, peso: parseValorBr(row[o.chave] ?? "") }))
       .filter((o) => o.peso > 0);
-    const somaPesos = pesos.reduce((a, o) => a + o.peso, 0);
     let rateiosLinha: RateioImportado[];
-    if (somaPesos === 0) {
+    if (pesos.length === 0) {
       inconsistencias.push(`Itens linha ${linha} (${fornecedor} NF ${nf}): sem rateio de obra — atribuído 100% a ${codigosObras[0]}`);
       rateiosLinha = [{ codigoObra: codigosObras[0], fracaoBp: BP_TOTAL }];
     } else {
-      rateiosLinha = pesos.map((o) => ({
-        codigoObra: o.codigo,
-        fracaoBp: Math.round((o.peso / somaPesos) * BP_TOTAL),
-      }));
-      // corrige arredondamento para fechar 100%
-      const soma = rateiosLinha.reduce((a, r) => a + r.fracaoBp, 0);
-      rateiosLinha[0].fracaoBp += BP_TOTAL - soma;
+      const fracoes = distribuirBpPorPeso(pesos.map((o) => o.peso));
+      rateiosLinha = pesos.map((o, i) => ({ codigoObra: o.codigo, fracaoBp: fracoes[i] }));
     }
 
     const qtde = parseValorBr(row.qtde) / 100 || 1;
@@ -316,14 +310,9 @@ export function importarPlanilhas(
       nota.rateios = [{ codigoObra: codigosObras[0], fracaoBp: BP_TOTAL }];
       continue;
     }
-    const rateiosNota = [...centsPorObra.entries()].map(([codigoObra, cents]) => ({
-      codigoObra,
-      fracaoBp: Math.round((cents / totalAlocado) * BP_TOTAL),
-    }));
-    // corrige arredondamento para fechar 100%
-    const somaBp = rateiosNota.reduce((a, r) => a + r.fracaoBp, 0);
-    rateiosNota[0].fracaoBp += BP_TOTAL - somaBp;
-    nota.rateios = rateiosNota;
+    const entradas = [...centsPorObra.entries()];
+    const fracoes = distribuirBpPorPeso(entradas.map(([, cents]) => cents));
+    nota.rateios = entradas.map(([codigoObra], i) => ({ codigoObra, fracaoBp: fracoes[i] }));
   }
 
   return { notas: [...notas.values()], inconsistencias };

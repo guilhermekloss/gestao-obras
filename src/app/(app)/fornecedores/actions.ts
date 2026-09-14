@@ -1,15 +1,8 @@
 "use server";
 
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
-
-const fornecedorSchema = z.object({
-  nome: z.string().min(1, "Nome é obrigatório"),
-  cnpj: z.string().optional(),
-  fone: z.string().optional(),
-  obs: z.string().optional(),
-});
+import { fornecedorSchema, criarFornecedorValidado } from "@/services/fornecedores";
 
 function parseFornecedor(formData: FormData) {
   return fornecedorSchema.safeParse({
@@ -25,14 +18,9 @@ export const criarFornecedor = acaoDeEscrita(
   async (_user, formData: FormData): Promise<ActionResult> => {
     const parsed = parseFornecedor(formData);
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
-    const d = parsed.data;
 
-    if (d.cnpj) {
-      const existente = await prisma.fornecedor.findUnique({ where: { cnpj: d.cnpj } });
-      if (existente) return { ok: false, erro: `CNPJ já cadastrado para "${existente.nome}"` };
-    }
-
-    await prisma.fornecedor.create({ data: d });
+    const resultado = await criarFornecedorValidado(parsed.data);
+    if (!resultado.ok) return { ok: false, erro: resultado.erro };
     return { ok: true };
   },
 );

@@ -20,6 +20,23 @@ export function dividirIgualmente(n: number): number[] {
   return Array.from({ length: n }, (_, i) => (i === 0 ? base + resto : base));
 }
 
+/**
+ * Distribui 100% entre pesos arbitrários (proporcional a cada peso), sem
+ * perder basis points: cada fração é arredondada e o resto do arredondamento
+ * vai para a primeira. Não é usada por `dividirIgualmente` — para pesos
+ * iguais, o arredondamento por peso pode enviar o resto para uma posição
+ * diferente da divisão por `floor`, o que mudaria um resultado já coberto
+ * por teste.
+ */
+export function distribuirBpPorPeso(pesos: number[]): number[] {
+  if (pesos.length < 1) throw new Error("Distribuição exige ao menos 1 peso");
+  const somaPesos = pesos.reduce((a, p) => a + p, 0);
+  const fracoes = pesos.map((p) => Math.round((p / somaPesos) * BP_TOTAL));
+  const soma = fracoes.reduce((a, f) => a + f, 0);
+  fracoes[0] += BP_TOTAL - soma;
+  return fracoes;
+}
+
 /** Total de um item em centavos: qtde × unitário − desconto (arredondado por item). */
 export function calcularTotalItem(
   qtde: number,
