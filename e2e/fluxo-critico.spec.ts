@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { hash } from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
 
 /**
@@ -80,11 +81,29 @@ test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
 });
 
 test("papel campo não vê dados financeiros", async ({ page }) => {
-  await login(page);
+  const emailCampo = `campo.e2e-${Date.now()}@obras.local`;
+  await prisma.usuario.create({
+    data: {
+      nome: "Campo E2E",
+      email: emailCampo,
+      senhaHash: await hash("campo123", 10),
+      role: "CAMPO",
+    },
+  });
 
-  // dashboard exige escritório/admin — campo é redirecionado (validação no servidor)
-  // aqui verificamos pelo menos que as rotas financeiras exigem sessão
-  await page.context().clearCookies();
-  const resposta = await page.goto("/contas");
-  expect(resposta!.url()).toContain("/login");
+  try {
+    await page.goto("/login");
+    await page.fill("#email", emailCampo);
+    await page.fill("#senha", "campo123");
+    await page.click("button[type=submit]");
+    // dashboard redireciona CAMPO para /diario (não vê indicadores financeiros)
+    await page.waitForURL("**/diario");
+
+    // rota financeira: o servidor bloqueia mesmo com acesso direto pela URL
+    await page.goto("/contas");
+    await expect(page.getByRole("heading", { name: "Contas a pagar" })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "Marcar como pagas" })).not.toBeVisible();
+  } finally {
+    await prisma.usuario.delete({ where: { email: emailCampo } });
+  }
 });

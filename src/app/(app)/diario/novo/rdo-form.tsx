@@ -11,6 +11,7 @@ import { Combobox } from "@/components/combobox";
 import { LabelAjuda } from "@/components/campo-ajuda";
 import { cn } from "@/lib/utils";
 import { criarRdo } from "../actions";
+import { dataParaInput } from "@/lib/format";
 import { Camera, Minus, Plus, X } from "lucide-react";
 
 const CLIMAS = ["☀️ Sol", "⛅ Nublado", "🌧️ Chuva", "🌧️☀️ Chuva parcial"];
@@ -38,7 +39,7 @@ export function RdoForm({ obras }: { obras: { id: string; nome: string }[] }) {
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
   const [obraId, setObraId] = useState("");
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(dataParaInput(new Date()));
   const [clima, setClima] = useState("");
   const [efetivo, setEfetivo] = useState<Efetivo[]>([]);
   const [atividades, setAtividades] = useState("");

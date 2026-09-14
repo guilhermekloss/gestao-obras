@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { startOfDay, addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { realizadoPorEtapa, avancoPorEtapa } from "@/lib/custos";
+import { realizadoPorEtapa, avancoPorEtapa } from "@/services/custos";
 import { avancoPonderado } from "@/services/obra";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusObraBadge } from "@/components/status-obra-badge";
@@ -49,7 +49,7 @@ export default async function ObraPage({
           where: {
             status: "ABERTA",
             vencimento: { lte: addDays(hoje, 30) },
-            nota: { itens: { some: { rateios: { some: { obraId: id } } } } },
+            nota: { rateios: { some: { obraId: id } } },
           },
           orderBy: { vencimento: "asc" },
           take: 5,

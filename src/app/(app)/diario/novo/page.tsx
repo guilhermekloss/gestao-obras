@@ -1,15 +1,11 @@
-import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
+import { listarObrasAtivas } from "@/services/obras";
 import { RdoForm } from "./rdo-form";
 
 export default async function NovoRdoPage() {
   await exigirPapel();
 
-  const obras = await prisma.obra.findMany({
-    where: { status: { in: ["PLANEJAMENTO", "ANDAMENTO"] } },
-    orderBy: { codigo: "asc" },
-    select: { id: true, nome: true },
-  });
+  const obras = await listarObrasAtivas();
 
   return (
     <div className="space-y-4">

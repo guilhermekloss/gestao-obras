@@ -59,7 +59,7 @@ model Obra {
   status   StatusObra   @default(ANDAMENTO)
   inicioEm DateTime?
   etapas   Etapa[]
-  rateios  RateioItem[]
+  rateios  RateioNota[]
   diarios  DiarioObra[]
 }
 
@@ -71,7 +71,7 @@ model Etapa {
   ordem          Int
   orcamentoCents Int          @default(0) // previsto
   medicoes       Medicao[]
-  rateios        RateioItem[] // realizado por etapa (opcional no item)
+  rateios        RateioNota[] // realizado por etapa (opcional na nota)
 }
 
 model Fornecedor {
@@ -84,9 +84,9 @@ model Fornecedor {
 }
 
 model NotaFiscal {
-  id           String     @id @default(cuid())
+  id           String       @id @default(cuid())
   fornecedorId String
-  fornecedor   Fornecedor @relation(fields: [fornecedorId], references: [id])
+  fornecedor   Fornecedor   @relation(fields: [fornecedorId], references: [id])
   numero       String
   dataCompra   DateTime
   totalCents   Int // valor da nota
@@ -95,40 +95,41 @@ model NotaFiscal {
   anexoUrl     String?
   anexoNome    String? // nome original do arquivo, para exibir no link
   itens        ItemNota[]
+  rateios      RateioNota[] // rateio se aplica à nota inteira, não a itens individuais
   parcelas     Parcela[]
   createdBy    String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@unique([fornecedorId, numero])
   @@index([dataCompra])
 }
 
 model ItemNota {
-  id            String       @id @default(cuid())
+  id            String     @id @default(cuid())
   notaId        String
-  nota          NotaFiscal   @relation(fields: [notaId], references: [id], onDelete: Cascade)
+  nota          NotaFiscal @relation(fields: [notaId], references: [id], onDelete: Cascade)
   descricao     String
-  tipo          TipoItem     @default(MATERIAL)
-  qtde          Decimal      @db.Decimal(12, 3)
+  tipo          TipoItem   @default(MATERIAL)
+  qtde          Decimal    @db.Decimal(12, 3)
   unidade       String // PC, KG, M², MO...
   unitCents     Int
-  descontoCents Int          @default(0)
+  descontoCents Int        @default(0)
   totalCents    Int
-  rateios       RateioItem[]
 }
 
-model RateioItem {
-  id       String   @id @default(cuid())
-  itemId   String
-  item     ItemNota @relation(fields: [itemId], references: [id], onDelete: Cascade)
+/** Rateio entre obras: se aplica a todos os itens da nota (ver README §Pendências conscientes). */
+model RateioNota {
+  id       String     @id @default(cuid())
+  notaId   String
+  nota     NotaFiscal @relation(fields: [notaId], references: [id], onDelete: Cascade)
   obraId   String
-  obra     Obra     @relation(fields: [obraId], references: [id])
+  obra     Obra       @relation(fields: [obraId], references: [id])
   etapaId  String?
-  etapa    Etapa?   @relation(fields: [etapaId], references: [id])
+  etapa    Etapa?     @relation(fields: [etapaId], references: [id])
   fracaoBp Int // basis points: 10000 = 100%
 
-  @@unique([itemId, obraId])
+  @@unique([notaId, obraId])
   @@index([obraId])
 }
 

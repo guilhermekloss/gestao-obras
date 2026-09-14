@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
+import { listarObrasParaRateio } from "@/services/obras";
 import { NotaForm } from "../nota-form";
 
 export default async function NovaNotaPage() {
@@ -10,15 +11,7 @@ export default async function NovaNotaPage() {
       orderBy: { nome: "asc" },
       select: { id: true, nome: true, cnpj: true },
     }),
-    prisma.obra.findMany({
-      where: { status: { in: ["PLANEJAMENTO", "ANDAMENTO"] } },
-      orderBy: { codigo: "asc" },
-      select: {
-        id: true,
-        nome: true,
-        etapas: { orderBy: { ordem: "asc" }, select: { id: true, nome: true } },
-      },
-    }),
+    listarObrasParaRateio(),
   ]);
 
   return (

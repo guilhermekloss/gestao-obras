@@ -48,13 +48,18 @@ describe("importarPlanilhas", () => {
     expect(aco.totalCents).toBe(100000);
   });
 
-  it("normaliza o rateio pelas colunas de obra somando 100%", () => {
+  it("normaliza o rateio pelas colunas de obra somando 100% (rateio único por nota)", () => {
+    // Item 0 (CA50, R$800): 60% L03 / 40% L19. Item 1 (FRETE, R$200): 100% L03.
+    // Rateio da nota = média ponderada pelo total de cada item:
+    //   L03: (800×0,60 + 200×1,00) / 1000 = 68% · L19: (800×0,40) / 1000 = 32%
     const aco = resultado.notas.find((n) => n.numero === "100")!;
-    expect(aco.itens[0].rateios).toEqual([
-      { codigoObra: "L03", fracaoBp: 6000 },
-      { codigoObra: "L19", fracaoBp: 4000 },
+    expect(aco.rateios).toEqual([
+      { codigoObra: "L03", fracaoBp: 6800 },
+      { codigoObra: "L19", fracaoBp: 3200 },
     ]);
-    expect(aco.itens[1].rateios).toEqual([{ codigoObra: "L03", fracaoBp: 10000 }]);
+
+    const madeireira = resultado.notas.find((n) => n.numero === "200")!;
+    expect(madeireira.rateios).toEqual([{ codigoObra: "L19", fracaoBp: 10000 }]);
   });
 
   it("marca parcela paga quando há data de pagamento", () => {

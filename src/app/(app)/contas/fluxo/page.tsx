@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { fluxoMensal } from "@/services/financeiro";
 import { formatarMoeda } from "@/lib/format";
+import { listarObrasParaFiltro } from "@/services/obras";
 import { ArrowLeft } from "lucide-react";
 
 const MESES_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -27,12 +28,10 @@ export default async function FluxoMensalPage() {
   const [parcelas, obras] = await Promise.all([
     prisma.parcela.findMany({
       include: {
-        nota: {
-          include: { itens: { take: 1, include: { rateios: true } } },
-        },
+        nota: { include: { rateios: true } },
       },
     }),
-    prisma.obra.findMany({ select: { id: true, nome: true } }),
+    listarObrasParaFiltro(),
   ]);
 
   const nomeObra = new Map(obras.map((o) => [o.id, o.nome]));
@@ -41,7 +40,7 @@ export default async function FluxoMensalPage() {
     parcelas.map((p) => ({
       valorCents: p.valorCents,
       vencimento: p.vencimento,
-      rateios: (p.nota.itens[0]?.rateios ?? []).map((r) => ({
+      rateios: p.nota.rateios.map((r) => ({
         obraId: r.obraId,
         fracaoBp: r.fracaoBp,
       })),

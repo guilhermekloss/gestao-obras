@@ -32,8 +32,8 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 ## Estrutura
 
 - `src/app/(app)/` — módulos: obras, fornecedores, notas, contas, diario, medicoes, orcamento, importar, usuarios, dashboard
-- `src/services/` — parcelas, rateio, financeiro, obra, importacao (funções puras)
-- `src/lib/` — prisma, auth (`exigirPapel`), format (moeda/data BR), custos, storage
+- `src/services/` — parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia
+- `src/lib/` — prisma, auth (`exigirPapel`), acao (`acaoDeEscrita` — seam das server actions), format (moeda/data/percentual BR), storage
 - `prisma/` — schema, seed, `teste-fluxo.ts` (dados de demonstração)
 
 ## Papéis
@@ -47,6 +47,6 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 ## Pendências conscientes
 
 - Service worker (cache offline) não instalado — o PWA é instalável via manifest; Serwist fica para quando o deploy for definido.
-- Rateio é por nota (aplicado a todos os itens); para destinar um item a outra obra, lance em linhas/notas separadas.
-- Editar NF recria as parcelas como abertas (aviso na tela quando há parcela paga).
+- Rateio é por nota (aplicado a todos os itens) — o modelo de dados garante isso (`RateioNota` pertence à `NotaFiscal`, não ao item). Para destinar um item a outra obra, lance em uma nota separada.
+- Editar uma NF com parcelas pagas recria as parcelas como abertas — a ação pede confirmação antes de perder o registro de pagamento.
 - Importador espera o formato documentado na tela Importar — valide com as planilhas reais exportadas em CSV.

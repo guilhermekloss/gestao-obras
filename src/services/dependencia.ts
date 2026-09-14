@@ -136,12 +136,12 @@ export async function calcularDependencia(
         fornecedorId: true,
         dataCompra: true,
         totalCents: true,
+        rateios: { select: { obraId: true } },
         itens: {
           select: {
             descricao: true,
             tipo: true,
             totalCents: true,
-            rateios: { select: { obraId: true } },
           },
         },
       },
@@ -165,9 +165,10 @@ export async function calcularDependencia(
       acc.ultimaCompra = nota.dataCompra;
     }
 
+    for (const r of nota.rateios) acc.obras.add(r.obraId);
+
     for (const item of nota.itens) {
       acc.tipos.add(item.tipo);
-      for (const r of item.rateios) acc.obras.add(r.obraId);
 
       const chave = normalizar(item.descricao);
       acc.gastoPorDescricao.set(

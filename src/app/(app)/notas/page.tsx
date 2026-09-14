@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Input } from "@/components/ui/input";
 import { formatarMoeda, formatarData } from "@/lib/format";
+import { listarObrasParaFiltro } from "@/services/obras";
 import { Paperclip, Plus } from "lucide-react";
 
 const FORMA_LABELS: Record<string, string> = {
@@ -34,7 +35,7 @@ export default async function NotasPage({
 
   const where: Prisma.NotaFiscalWhereInput = {};
   if (fornecedor) where.fornecedorId = fornecedor;
-  if (obra) where.itens = { some: { rateios: { some: { obraId: obra } } } };
+  if (obra) where.rateios = { some: { obraId: obra } };
   if (de || ate) {
     where.dataCompra = {
       ...(de ? { gte: new Date(de) } : {}),
@@ -54,7 +55,7 @@ export default async function NotasPage({
       },
     }),
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    prisma.obra.findMany({ orderBy: { codigo: "asc" }, select: { id: true, nome: true } }),
+    listarObrasParaFiltro(),
   ]);
 
   const totalPeriodo = notas.reduce((acc, n) => acc + n.totalCents, 0);

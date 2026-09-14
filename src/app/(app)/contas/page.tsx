@@ -5,7 +5,8 @@ import { exigirPapel } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
-import { formatarMoeda } from "@/lib/format";
+import { formatarMoeda, formatarPercentBp } from "@/lib/format";
+import { listarObrasParaFiltro } from "@/services/obras";
 import { ContasTable, type ParcelaLinha } from "./contas-client";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,7 @@ export default async function ContasPage({
   if (obra) {
     where.nota = {
       ...(where.nota as object ?? {}),
-      itens: { some: { rateios: { some: { obraId: obra } } } },
+      rateios: { some: { obraId: obra } },
     };
   }
 
@@ -71,16 +72,13 @@ export default async function ContasPage({
           include: {
             fornecedor: { select: { nome: true } },
             parcelas: { select: { id: true } },
-            itens: {
-              take: 1,
-              include: { rateios: { include: { obra: { select: { nome: true } } } } },
-            },
+            rateios: { include: { obra: { select: { nome: true } } } },
           },
         },
       },
     }),
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    prisma.obra.findMany({ orderBy: { codigo: "asc" }, select: { id: true, nome: true } }),
+    listarObrasParaFiltro(),
   ]);
 
   const linhas: ParcelaLinha[] = parcelas.map((p) => ({
@@ -95,11 +93,9 @@ export default async function ContasPage({
     fornecedor: p.nota.fornecedor.nome,
     notaId: p.notaId,
     notaNumero: p.nota.numero,
-    obras: (p.nota.itens[0]?.rateios ?? [])
+    obras: p.nota.rateios
       .map((r) =>
-        r.fracaoBp === 10000
-          ? r.obra.nome
-          : `${r.obra.nome} (${(r.fracaoBp / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)`,
+        r.fracaoBp === 10000 ? r.obra.nome : `${r.obra.nome} (${formatarPercentBp(r.fracaoBp)})`,
       )
       .join(", "),
   }));

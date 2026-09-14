@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { ConfirmButton } from "@/components/confirm-button";
 import { excluirRdo } from "./actions";
+import { listarObrasParaFiltro } from "@/services/obras";
 import { formatarData } from "@/lib/format";
 import { Plus, Trash2, Users } from "lucide-react";
 
@@ -30,7 +31,7 @@ export default async function DiarioPage({
         fotos: true,
       },
     }),
-    prisma.obra.findMany({ orderBy: { codigo: "asc" }, select: { id: true, nome: true } }),
+    listarObrasParaFiltro(),
   ]);
 
   return (

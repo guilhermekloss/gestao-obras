@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { startOfMonth, addDays, startOfDay, subMonths } from "date-fns";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { realizadoPorObra } from "@/lib/custos";
-import { custoRateado } from "@/services/rateio";
+import { realizadoPorObra, realizadoPorMes } from "@/services/custos";
 import { avancoPonderado } from "@/services/obra";
 import { formatarMoeda } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +28,7 @@ export default async function DashboardPage() {
     notasDoMes,
     aVencer7,
     obras,
-    rateiosPeriodo,
+    porMes,
     realizado,
     etapasComMedicoes,
   ] = await Promise.all([
@@ -49,13 +48,7 @@ export default async function DashboardPage() {
       orderBy: { codigo: "asc" },
       include: { etapas: { select: { id: true, orcamentoCents: true } } },
     }),
-    prisma.rateioItem.findMany({
-      where: { item: { nota: { dataCompra: { gte: inicio12Meses } } } },
-      include: {
-        item: { select: { totalCents: true, nota: { select: { dataCompra: true } } } },
-        obra: { select: { nome: true } },
-      },
-    }),
+    realizadoPorMes(inicio12Meses),
     realizadoPorObra(),
     prisma.medicao.findMany({ orderBy: [{ data: "asc" }, { id: "asc" }] }),
   ]);
@@ -69,22 +62,20 @@ export default async function DashboardPage() {
   ).length;
 
   // Gasto mensal por obra (12 meses, empilhado por data de compra)
-  const porMes = new Map<string, Record<string, number>>();
-  for (const r of rateiosPeriodo) {
-    const d = r.item.nota.dataCompra;
-    const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const linha = porMes.get(chave) ?? {};
-    linha[r.obra.nome] = (linha[r.obra.nome] ?? 0) + custoRateado(r.item.totalCents, r.fracaoBp);
-    porMes.set(chave, linha);
-  }
+  const nomeObra = new Map(obras.map((o) => [o.id, o.nome]));
   const mesesOrdenados = [...porMes.keys()].sort();
   const obrasComGasto = obras.filter((o) => realizado.has(o.id)).map((o) => o.nome);
   const gastoMensalData = mesesOrdenados.map((chave) => {
     const [ano, mes] = chave.split("-");
-    return {
+    const porObra = porMes.get(chave) ?? new Map<string, number>();
+    const linha: Record<string, string | number> = {
       mes: `${MESES_LABEL[parseInt(mes) - 1]}/${ano.slice(2)}`,
-      ...porMes.get(chave),
     };
+    for (const [obraId, cents] of porObra) {
+      const nome = nomeObra.get(obraId);
+      if (nome) linha[nome] = cents;
+    }
+    return linha;
   });
 
   // Orçado vs. realizado por obra

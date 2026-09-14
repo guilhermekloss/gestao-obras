@@ -1,0 +1,93 @@
+import { describe, expect, it } from "vitest";
+import {
+  centsParaEditavel,
+  dataParaInput,
+  formatarMoeda,
+  formatarPercentBp,
+  inputParaData,
+  moedaParaCents,
+  percentBpParaEditavel,
+  percentEditavelParaBp,
+} from "../format";
+
+describe("formatarMoeda / moedaParaCents", () => {
+  it("formata centavos como moeda BR", () => {
+    // Intl.NumberFormat("pt-BR") usa espaço não separável (U+00A0) entre "R$" e o valor.
+    expect(formatarMoeda(123456)).toBe("R$ 1.234,56");
+    expect(formatarMoeda(0)).toBe("R$ 0,00");
+  });
+
+  it("converte string BR (com separador de milhar) para centavos", () => {
+    expect(moedaParaCents("1.234,56")).toBe(123456);
+    expect(moedaParaCents("30,00")).toBe(3000);
+    expect(moedaParaCents("30")).toBe(3000);
+  });
+
+  it("retorna 0 para string inválida ou vazia", () => {
+    expect(moedaParaCents("")).toBe(0);
+    expect(moedaParaCents("abc")).toBe(0);
+  });
+
+  it("centsParaEditavel é o inverso de moedaParaCents (sem separador de milhar)", () => {
+    for (const cents of [0, 3000, 123456, 99, 1]) {
+      expect(moedaParaCents(centsParaEditavel(cents))).toBe(cents);
+    }
+    expect(centsParaEditavel(123456)).toBe("1234,56");
+    expect(centsParaEditavel(0)).toBe("0,00");
+  });
+});
+
+describe("formatarPercentBp / percentBpParaEditavel / percentEditavelParaBp", () => {
+  it("formata bp para exibição com 1 casa", () => {
+    expect(formatarPercentBp(2550)).toBe("25,5%");
+    expect(formatarPercentBp(10000)).toBe("100%");
+  });
+
+  it("percentBpParaEditavel preserva a precisão total de bp (2 casas)", () => {
+    expect(percentBpParaEditavel(3334)).toBe("33,34");
+    expect(percentBpParaEditavel(10000)).toBe("100,00");
+  });
+
+  it("percentEditavelParaBp é o inverso exato de percentBpParaEditavel", () => {
+    for (const bp of [0, 3334, 3333, 10000, 1, 9999]) {
+      expect(percentEditavelParaBp(percentBpParaEditavel(bp))).toBe(bp);
+    }
+  });
+
+  it("percentEditavelParaBp retorna null para entrada inválida", () => {
+    expect(percentEditavelParaBp("abc")).toBeNull();
+    expect(percentEditavelParaBp("")).toBeNull();
+  });
+
+  it("percentEditavelParaBp aceita vírgula decimal", () => {
+    expect(percentEditavelParaBp("33,34")).toBe(3334);
+    expect(percentEditavelParaBp("100")).toBe(10000);
+  });
+});
+
+describe("dataParaInput / inputParaData", () => {
+  it("dataParaInput usa componentes locais, não UTC", () => {
+    // 23:30 local em 15/03 não deve virar 16/03 (o que toISOString().slice(0,10) faria
+    // em qualquer fuso a leste de UTC).
+    const meiaNoiteLocal = new Date(2026, 2, 15, 23, 30);
+    expect(dataParaInput(meiaNoiteLocal)).toBe("2026-03-15");
+  });
+
+  it("dataParaInput preenche zero à esquerda", () => {
+    expect(dataParaInput(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+
+  it("inputParaData fixa ao meio-dia local (evita virar de dia ao converter para UTC)", () => {
+    const d = inputParaData("2026-01-31");
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(0);
+    expect(d.getDate()).toBe(31);
+    expect(d.getHours()).toBe(12);
+  });
+
+  it("dataParaInput e inputParaData fazem round-trip para qualquer fuso do dia", () => {
+    for (const iso of ["2026-01-01", "2026-02-28", "2026-12-31"]) {
+      expect(dataParaInput(inputParaData(iso))).toBe(iso);
+    }
+  });
+});

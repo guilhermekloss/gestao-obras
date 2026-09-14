@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { criarMedicao } from "./actions";
+import { dataParaInput } from "@/lib/format";
 import { Plus } from "lucide-react";
 
 export function NovaMedicaoDialog({
@@ -48,7 +49,7 @@ export function NovaMedicaoDialog({
             name="data"
             type="date"
             required
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={dataParaInput(new Date())}
             className="h-11"
           />
         </div>

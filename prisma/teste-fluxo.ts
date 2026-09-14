@@ -54,15 +54,12 @@ async function main() {
         formaPagto: "CARTAO",
       },
     });
-    for (const item of itens) {
-      await tx.itemNota.create({
-        data: {
-          notaId: nota.id,
-          ...item,
-          rateios: { create: rateios },
-        },
-      });
-    }
+    await tx.itemNota.createMany({
+      data: itens.map((item) => ({ notaId: nota.id, ...item })),
+    });
+    await tx.rateioNota.createMany({
+      data: rateios.map((r) => ({ notaId: nota.id, ...r })),
+    });
     await tx.parcela.createMany({
       data: parcelas.map((p) => ({ notaId: nota.id, ...p })),
     });

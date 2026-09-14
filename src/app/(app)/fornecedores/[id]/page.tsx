@@ -15,7 +15,7 @@ import {
 import { EditarFornecedorDialog } from "../fornecedor-dialogs";
 import { DependenciaBadge } from "../dependencia-badge";
 import { calcularDependencia, PESOS } from "@/services/dependencia";
-import { custoRateado } from "@/services/rateio";
+import { custoRateado, BP_TOTAL } from "@/services/rateio";
 import { formatarMoeda, formatarData, formatarPercentBp } from "@/lib/format";
 import type { TipoItem } from "@prisma/client";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
@@ -46,9 +46,8 @@ export default async function FornecedorDetalhePage({
         notas: {
           orderBy: { dataCompra: "desc" },
           include: {
-            itens: {
-              include: { rateios: { include: { obra: { select: { id: true, nome: true } } } } },
-            },
+            itens: true,
+            rateios: { include: { obra: { select: { id: true, nome: true } } } },
             _count: { select: { itens: true } },
           },
         },
@@ -69,7 +68,7 @@ export default async function FornecedorDetalhePage({
     for (const item of nota.itens) {
       gastoPorTipo.set(item.tipo, (gastoPorTipo.get(item.tipo) ?? 0) + item.totalCents);
 
-      for (const r of item.rateios) {
+      for (const r of nota.rateios) {
         const atual = gastoPorObra.get(r.obraId) ?? { nome: r.obra.nome, cents: 0 };
         atual.cents += custoRateado(item.totalCents, r.fracaoBp);
         gastoPorObra.set(r.obraId, atual);
@@ -126,7 +125,7 @@ export default async function FornecedorDetalhePage({
             <InfoCard titulo="Gasto total" valor={formatarMoeda(dep.gastoCents)} destaque />
             <InfoCard
               titulo="% do gasto da empresa"
-              valor={formatarPercentBp(Math.round(dep.fatores.shareGasto * 10000))}
+              valor={formatarPercentBp(Math.round(dep.fatores.shareGasto * BP_TOTAL))}
               destaque
             />
             <InfoCard titulo="Notas fiscais" valor={String(dep.numNotas)} />
@@ -143,13 +142,13 @@ export default async function FornecedorDetalhePage({
             <CardContent className="space-y-4">
               <FatorBarra
                 titulo="Concentração de gasto"
-                descricao={`${formatarPercentBp(Math.round(dep.fatores.shareGasto * 10000))} de tudo que a empresa comprou passou por este fornecedor.`}
+                descricao={`${formatarPercentBp(Math.round(dep.fatores.shareGasto * BP_TOTAL))} de tudo que a empresa comprou passou por este fornecedor.`}
                 pontos={dep.componentes.concentracao}
                 maximo={PESOS.concentracao}
               />
               <FatorBarra
                 titulo="Exclusividade (fonte única)"
-                descricao={`${formatarPercentBp(Math.round(dep.fatores.exclusividade * 10000))} do que você compra dele são itens que nenhum outro fornecedor forneceu — ${formatarMoeda(dep.gastoExclusivoCents)}.`}
+                descricao={`${formatarPercentBp(Math.round(dep.fatores.exclusividade * BP_TOTAL))} do que você compra dele são itens que nenhum outro fornecedor forneceu — ${formatarMoeda(dep.gastoExclusivoCents)}.`}
                 pontos={dep.componentes.exclusividade}
                 maximo={PESOS.exclusividade}
               />

@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
-import { avancoPorEtapa } from "@/lib/custos";
+import { avancoPorEtapa } from "@/services/custos";
 import { avancoPonderado } from "@/services/obra";
 import { formatarData, formatarPercentBp } from "@/lib/format";
+import { listarObrasParaFiltro } from "@/services/obras";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,10 +20,7 @@ export default async function MedicoesPage({
   const user = await exigirPapel();
   const { obra: obraParam } = await searchParams;
 
-  const obras = await prisma.obra.findMany({
-    orderBy: { codigo: "asc" },
-    select: { id: true, nome: true },
-  });
+  const obras = await listarObrasParaFiltro();
   const obraId = obraParam ?? obras[0]?.id;
 
   if (!obraId) {

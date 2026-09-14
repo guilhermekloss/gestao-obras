@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatarMoeda } from "@/lib/format";
+import { formatarMoeda, centsParaEditavel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { salvarOrcamentos } from "./actions";
 
@@ -15,8 +15,9 @@ export type LinhaOrcamento = {
   realizadoCents: number;
 };
 
+/** Orçamento ainda não preenchido fica em branco em vez de mostrar "0,00". */
 function centsParaStr(cents: number): string {
-  return cents ? (cents / 100).toFixed(2).replace(".", ",") : "";
+  return cents ? centsParaEditavel(cents) : "";
 }
 
 export function OrcamentoForm({

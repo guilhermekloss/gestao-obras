@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { LabelAjuda } from "@/components/campo-ajuda";
 import { SelectNativo } from "@/components/select-nativo";
 import { criarObra, atualizarObra } from "./actions";
+import { dataParaInput } from "@/lib/format";
 import { Plus, Pencil } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -69,7 +70,7 @@ function CamposObra({ obra }: { obra?: Obra }) {
             id="inicioEm"
             name="inicioEm"
             type="date"
-            defaultValue={obra?.inicioEm ? new Date(obra.inicioEm).toISOString().slice(0, 10) : ""}
+            defaultValue={obra?.inicioEm ? dataParaInput(obra.inicioEm) : ""}
           />
         </div>
       </div>

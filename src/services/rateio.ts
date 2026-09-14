@@ -33,3 +33,10 @@ export function calcularTotalItem(
 export function custoRateado(totalCents: number, fracaoBp: number): number {
   return Math.round((totalCents * fracaoBp) / BP_TOTAL);
 }
+
+/** Soma os totais de uma lista de itens (mesma fórmula de `calcularTotalItem`). */
+export function somaItens(
+  itens: { qtde: number; unitCents: number; descontoCents?: number }[],
+): number {
+  return itens.reduce((acc, i) => acc + calcularTotalItem(i.qtde, i.unitCents, i.descontoCents), 0);
+}

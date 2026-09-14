@@ -1,4 +1,5 @@
 import { BP_TOTAL } from "./rateio";
+import { formatarPercentBp } from "@/lib/format";
 
 /**
  * Avanço físico da obra = média das etapas ponderada pelo orçamento previsto.
@@ -34,7 +35,7 @@ export function validarAvanco(
   if (novoPercentBp < atualPercentBp) {
     return {
       ok: false,
-      erro: `Avanço não pode regredir (atual: ${(atualPercentBp / 100).toFixed(1).replace(".", ",")}%)`,
+      erro: `Avanço não pode regredir (atual: ${formatarPercentBp(atualPercentBp)})`,
     };
   }
   return { ok: true };

@@ -18,11 +18,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatarMoeda, moedaParaCents } from "@/lib/format";
-import { gerarParcelas } from "@/services/parcelas";
-import { dividirIgualmente, calcularTotalItem, BP_TOTAL } from "@/services/rateio";
+import { formatarMoeda, moedaParaCents, dataParaInput, percentBpParaEditavel } from "@/lib/format";
+import { BP_TOTAL } from "@/services/rateio";
 import { salvarNota, criarFornecedorInline } from "./actions";
-import type { NotaInput } from "@/schemas/nota";
+import {
+  dividirIgualmenteForm,
+  gerarParcelasForm,
+  montarPayload,
+  somaItensForm,
+  somaParcelasForm,
+  somaRateioForm,
+  totalItemForm,
+  type ItemForm,
+  type NotaFormValues,
+} from "./nota-form-model";
 import { Paperclip, Plus, Trash2, Wand2, X } from "lucide-react";
 
 export type FornecedorOption = { id: string; nome: string; cnpj?: string | null };
@@ -30,33 +39,6 @@ export type ObraOption = {
   id: string;
   nome: string;
   etapas: { id: string; nome: string }[];
-};
-
-type ItemForm = {
-  descricao: string;
-  tipo: "MATERIAL" | "SERVICO" | "FRETE" | "ENCARGO";
-  qtde: string;
-  unidade: string;
-  unit: string; // moeda BR
-  desconto: string; // moeda BR
-};
-
-type RateioForm = { obraId: string; etapaId: string; percent: string };
-type ParcelaForm = { numero: number; valor: string; vencimento: string };
-
-type NotaFormValues = {
-  fornecedorId: string;
-  numero: string;
-  dataCompra: string;
-  total: string; // moeda BR
-  formaPagto: "PIX" | "CARTAO" | "DEBITO" | "BOLETO";
-  numParcelas: string;
-  obs: string;
-  anexoUrl: string;
-  anexoNome: string;
-  itens: ItemForm[];
-  rateios: RateioForm[];
-  parcelas: ParcelaForm[];
 };
 
 const ITEM_VAZIO: ItemForm = {
@@ -82,14 +64,6 @@ const FORMAS = [
   { value: "BOLETO", label: "Boleto" },
 ];
 
-function parseQtde(s: string): number {
-  return parseFloat(s.replace(",", ".")) || 0;
-}
-
-function percentParaBp(s: string): number {
-  return Math.round((parseFloat(s.replace(",", ".")) || 0) * 100);
-}
-
 export function NotaForm({
   fornecedores: fornecedoresIniciais,
   obras,
@@ -111,7 +85,7 @@ export function NotaForm({
       defaultValues: {
         fornecedorId: "",
         numero: "",
-        dataCompra: new Date().toISOString().slice(0, 10),
+        dataCompra: dataParaInput(new Date()),
         total: "",
         formaPagto: "PIX",
         numParcelas: "1",
@@ -167,87 +141,37 @@ export function NotaForm({
     setValue("anexoNome", "");
   }
 
-  const somaItensCents = useMemo(
-    () =>
-      itens.reduce(
-        (acc, i) =>
-          acc +
-          calcularTotalItem(parseQtde(i.qtde), moedaParaCents(i.unit), moedaParaCents(i.desconto)),
-        0,
-      ),
-    [itens],
-  );
+  const somaItensCents = useMemo(() => somaItensForm(itens), [itens]);
   const totalCents = moedaParaCents(total);
-  const somaRateioBp = rateios.reduce((acc, r) => acc + percentParaBp(r.percent), 0);
-  const somaParcelasCents = parcelas.reduce((acc, p) => acc + moedaParaCents(p.valor), 0);
+  const somaRateioBp = somaRateioForm(rateios);
+  const somaParcelasCents = somaParcelasForm(parcelas, totalCents);
 
   function gerarParcelasClick() {
     const v = getValues();
-    const tc = moedaParaCents(v.total);
-    if (tc <= 0) {
+    const geradas = gerarParcelasForm({
+      totalCents: moedaParaCents(v.total),
+      numParcelas: v.numParcelas,
+      formaPagto: v.formaPagto,
+      dataCompra: v.dataCompra,
+    });
+    if (!geradas) {
       toast.error("Informe o valor total da nota antes de gerar as parcelas");
       return;
     }
-    const geradas = gerarParcelas({
-      totalCents: tc,
-      numParcelas: Math.max(1, parseInt(v.numParcelas) || 1),
-      formaPagto: v.formaPagto,
-      dataCompra: new Date(v.dataCompra + "T12:00:00"),
-    });
-    setValue(
-      "parcelas",
-      geradas.map((p) => ({
-        numero: p.numero,
-        valor: (p.valorCents / 100).toFixed(2).replace(".", ","),
-        vencimento: p.vencimento.toISOString().slice(0, 10),
-      })),
-    );
+    setValue("parcelas", geradas);
   }
 
   function dividirIgualmenteClick() {
-    const atual = getValues("rateios");
-    if (atual.length < 2) {
+    const divididos = dividirIgualmenteForm(getValues("rateios"));
+    if (!divididos) {
       toast.error("Adicione ao menos 2 obras ao rateio para dividir igualmente");
       return;
     }
-    const bps = dividirIgualmente(atual.length);
-    setValue(
-      "rateios",
-      atual.map((r, i) => ({ ...r, percent: (bps[i] / 100).toFixed(2).replace(".", ",") })),
-    );
+    setValue("rateios", divididos);
   }
 
   function onSubmit(v: NotaFormValues, forcar = false) {
-    const payload: NotaInput = {
-      id: notaId,
-      fornecedorId: v.fornecedorId,
-      numero: v.numero,
-      dataCompra: v.dataCompra,
-      totalCents: moedaParaCents(v.total),
-      formaPagto: v.formaPagto,
-      obs: v.obs || undefined,
-      anexoUrl: v.anexoUrl || undefined,
-      anexoNome: v.anexoNome || undefined,
-      itens: v.itens.map((i) => ({
-        descricao: i.descricao,
-        tipo: i.tipo,
-        qtde: parseQtde(i.qtde),
-        unidade: i.unidade,
-        unitCents: moedaParaCents(i.unit),
-        descontoCents: moedaParaCents(i.desconto),
-      })),
-      rateios: v.rateios.map((r) => ({
-        obraId: r.obraId,
-        etapaId: r.etapaId || undefined,
-        fracaoBp: percentParaBp(r.percent),
-      })),
-      parcelas: v.parcelas.map((p) => ({
-        numero: p.numero,
-        valorCents: moedaParaCents(p.valor),
-        vencimento: p.vencimento,
-      })),
-      forcar,
-    };
+    const payload = montarPayload(v, notaId, forcar);
 
     startTransition(async () => {
       const res = await salvarNota(payload);
@@ -415,9 +339,7 @@ export function NotaForm({
         <CardContent className="space-y-3">
           {itensArr.fields.map((field, i) => {
             const item = itens[i];
-            const subtotal = item
-              ? calcularTotalItem(parseQtde(item.qtde), moedaParaCents(item.unit), moedaParaCents(item.desconto))
-              : 0;
+            const subtotal = item ? totalItemForm(item) : 0;
             return (
               <div key={field.id} className="grid grid-cols-2 gap-2 rounded-md border p-3 md:grid-cols-[1fr_110px_80px_70px_110px_110px_100px_36px] md:items-end">
                 <div className="col-span-2 grid gap-1 md:col-span-1">
@@ -489,7 +411,7 @@ export function NotaForm({
                 : "text-sm font-medium text-destructive"
             }
           >
-            {(somaRateioBp / 100).toFixed(2).replace(".", ",")}% de 100%
+            {percentBpParaEditavel(somaRateioBp)}% de 100%
           </span>
         </CardHeader>
         <CardContent className="space-y-3">

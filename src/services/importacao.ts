@@ -14,6 +14,7 @@
  *
  * Datas em dd/mm/aaaa; valores em formato BR (1.234,56).
  */
+import { BP_TOTAL, custoRateado } from "./rateio";
 
 export type ItemImportado = {
   descricao: string;
@@ -23,8 +24,9 @@ export type ItemImportado = {
   unitCents: number;
   descontoCents: number;
   totalCents: number;
-  rateios: { codigoObra: string; fracaoBp: number }[];
 };
+
+export type RateioImportado = { codigoObra: string; fracaoBp: number };
 
 export type ParcelaImportada = {
   numero: number;
@@ -41,6 +43,14 @@ export type NotaImportada = {
   totalCents: number;
   formaPagto: "PIX" | "CARTAO" | "DEBITO" | "BOLETO";
   itens: ItemImportado[];
+  /**
+   * Rateio da nota inteira (o app não modela rateio por item — ver README
+   * §Pendências conscientes). Quando os itens da planilha original traziam
+   * pesos diferentes por linha, é a média ponderada pelo total de cada item:
+   * matematicamente idêntica à soma dos custos por obra que os pesos por
+   * item produziriam, então nenhum valor de custo por obra muda.
+   */
+  rateios: RateioImportado[];
   parcelas: ParcelaImportada[];
 };
 
@@ -202,11 +212,16 @@ export function importarPlanilhas(
       totalCents,
       formaPagto: forma ?? "PIX",
       itens: [],
+      rateios: [],
       parcelas,
     });
   });
 
-  // 2) Itens com rateio pelas colunas de obra
+  // 2) Itens com rateio pelas colunas de obra. O rateio de cada linha é
+  // acumulado por nota (em centavos, por obra) para virar o rateio único da
+  // nota no passo 3 — ver o comentário em `NotaImportada.rateios`.
+  const centsPorObraPorNota = new Map<string, Map<string, number>>();
+
   rowsItens.forEach((row, idx) => {
     const linha = idx + 2;
     const fornecedor = row.fornecedor?.trim();
@@ -229,6 +244,7 @@ export function importarPlanilhas(
         totalCents: 0,
         formaPagto: "PIX",
         itens: [],
+        rateios: [],
         parcelas: [],
       };
       notas.set(chave, nota);
@@ -239,23 +255,24 @@ export function importarPlanilhas(
       .map((o) => ({ codigo: o.codigo, peso: parseValorBr(row[o.chave] ?? "") }))
       .filter((o) => o.peso > 0);
     const somaPesos = pesos.reduce((a, o) => a + o.peso, 0);
-    let rateios: ItemImportado["rateios"];
+    let rateiosLinha: RateioImportado[];
     if (somaPesos === 0) {
       inconsistencias.push(`Itens linha ${linha} (${fornecedor} NF ${nf}): sem rateio de obra — atribuído 100% a ${codigosObras[0]}`);
-      rateios = [{ codigoObra: codigosObras[0], fracaoBp: 10000 }];
+      rateiosLinha = [{ codigoObra: codigosObras[0], fracaoBp: BP_TOTAL }];
     } else {
-      rateios = pesos.map((o, i) => ({
+      rateiosLinha = pesos.map((o) => ({
         codigoObra: o.codigo,
-        fracaoBp: Math.round((o.peso / somaPesos) * 10000),
+        fracaoBp: Math.round((o.peso / somaPesos) * BP_TOTAL),
       }));
       // corrige arredondamento para fechar 100%
-      const soma = rateios.reduce((a, r) => a + r.fracaoBp, 0);
-      rateios[0].fracaoBp += 10000 - soma;
+      const soma = rateiosLinha.reduce((a, r) => a + r.fracaoBp, 0);
+      rateiosLinha[0].fracaoBp += BP_TOTAL - soma;
     }
 
     const qtde = parseValorBr(row.qtde) / 100 || 1;
     const unitCents = parseValorBr(row.unitario);
     const descontoCents = parseValorBr(row.desconto);
+    const totalCentsItem = Math.round(qtde * unitCents) - descontoCents;
     nota.itens.push({
       descricao: row.descricao.trim(),
       tipo: TIPOS_MAP[normalizarChave(row.tipo ?? "")] ?? "MATERIAL",
@@ -263,15 +280,23 @@ export function importarPlanilhas(
       unidade: row.unidade?.trim() || "PC",
       unitCents,
       descontoCents,
-      totalCents: Math.round(qtde * unitCents) - descontoCents,
-      rateios,
+      totalCents: totalCentsItem,
     });
+
+    let centsPorObra = centsPorObraPorNota.get(chave);
+    if (!centsPorObra) centsPorObraPorNota.set(chave, (centsPorObra = new Map()));
+    for (const r of rateiosLinha) {
+      const centsAlocados = custoRateado(totalCentsItem, r.fracaoBp);
+      centsPorObra.set(r.codigoObra, (centsPorObra.get(r.codigoObra) ?? 0) + centsAlocados);
+    }
   });
 
-  // 3) Notas sem itens e divergências total × itens
-  for (const nota of notas.values()) {
+  // 3) Rateio único por nota (média ponderada pelo total dos itens), notas
+  // sem itens e divergências total × itens
+  for (const [chave, nota] of notas) {
     if (nota.itens.length === 0) {
       inconsistencias.push(`${nota.fornecedor} NF ${nota.numero}: sem itens na planilha de quantitativo`);
+      nota.rateios = [{ codigoObra: codigosObras[0], fracaoBp: BP_TOTAL }];
       continue;
     }
     if (nota.totalCents === 0) {
@@ -284,6 +309,21 @@ export function importarPlanilhas(
         );
       }
     }
+
+    const centsPorObra = centsPorObraPorNota.get(chave);
+    const totalAlocado = centsPorObra ? [...centsPorObra.values()].reduce((a, b) => a + b, 0) : 0;
+    if (!centsPorObra || totalAlocado === 0) {
+      nota.rateios = [{ codigoObra: codigosObras[0], fracaoBp: BP_TOTAL }];
+      continue;
+    }
+    const rateiosNota = [...centsPorObra.entries()].map(([codigoObra, cents]) => ({
+      codigoObra,
+      fracaoBp: Math.round((cents / totalAlocado) * BP_TOTAL),
+    }));
+    // corrige arredondamento para fechar 100%
+    const somaBp = rateiosNota.reduce((a, r) => a + r.fracaoBp, 0);
+    rateiosNota[0].fracaoBp += BP_TOTAL - somaBp;
+    nota.rateios = rateiosNota;
   }
 
   return { notas: [...notas.values()], inconsistencias };

@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
+import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { obraSchema, etapaSchema, ETAPAS_PADRAO } from "@/schemas/obra";
-
-export type ActionResult = { ok: boolean; erro?: string };
 
 function parseObra(formData: FormData) {
   return obraSchema.safeParse({
@@ -20,65 +19,64 @@ function parseObra(formData: FormData) {
   });
 }
 
-export async function criarObra(formData: FormData): Promise<ActionResult> {
-  await exigirPapel("ADMIN", "ESCRITORIO");
-  const parsed = parseObra(formData);
-  if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
-  const d = parsed.data;
+export const criarObra = acaoDeEscrita(
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/obras"] },
+  async (_user, formData: FormData): Promise<ActionResult> => {
+    const parsed = parseObra(formData);
+    if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
+    const d = parsed.data;
 
-  const existente = await prisma.obra.findUnique({ where: { codigo: d.codigo } });
-  if (existente) return { ok: false, erro: `Já existe uma obra com o código "${d.codigo}"` };
+    const existente = await prisma.obra.findUnique({ where: { codigo: d.codigo } });
+    if (existente) return { ok: false, erro: `Já existe uma obra com o código "${d.codigo}"` };
 
-  await prisma.obra.create({
-    data: {
-      nome: d.nome,
-      codigo: d.codigo,
-      cno: d.cno,
-      endereco: d.endereco,
-      status: d.status,
-      inicioEm: d.inicioEm ? new Date(d.inicioEm) : undefined,
-      etapas: d.criarEtapasPadrao
-        ? { create: ETAPAS_PADRAO.map((nome, i) => ({ nome, ordem: i + 1 })) }
-        : undefined,
-    },
-  });
-  revalidatePath("/obras");
-  return { ok: true };
-}
+    await prisma.obra.create({
+      data: {
+        nome: d.nome,
+        codigo: d.codigo,
+        cno: d.cno,
+        endereco: d.endereco,
+        status: d.status,
+        inicioEm: d.inicioEm ? new Date(d.inicioEm) : undefined,
+        etapas: d.criarEtapasPadrao
+          ? { create: ETAPAS_PADRAO.map((nome, i) => ({ nome, ordem: i + 1 })) }
+          : undefined,
+      },
+    });
+    return { ok: true };
+  },
+);
 
-export async function atualizarObra(
-  id: string,
-  formData: FormData,
-): Promise<ActionResult> {
-  await exigirPapel("ADMIN", "ESCRITORIO");
-  const parsed = parseObra(formData);
-  if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
-  const d = parsed.data;
+export const atualizarObra = acaoDeEscrita(
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: (id: string, _formData: FormData) => ["/obras", `/obras/${id}`] },
+  async (_user, id: string, formData: FormData): Promise<ActionResult> => {
+    const parsed = parseObra(formData);
+    if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
+    const d = parsed.data;
 
-  const duplicada = await prisma.obra.findFirst({
-    where: { codigo: d.codigo, NOT: { id } },
-  });
-  if (duplicada) return { ok: false, erro: `Já existe uma obra com o código "${d.codigo}"` };
+    const duplicada = await prisma.obra.findFirst({
+      where: { codigo: d.codigo, NOT: { id } },
+    });
+    if (duplicada) return { ok: false, erro: `Já existe uma obra com o código "${d.codigo}"` };
 
-  await prisma.obra.update({
-    where: { id },
-    data: {
-      nome: d.nome,
-      codigo: d.codigo,
-      cno: d.cno ?? null,
-      endereco: d.endereco ?? null,
-      status: d.status,
-      inicioEm: d.inicioEm ? new Date(d.inicioEm) : null,
-    },
-  });
-  revalidatePath("/obras");
-  revalidatePath(`/obras/${id}`);
-  return { ok: true };
-}
+    await prisma.obra.update({
+      where: { id },
+      data: {
+        nome: d.nome,
+        codigo: d.codigo,
+        cno: d.cno ?? null,
+        endereco: d.endereco ?? null,
+        status: d.status,
+        inicioEm: d.inicioEm ? new Date(d.inicioEm) : null,
+      },
+    });
+    return { ok: true };
+  },
+);
 
+/** A única action que redireciona no sucesso — revalida/redireciona ela mesma. */
 export async function excluirObra(id: string): Promise<ActionResult> {
   await exigirPapel("ADMIN");
-  const usos = await prisma.rateioItem.count({ where: { obraId: id } });
+  const usos = await prisma.rateioNota.count({ where: { obraId: id } });
   if (usos > 0) {
     return {
       ok: false,
@@ -90,36 +88,36 @@ export async function excluirObra(id: string): Promise<ActionResult> {
   redirect("/obras");
 }
 
-export async function criarEtapa(
-  obraId: string,
-  formData: FormData,
-): Promise<ActionResult> {
-  await exigirPapel("ADMIN", "ESCRITORIO");
-  const parsed = etapaSchema.safeParse({ nome: formData.get("nome") });
-  if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
+export const criarEtapa = acaoDeEscrita(
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: (obraId: string, _formData: FormData) => [`/obras/${obraId}`] },
+  async (_user, obraId: string, formData: FormData): Promise<ActionResult> => {
+    const parsed = etapaSchema.safeParse({ nome: formData.get("nome") });
+    if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
 
-  const ultima = await prisma.etapa.findFirst({
-    where: { obraId },
-    orderBy: { ordem: "desc" },
-  });
-  await prisma.etapa.create({
-    data: { obraId, nome: parsed.data.nome, ordem: (ultima?.ordem ?? 0) + 1 },
-  });
-  revalidatePath(`/obras/${obraId}`);
-  return { ok: true };
-}
+    const ultima = await prisma.etapa.findFirst({
+      where: { obraId },
+      orderBy: { ordem: "desc" },
+    });
+    await prisma.etapa.create({
+      data: { obraId, nome: parsed.data.nome, ordem: (ultima?.ordem ?? 0) + 1 },
+    });
+    return { ok: true };
+  },
+);
 
-export async function excluirEtapa(id: string): Promise<ActionResult> {
-  await exigirPapel("ADMIN", "ESCRITORIO");
-  const etapa = await prisma.etapa.findUnique({
-    where: { id },
-    include: { _count: { select: { medicoes: true, rateios: true } } },
-  });
-  if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
-  if (etapa._count.medicoes > 0 || etapa._count.rateios > 0) {
-    return { ok: false, erro: "Etapa possui medições ou custos vinculados — não pode ser excluída." };
-  }
-  await prisma.etapa.delete({ where: { id } });
-  revalidatePath(`/obras/${etapa.obraId}`);
-  return { ok: true };
-}
+export const excluirEtapa = acaoDeEscrita(
+  { papeis: ["ADMIN", "ESCRITORIO"] },
+  async (_user, id: string): Promise<ActionResult> => {
+    const etapa = await prisma.etapa.findUnique({
+      where: { id },
+      include: { _count: { select: { medicoes: true, rateios: true } } },
+    });
+    if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
+    if (etapa._count.medicoes > 0 || etapa._count.rateios > 0) {
+      return { ok: false, erro: "Etapa possui medições ou custos vinculados — não pode ser excluída." };
+    }
+    await prisma.etapa.delete({ where: { id } });
+    revalidatePath(`/obras/${etapa.obraId}`);
+    return { ok: true };
+  },
+);

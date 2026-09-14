@@ -10,8 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-
-export type ActionResult = { ok: boolean; erro?: string };
+import type { ActionResult } from "@/lib/acao";
 
 /**
  * Dialog genérico para formulários de CRUD: submete a uma server action,
