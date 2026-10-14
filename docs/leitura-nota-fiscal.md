@@ -17,14 +17,58 @@ alertas, dashboard e fornecedores — nada novo precisa ser consultado pelas out
 
 1. **Tirar foto** (abre a câmera traseira no celular) ou **Enviar arquivo** (ou arrastar para a área).
 2. XML → tela de importação exata (prévia, rateio, parcelas). Foto/PDF → "Lendo os dados da nota…"
-   (10–30 s) e o formulário aparece **preenchido**: fornecedor, número, data, total, itens com tipo
-   (material/serviço/frete/encargo), forma de pagamento, parcelas/vencimentos, anexo e chave de acesso.
-3. Um quadro mostra o que foi reconhecido e **o que conferir** (avisos). Fornecedor ainda não
-   cadastrado aparece com o botão **Cadastrar e usar** (nome e CNPJ já lidos).
-4. O usuário escolhe a obra no rateio e salva. **Nada é gravado antes disso.**
+   (10–30 s) e abre o **pop-up "Conferir dados da nota"**.
+3. No pop-up, o documento fica ao lado (foto ou PDF) e **todos os dados que vão entrar no sistema**
+   ficam editáveis: tipo, número, data, total, chave, fornecedor, destinatário, itens, pagamento e
+   obra (rateio). Os avisos da leitura aparecem no topo; somas de itens, parcelas e rateio ficam
+   verdes quando fecham.
+4. O usuário marca **"Conferi os dados com o documento"** e clica em **Confirmar e lançar**. Só então
+   o fornecedor é resolvido e a nota é gravada. Fechar o pop-up não grava nada (o botão **Conferir
+   dados** reabre com as edições preservadas).
+5. Casos fora do comum: **Editar no formulário completo** leva tudo para o formulário de sempre.
 
 Se a leitura falhar (foto ilegível, serviço fora do ar, sem chave da API), o arquivo continua
 anexado e o formulário fica aberto para preenchimento manual — o usuário nunca perde o envio.
+
+## Conferência humana: o que bloqueia o "Confirmar"
+
+`errosConferencia` (`notas/nova/conferencia-model.ts`, testado) lista o que falta, com o campo e o que fazer:
+- fornecedor não decidido (há cadastros parecidos), sem nome, ou CNPJ/CPF com dígito verificador inválido;
+  NF exige o CNPJ/CPF do emitente;
+- número (NF), data de emissão válida e valor total;
+- itens com descrição, quantidade e unidade, e **soma dos itens = total**;
+- parcelas com valor e vencimento, e **soma das parcelas = total**;
+- obra em todas as linhas do rateio e **rateio = 100%**;
+- a caixa "Conferi os dados com o documento" marcada.
+
+Documento já lançado (mesma chave, ou mesmo fornecedor + número) desabilita o botão e mostra o link da nota.
+
+## Integridade de fornecedores e envolvidos
+
+A correspondência entre o emitente lido e o cadastro (`services/correspondencia-fornecedor.ts`) mostra:
+
+| Situação | O que o pop-up oferece |
+|---|---|
+| Mesmo CNPJ/CPF (com ou sem máscara) | Já escolhido: "mesmo CNPJ/CPF — já cadastrado". Se o nome do cadastro for bem diferente do da nota, um aviso pede conferência (o nome do cadastro é mantido). |
+| Nome parecido **sem CNPJ/CPF** no cadastro | "Usar <cadastro>" + **gravar o CNPJ/CPF lido neste cadastro** (marcado por padrão) — completa o cadastro em vez de duplicar. |
+| Mesmo CNPJ raiz (8 dígitos) | "mesma empresa, outra filial" — usar o cadastro existente ou cadastrar a filial. |
+| Nome parecido com **outro** CNPJ/CPF | Mostrado para conferência (outra empresa ou documento mal lido). |
+| Nenhum parecido | "Cadastrar novo fornecedor" com nome e CNPJ/CPF editáveis e selo de validade ao vivo. |
+| Qualquer outro | "Escolher outro fornecedor cadastrado" — busca por nome ou CNPJ. |
+
+O usuário precisa escolher quando há parecidos — o sistema não decide sozinho. A similaridade de nomes
+ignora acentos, caixa e sufixos (Ltda, ME, EPP, EIRELI, S/A).
+
+Regras do cadastro (valem também para o cadastro manual de fornecedores, a criação rápida na nota e a
+importação de XML — `validarDocumentoFornecedor`):
+- CNPJ/CPF com dígito verificador inválido é recusado;
+- gravado sempre com máscara (`11.222.333/0001-81`);
+- **não pode repetir** em outro fornecedor, com ou sem máscara;
+- na edição, um documento antigo que não mudou continua aceito (não trava cadastros antigos).
+
+**Destinatário / tomador** (quem comprou ou contratou) também é lido e conferido: selo de CNPJ/CPF
+válido e, com `CNPJS_EMPRESA` configurado, a confirmação de que a nota é da empresa (aceita filiais)
+ou o aviso de que foi emitida para outro CNPJ. Ele é exibido para conferência e não é gravado.
 
 ## Conferências automáticas (por que confiar no que foi lido)
 
@@ -89,6 +133,7 @@ acurácia.
 # .env
 ANTHROPIC_API_KEY=sk-ant-...        # sem ela: XML e manual funcionam; foto/PDF só ficam anexados
 LEITURA_NF_MODELO=claude-opus-5-5   # opcional (padrão). Alternativa mais barata: claude-haiku-5-5
+CNPJS_EMPRESA=12.345.678/0001-95    # opcional: CNPJs da empresa (vírgula) para conferir o destinatário
 ```
 
 - Modelo padrão: `claude-opus-5-5`, esforço `medium`, saída estruturada (schema Zod
@@ -106,8 +151,11 @@ LEITURA_NF_MODELO=claude-opus-5-5   # opcional (padrão). Alternativa mais barat
 |---|---|
 | `src/services/leitura-documento.ts` | Puro: schema do que o modelo devolve, dígitos verificadores, `normalizarLeitura` |
 | `src/services/leitor-ia.ts` | Chamada ao Claude (imagem/PDF base64, saída estruturada, mensagens de erro amigáveis) |
-| `src/app/(app)/notas/nova/actions.ts` | `lerDocumento(url)`: lê o arquivo do storage, normaliza, acha fornecedor e duplicatas — não grava |
-| `src/app/(app)/notas/nova/novo-lancamento.tsx` | Tela única: câmera/arquivo/arrastar, progresso, resumo e avisos, formulário preenchido |
+| `src/app/(app)/notas/nova/actions.ts` | `lerDocumento(url)`: lê, normaliza, faz a correspondência de fornecedor e acha duplicatas — não grava; `resolverFornecedor`: usa/completa/cria sem duplicar |
+| `src/app/(app)/notas/nova/novo-lancamento.tsx` | Tela única: câmera/arquivo/arrastar, progresso, abre a conferência |
+| `src/app/(app)/notas/nova/conferencia-dialog.tsx` | Pop-up de conferência: documento ao lado, campos editáveis, escolha do fornecedor, confirmar e lançar |
+| `src/app/(app)/notas/nova/conferencia-model.ts` | Estado inicial da conferência e `errosConferencia` (o que bloqueia confirmar) |
+| `src/services/correspondencia-fornecedor.ts` | Emitente × cadastro (mesmo documento, filial, nome parecido), destinatário × empresa, CNPJ/CPF do cadastro |
 | `src/lib/imagem.ts` | Reduz e converte a foto (HEIC/PNG → JPEG, máx. 2400 px) antes do upload |
 | `src/app/(app)/notas/nota-form-model.ts` | `valoresDaLeitura` (leitura → valores do formulário) e `chaveNfe` no payload |
 

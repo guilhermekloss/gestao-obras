@@ -7,7 +7,9 @@
  * Configuração (variáveis de ambiente, só no servidor):
  * - `ANTHROPIC_API_KEY` — sem ela a leitura automática fica desligada e a
  *   tela segue com anexo + preenchimento manual;
- * - `LEITURA_NF_MODELO` — opcional, troca o modelo (padrão abaixo).
+ * - `LEITURA_NF_MODELO` — opcional, troca o modelo (padrão abaixo);
+ * - `CNPJS_EMPRESA` — opcional, CNPJs da empresa (separados por vírgula)
+ *   para conferir se o destinatário da nota é mesmo a empresa.
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
@@ -27,7 +29,7 @@ Regras:
 - Transcreva só o que está impresso. Campo ausente, cortado ou ilegível = null. Nunca invente nem estime valores.
 - Valores em reais como número com ponto decimal (R$ 1.234,56 → 1234.56). Datas em AAAA-MM-DD.
 - CNPJ/CPF e chave de acesso só com dígitos. A chave tem 44 dígitos e aparece no DANFE em blocos de 4, perto do código de barras, ou no QR Code/rodapé da NFC-e. Se algum dígito estiver ilegível, devolva null.
-- Emitente é quem vendeu ou prestou o serviço (não o destinatário/comprador).
+- Emitente é quem vendeu ou prestou o serviço (em recibo, quem recebeu o pagamento). Destinatário é quem comprou ou contratou (destinatário da NF-e, tomador da NFS-e, pagador do boleto/recibo).
 - Itens: uma entrada por linha do quadro de produtos/serviços, na ordem. valorTotal é o total da linha. Em NFS-e, a discriminação do serviço é um item SERVICO.
 - valorTotal do documento: "Valor total da nota", "Valor a pagar" ou "Valor do documento".
 - Frete e IPI/ST/seguro/outras despesas do quadro de totais vão nos campos próprios, não como itens (exceto se já forem linhas do quadro de itens).

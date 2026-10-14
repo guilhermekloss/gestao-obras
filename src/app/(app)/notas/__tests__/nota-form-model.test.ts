@@ -233,7 +233,8 @@ describe("valoresDaLeitura", () => {
   const leitura: LeituraNormalizada = {
     tipoDocumento: "NF",
     descricaoDocumento: "NF-e (DANFE)",
-    fornecedor: { nome: "Casa do Construtor", documento: "11222333000181", fone: null },
+    fornecedor: { nome: "Casa do Construtor", documento: "11222333000181", documentoLido: "11222333000181", fone: null },
+    destinatario: { nome: null, documento: null, documentoLido: null },
     numero: "12345",
     serie: "1",
     chaveNfe: "35260911222333000181550010000123451876543218",
