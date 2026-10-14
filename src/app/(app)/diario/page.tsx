@@ -6,11 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { ConfirmButton } from "@/components/confirm-button";
 import { excluirRdo } from "./actions";
+import { CondicaoBadge } from "./condicao-badge";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { formatarData } from "@/lib/format";
-import { Plus, Trash2, Users } from "lucide-react";
-
-type EfetivoItem = { funcao: string; qtd: number };
+import {
+  dataDoRdo,
+  normalizarEfetivo,
+  normalizarEquipamentos,
+  podeAlterarRdo,
+  resumoClima,
+} from "@/services/rdo";
+import { ChevronRight, Images, Plus, Trash2, Users } from "lucide-react";
 
 export default async function DiarioPage({
   searchParams,
@@ -38,7 +44,7 @@ export default async function DiarioPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Diário de obra</h1>
-        <Button render={<Link href="/diario/novo" />}>
+        <Button render={<Link href={obra ? `/diario/novo?obra=${obra}` : "/diario/novo"} />}>
           <Plus className="size-4" /> RDO
         </Button>
       </div>
@@ -64,31 +70,43 @@ export default async function DiarioPage({
       ) : (
         <div className="space-y-3">
           {rdos.map((rdo) => {
-            const efetivo = (rdo.efetivo as EfetivoItem[] | null) ?? [];
+            const dia = dataDoRdo(rdo.data);
+            const efetivo = normalizarEfetivo(rdo.efetivo);
+            const equipamentos = normalizarEquipamentos(rdo.equipamentos);
             const totalEfetivo = efetivo.reduce((a, e) => a + e.qtd, 0);
-            const podeExcluir = user.role !== "CAMPO" || rdo.autorId === user.id;
+            const clima = resumoClima(rdo);
+            const podeExcluir = podeAlterarRdo(user, rdo);
             return (
               <Card key={rdo.id}>
                 <CardContent className="space-y-2 pt-4">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">
-                        {rdo.obra.nome} · {formatarData(rdo.data)}
+                    <Link href={`/diario/${rdo.id}`} className="group min-w-0 flex-1">
+                      <p className="flex items-center gap-1 font-semibold group-hover:underline">
+                        {rdo.obra.nome} · {formatarData(dia)}
+                        <ChevronRight className="size-4 text-muted-foreground" />
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {rdo.autor?.nome ?? "—"}
-                        {rdo.clima ? ` · ${rdo.clima}` : ""}
+                      <p className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+                        <span>{rdo.autor?.nome ?? "—"}</span>
+                        {clima && <span>· {clima}</span>}
                         {totalEfetivo > 0 && (
-                          <span className="ml-1 inline-flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1">
                             · <Users className="size-3" /> {totalEfetivo}
                           </span>
                         )}
+                        {rdo.fotos.length > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            · <Images className="size-3" /> {rdo.fotos.length}
+                          </span>
+                        )}
+                        {rdo.condicao && (
+                          <CondicaoBadge condicao={rdo.condicao} curto className="ml-1" />
+                        )}
                       </p>
-                    </div>
+                    </Link>
                     {podeExcluir && (
                       <ConfirmButton
                         action={excluirRdo.bind(null, rdo.id)}
-                        mensagem={`Excluir o RDO de ${formatarData(rdo.data)}?`}
+                        mensagem={`Excluir o RDO de ${formatarData(dia)}?`}
                         variant="ghost"
                         size="icon"
                       >
@@ -108,11 +126,16 @@ export default async function DiarioPage({
                       {efetivo.map((e) => `${e.qtd} ${e.funcao.toLowerCase()}`).join(" · ")}
                     </p>
                   )}
+                  {equipamentos.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Equipamentos: {equipamentos.map((e) => `${e.qtd} ${e.nome.toLowerCase()}`).join(" · ")}
+                    </p>
+                  )}
                   {rdo.fotos.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-1">
                       {rdo.fotos.map((f) => (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <a key={f.id} href={f.url} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={f.url}
                             alt={f.legenda ?? "Foto do RDO"}
