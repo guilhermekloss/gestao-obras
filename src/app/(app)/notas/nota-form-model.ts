@@ -7,7 +7,7 @@
  * delegam para `services/rateio` e `services/parcelas`: o formulário nunca
  * reimplementa a regra, só formata a mesma resposta que o servidor usa.
  */
-import type { FormaPagto, TipoItem } from "@prisma/client";
+import type { FormaPagto, TipoDocumento, TipoItem } from "@prisma/client";
 import {
   centsParaEditavel,
   dataParaInput,
@@ -16,8 +16,12 @@ import {
   percentBpParaEditavel,
   percentEditavelParaBp,
 } from "@/lib/format";
-import { gerarParcelas } from "@/services/parcelas";
-import { validarParcelas } from "@/services/parcelas";
+import {
+  gerarParcelas,
+  reconciliarParcelas,
+  validarParcelas,
+  type ParcelaExistente,
+} from "@/services/parcelas";
 import { calcularTotalItem, dividirIgualmente, somaItens, validarRateio } from "@/services/rateio";
 import type { NotaInput } from "@/schemas/nota";
 
@@ -35,6 +39,7 @@ export type ParcelaForm = { numero: number; valor: string; vencimento: string };
 
 export type NotaFormValues = {
   fornecedorId: string;
+  tipoDocumento: TipoDocumento;
   numero: string;
   dataCompra: string;
   total: string; // moeda BR
@@ -122,7 +127,8 @@ export function montarPayload(
   return {
     id: notaId,
     fornecedorId: v.fornecedorId,
-    numero: v.numero,
+    tipoDocumento: v.tipoDocumento,
+    numero: v.numero.trim(),
     dataCompra: v.dataCompra,
     totalCents: moedaParaCents(v.total),
     formaPagto: v.formaPagto,
@@ -149,4 +155,55 @@ export function montarPayload(
     })),
     forcar,
   };
+}
+
+/**
+ * Tipo de item sugerido para as linhas em branco ao trocar o tipo de
+ * documento: guia é imposto/taxa (encargo); recibo e folha costumam ser mão
+ * de obra (serviço); NF e outro voltam ao padrão (material).
+ */
+export function tipoItemSugerido(tipo: TipoDocumento): TipoItem {
+  switch (tipo) {
+    case "GUIA":
+      return "ENCARGO";
+    case "RECIBO":
+    case "FOLHA":
+      return "SERVICO";
+    default:
+      return "MATERIAL";
+  }
+}
+
+/**
+ * Situação de cada parcela do formulário de edição em relação ao pagamento
+ * já registrado, pela mesma regra que `salvarNota` aplica
+ * (`reconciliarParcelas`):
+ * - `paga`: continua paga ao salvar;
+ * - `reabre`: estava paga, mas valor/vencimento mudou → volta a ficar em aberto.
+ * Parcelas sem pagamento não aparecem no mapa. As pagas que o usuário
+ * removeu vêm em `pagasRemovidas`.
+ */
+export function situacaoParcelasPagas(
+  existentes: ParcelaExistente[],
+  parcelas: ParcelaForm[],
+): { porNumero: Map<number, "paga" | "reabre">; pagasRemovidas: number[] } {
+  const porNumero = new Map<number, "paga" | "reabre">();
+  if (!existentes.some((p) => p.status === "PAGA")) return { porNumero, pagasRemovidas: [] };
+
+  let r;
+  try {
+    r = reconciliarParcelas(
+      existentes,
+      parcelas.map((p) => ({ numero: p.numero, valorCents: moedaParaCents(p.valor), vencimento: p.vencimento })),
+    );
+  } catch {
+    return { porNumero, pagasRemovidas: [] }; // números repetidos: o servidor recusa ao salvar
+  }
+  for (const p of r.parcelas) if (p.status === "PAGA") porNumero.set(p.numero, "paga");
+  const pagasRemovidas: number[] = [];
+  for (const a of r.pagasAfetadas) {
+    if (a.motivo === "alterada") porNumero.set(a.numero, "reabre");
+    else pagasRemovidas.push(a.numero);
+  }
+  return { porNumero, pagasRemovidas };
 }

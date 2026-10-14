@@ -16,7 +16,7 @@ export default async function NovaNotaPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <h1 className="text-2xl font-semibold">Nova nota fiscal</h1>
+      <h1 className="text-2xl font-semibold">Novo lançamento</h1>
       <NotaForm fornecedores={fornecedores} obras={obras} />
     </div>
   );

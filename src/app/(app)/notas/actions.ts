@@ -1,11 +1,18 @@
 "use server";
 
+import { Prisma, type TipoDocumento } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { notaSchema, type NotaInput } from "@/schemas/nota";
-import { validarParcelas } from "@/services/parcelas";
+import {
+  avisoParcelasPagas,
+  reconciliarParcelas,
+  validarParcelas,
+  type ParcelaExistente,
+} from "@/services/parcelas";
+import { exigeNumero, gerarNumeroDocumento, PREFIXO_DOCUMENTO } from "@/services/financeiro";
 import { validarRateio, calcularTotalItem, somaItens } from "@/services/rateio";
 import { fornecedorSchema, criarFornecedorValidado } from "@/services/fornecedores";
-import { formatarMoeda, formatarPercentBp } from "@/lib/format";
+import { dataParaInput, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 
 export type SalvarNotaResult = ActionResult & { id?: string };
@@ -16,8 +23,12 @@ export const salvarNota = acaoDeEscrita(
     const parsed = notaSchema.safeParse(input);
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
     const d = parsed.data;
+    const tipoDocumento = d.tipoDocumento ?? "NF";
 
     // Regras de bloqueio
+    if (exigeNumero(tipoDocumento) && !d.numero) {
+      return { ok: false, erro: "Número da NF é obrigatório" };
+    }
     const rateio = validarRateio(d.rateios);
     if (!rateio.ok) {
       return {
@@ -33,44 +44,46 @@ export const salvarNota = acaoDeEscrita(
       };
     }
 
-    // Avisos (contornáveis com confirmação)
-    if (!d.forcar) {
-      const duplicada = await prisma.notaFiscal.findFirst({
+    // Número repetido no mesmo fornecedor é bloqueio, não aviso: o banco tem
+    // unicidade (fornecedorId, numero), então "salvar mesmo assim" falharia.
+    if (d.numero) {
+      const repetida = await prisma.notaFiscal.findFirst({
         where: {
           fornecedorId: d.fornecedorId,
           numero: d.numero,
           ...(d.id ? { NOT: { id: d.id } } : {}),
         },
+        select: { tipoDocumento: true },
       });
-      if (duplicada) {
-        return { ok: false, aviso: true, erro: "Já existe uma NF com este número para este fornecedor. Salvar mesmo assim?" };
-      }
-      const somaItensCents = somaItens(d.itens);
-      if (somaItensCents !== d.totalCents) {
-        return {
-          ok: false,
-          aviso: true,
-          erro: `Soma dos itens (${formatarMoeda(somaItensCents)}) difere do total da nota (${formatarMoeda(d.totalCents)}). Salvar mesmo assim?`,
-        };
-      }
+      if (repetida) return { ok: false, erro: mensagemNumeroRepetido(tipoDocumento, d.numero) };
     }
 
-    if (d.id) {
-      const temParcelaPaga = await prisma.parcela.count({
-        where: { notaId: d.id, status: "PAGA" },
-      });
-      if (temParcelaPaga > 0 && !d.forcar) {
-        return {
-          ok: false,
-          aviso: true,
-          erro: "Esta nota tem parcelas pagas. Salvar vai recriá-las como abertas — os pagamentos registrados serão perdidos. Salvar mesmo assim?",
-        };
+    // Edição: casa as parcelas pelo número para preservar os pagamentos.
+    const reconciliacao = reconciliarParcelas(
+      d.id ? await parcelasExistentes(d.id) : [],
+      d.parcelas,
+    );
+
+    // Avisos (contornáveis com confirmação) — todos juntos numa só pergunta,
+    // para a confirmação de um não pular os demais em silêncio.
+    if (!d.forcar) {
+      const avisos: string[] = [];
+      const somaItensCents = somaItens(d.itens);
+      if (somaItensCents !== d.totalCents) {
+        avisos.push(
+          `Soma dos itens (${formatarMoeda(somaItensCents)}) difere do valor total (${formatarMoeda(d.totalCents)}).`,
+        );
+      }
+      const avisoPagas = avisoParcelasPagas(reconciliacao.pagasAfetadas);
+      if (avisoPagas) avisos.push(avisoPagas);
+      if (avisos.length > 0) {
+        return { ok: false, aviso: true, erro: [...avisos, "Salvar mesmo assim?"].join("\n\n") };
       }
     }
 
     const dadosNota = {
       fornecedorId: d.fornecedorId,
-      numero: d.numero,
+      tipoDocumento,
       dataCompra: new Date(d.dataCompra),
       totalCents: d.totalCents,
       formaPagto: d.formaPagto,
@@ -80,17 +93,29 @@ export const salvarNota = acaoDeEscrita(
     };
 
     const id = await prisma.$transaction(async (tx) => {
+      // Documento sem número próprio (recibo, folha...): gera o próximo da
+      // sequência do fornecedor, dentro da transação.
+      let numero = d.numero;
+      if (!numero && !exigeNumero(tipoDocumento)) {
+        const existentes = await tx.notaFiscal.findMany({
+          where: {
+            fornecedorId: d.fornecedorId,
+            numero: { startsWith: `${PREFIXO_DOCUMENTO[tipoDocumento]}-` },
+          },
+          select: { numero: true },
+        });
+        numero = gerarNumeroDocumento(tipoDocumento, existentes.map((n) => n.numero));
+      }
+
       let notaId = d.id;
       if (notaId) {
-        // Edição: recria itens/rateios/parcelas para manter consistência.
-        // Parcelas pagas já foram bloqueadas acima (a menos que `forcar`).
+        // Edição: recria itens e rateios; parcelas seguem a reconciliação.
         await tx.itemNota.deleteMany({ where: { notaId } });
         await tx.rateioNota.deleteMany({ where: { notaId } });
-        await tx.parcela.deleteMany({ where: { notaId } });
-        await tx.notaFiscal.update({ where: { id: notaId }, data: dadosNota });
+        await tx.notaFiscal.update({ where: { id: notaId }, data: { ...dadosNota, numero } });
       } else {
         const nota = await tx.notaFiscal.create({
-          data: { ...dadosNota, createdBy: user.id },
+          data: { ...dadosNota, numero, createdBy: user.id },
         });
         notaId = nota.id;
       }
@@ -117,21 +142,69 @@ export const salvarNota = acaoDeEscrita(
         })),
       });
 
-      await tx.parcela.createMany({
-        data: d.parcelas.map((p) => ({
-          notaId: notaId!,
-          numero: p.numero,
-          valorCents: p.valorCents,
-          vencimento: new Date(p.vencimento),
-        })),
-      });
+      // Parcelas: `manter` não é tocada (status/pagaEm preservados); as
+      // alteradas voltam a ABERTA; as removidas somem; as novas são criadas.
+      if (reconciliacao.removidas.length > 0) {
+        await tx.parcela.deleteMany({
+          where: { notaId, numero: { in: reconciliacao.removidas } },
+        });
+      }
+      for (const p of reconciliacao.parcelas.filter((p) => p.acao === "atualizar")) {
+        await tx.parcela.update({
+          where: { notaId_numero: { notaId, numero: p.numero } },
+          data: {
+            valorCents: p.valorCents,
+            vencimento: new Date(p.vencimento),
+            status: p.status,
+            pagaEm: p.pagaEm,
+          },
+        });
+      }
+      const criar = reconciliacao.parcelas.filter((p) => p.acao === "criar");
+      if (criar.length > 0) {
+        await tx.parcela.createMany({
+          data: criar.map((p) => ({
+            notaId: notaId!,
+            numero: p.numero,
+            valorCents: p.valorCents,
+            vencimento: new Date(p.vencimento),
+          })),
+        });
+      }
 
       return notaId;
+    }).catch((erro: unknown) => {
+      // Corrida rara: outro lançamento pegou o mesmo número entre a checagem e a gravação.
+      if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+        return null;
+      }
+      throw erro;
     });
 
+    if (!id) return { ok: false, erro: mensagemNumeroRepetido(tipoDocumento, d.numero) };
     return { ok: true, id };
   },
 );
+
+/** Parcelas gravadas de uma nota, no formato que `reconciliarParcelas` compara. */
+async function parcelasExistentes(notaId: string): Promise<ParcelaExistente[]> {
+  const parcelas = await prisma.parcela.findMany({
+    where: { notaId },
+    select: { numero: true, valorCents: true, vencimento: true, status: true, pagaEm: true },
+  });
+  // Mesma conversão da tela de edição (`dataParaInput`): uma parcela que o
+  // usuário não mexeu volta idêntica e é mantida.
+  return parcelas.map((p) => ({ ...p, vencimento: dataParaInput(p.vencimento) }));
+}
+
+function mensagemNumeroRepetido(tipo: TipoDocumento, numero: string): string {
+  if (tipo === "NF") {
+    return `Já existe a NF ${numero} deste fornecedor. Confira se a nota não foi lançada antes.`;
+  }
+  return numero
+    ? `Já existe um lançamento nº ${numero} deste fornecedor. Use outro número ou deixe em branco para gerar automaticamente.`
+    : "Não foi possível gerar o número do lançamento. Tente salvar de novo.";
+}
 
 export const excluirNota = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/notas", "/contas"] },

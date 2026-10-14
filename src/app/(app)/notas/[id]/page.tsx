@@ -6,6 +6,8 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { excluirNota } from "../actions";
 import { listarObrasParaRateio } from "@/services/obras";
 import { centsParaEditavel, dataParaInput, percentBpParaEditavel } from "@/lib/format";
+import { TIPO_DOCUMENTO_BADGE } from "@/services/financeiro";
+import type { ParcelaExistente } from "@/services/parcelas";
 import { Trash2 } from "lucide-react";
 
 export default async function EditarNotaPage({
@@ -35,6 +37,7 @@ export default async function EditarNotaPage({
 
   const defaultValues = {
     fornecedorId: nota.fornecedorId,
+    tipoDocumento: nota.tipoDocumento,
     numero: nota.numero,
     dataCompra: dataParaInput(nota.dataCompra),
     total: centsParaEditavel(nota.totalCents),
@@ -63,16 +66,25 @@ export default async function EditarNotaPage({
     })),
   };
 
+  // Mesmo formato que `salvarNota` compara (ver `parcelasExistentes` em actions.ts).
+  const parcelasExistentes: ParcelaExistente[] = nota.parcelas.map((p) => ({
+    numero: p.numero,
+    valorCents: p.valorCents,
+    vencimento: dataParaInput(p.vencimento),
+    status: p.status,
+    pagaEm: p.pagaEm,
+  }));
   const temParcelaPaga = nota.parcelas.some((p) => p.status === "PAGA");
+  const documento = `${TIPO_DOCUMENTO_BADGE[nota.tipoDocumento]} ${nota.numero}`;
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Editar NF {nota.numero}</h1>
+        <h1 className="text-2xl font-semibold">Editar {documento}</h1>
         {!temParcelaPaga && (
           <ConfirmButton
             action={excluirNota.bind(null, nota.id)}
-            mensagem={`Excluir a NF ${nota.numero}? Itens, rateios e parcelas serão removidos.`}
+            mensagem={`Excluir o lançamento ${documento}? Itens, rateios e parcelas serão removidos.`}
           >
             <Trash2 className="size-4" /> Excluir
           </ConfirmButton>
@@ -80,7 +92,9 @@ export default async function EditarNotaPage({
       </div>
       {temParcelaPaga && (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          Esta nota tem parcelas pagas. Ao salvar, as parcelas serão recriadas como abertas — o sistema vai pedir confirmação antes.
+          Este lançamento tem parcelas pagas. Elas continuam pagas se o valor e o vencimento não
+          mudarem; se você alterar ou remover uma parcela paga, o sistema pede confirmação antes de
+          reabri-la.
         </p>
       )}
       <NotaForm
@@ -88,6 +102,7 @@ export default async function EditarNotaPage({
         obras={obras}
         defaultValues={defaultValues}
         notaId={nota.id}
+        parcelasExistentes={parcelasExistentes}
       />
     </div>
   );

@@ -21,10 +21,21 @@ export const parcelaSchema = z.object({
   vencimento: z.string().min(1, "Vencimento é obrigatório"), // yyyy-mm-dd
 });
 
+export const tipoDocumentoSchema = z.enum(["NF", "RECIBO", "FOLHA", "GUIA", "OUTRO"]);
+
 export const notaSchema = z.object({
   id: z.string().optional(), // presente na edição
   fornecedorId: z.string().min(1, "Selecione o fornecedor"),
-  numero: z.string().min(1, "Número da NF é obrigatório"),
+  /**
+   * Tipo do documento do lançamento. Opcional para manter compatíveis os
+   * chamadores antigos (ex.: importação de XML): ausente = NF.
+   */
+  tipoDocumento: tipoDocumentoSchema.optional(),
+  /**
+   * Obrigatório só para NF. Nos demais tipos, vazio = o servidor gera um
+   * número sequencial por fornecedor (ver `gerarNumeroDocumento`).
+   */
+  numero: z.string().trim(),
   dataCompra: z.string().min(1, "Data da compra é obrigatória"),
   totalCents: z.number().int().positive("Valor total deve ser maior que zero"),
   formaPagto: z.enum(["PIX", "CARTAO", "DEBITO", "BOLETO", "TRANSFERENCIA", "DINHEIRO"]),
@@ -37,6 +48,9 @@ export const notaSchema = z.object({
   /** confirma salvamento apesar de avisos (NF duplicada, divergência itens×total) */
   forcar: z.boolean().optional(),
 });
+// Sem `.refine` no objeto de propósito: o Zod 4 proíbe `.extend()`/`.pick()` em
+// objetos com refinamento, e o schema é reaproveitado por outros módulos. A
+// regra "NF exige número" fica em `salvarNota` (via `exigeNumero`).
 
 export type NotaInput = z.infer<typeof notaSchema>;
 export type ItemNotaInput = z.infer<typeof itemNotaSchema>;
