@@ -4,16 +4,23 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatarMoeda, centsParaEditavel } from "@/lib/format";
+import { formatarMoeda, formatarPercentBp, centsParaEditavel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { FaixaConsumo } from "@/services/analises";
 import { salvarOrcamentos } from "./actions";
+import { ESTILO_FAIXA } from "./faixa";
 
 export type LinhaOrcamento = {
   etapaId: string | null; // null = itens sem etapa
   nome: string;
   previstoCents: number;
   realizadoCents: number;
+  /** calculados no servidor (`services/analises`) a partir do previsto salvo */
+  consumoBp: number | null;
+  faixa: FaixaConsumo;
 };
+
+export type TotalOrcamento = Omit<LinhaOrcamento, "etapaId" | "nome">;
 
 /** Orçamento ainda não preenchido fica em branco em vez de mostrar "0,00". */
 function centsParaStr(cents: number): string {
@@ -23,9 +30,11 @@ function centsParaStr(cents: number): string {
 export function OrcamentoForm({
   obraId,
   linhas,
+  total,
 }: {
   obraId: string;
   linhas: LinhaOrcamento[];
+  total: TotalOrcamento;
 }) {
   const [pendente, startTransition] = useTransition();
 
@@ -38,9 +47,6 @@ export function OrcamentoForm({
       else toast.error(res.erro ?? "Erro ao salvar");
     });
   }
-
-  const totalPrevisto = linhas.reduce((a, l) => a + l.previstoCents, 0);
-  const totalRealizado = linhas.reduce((a, l) => a + l.realizadoCents, 0);
 
   return (
     <form onSubmit={onSubmit} className="space-y-1">
@@ -55,7 +61,6 @@ export function OrcamentoForm({
 
       {linhas.map((l) => {
         const saldo = l.previstoCents - l.realizadoCents;
-        const consumo = l.previstoCents > 0 ? l.realizadoCents / l.previstoCents : null;
         return (
           <div
             key={l.etapaId ?? "sem-etapa"}
@@ -82,31 +87,26 @@ export function OrcamentoForm({
             >
               {l.etapaId ? formatarMoeda(saldo) : "—"}
             </span>
-            <span className="text-right text-sm">
-              {consumo !== null ? `${Math.round(consumo * 100)}%` : "—"}
-            </span>
-            <div className="col-span-2 h-2 overflow-hidden rounded-full bg-muted md:col-span-1 md:self-center">
-              {consumo !== null && (
-                <div
-                  className={cn(
-                    "h-full rounded-full",
-                    consumo > 1 ? "bg-destructive" : consumo > 0.85 ? "bg-amber-500" : "bg-green-500",
-                  )}
-                  style={{ width: `${Math.min(100, consumo * 100)}%` }}
-                />
-              )}
-            </div>
+            <Consumo consumoBp={l.consumoBp} faixa={l.faixa} />
+            <Barra consumoBp={l.consumoBp} faixa={l.faixa} />
           </div>
         );
       })}
 
-      <div className="grid grid-cols-2 gap-2 border-t px-2 pt-2 text-sm font-semibold md:grid-cols-[1fr_140px_120px_120px_90px_140px]">
-        <span>Total</span>
-        <span className="text-right">{formatarMoeda(totalPrevisto)}</span>
-        <span className="text-right">{formatarMoeda(totalRealizado)}</span>
-        <span className="hidden text-right md:block">
-          {formatarMoeda(totalPrevisto - totalRealizado)}
+      <div className="grid grid-cols-2 items-center gap-2 border-t px-2 pt-2 text-sm font-semibold md:grid-cols-[1fr_140px_120px_120px_90px_140px]">
+        <span>Total da obra</span>
+        <span className="text-right">{formatarMoeda(total.previstoCents)}</span>
+        <span className="text-right">{formatarMoeda(total.realizadoCents)}</span>
+        <span
+          className={cn(
+            "text-right",
+            total.previstoCents - total.realizadoCents < 0 && "text-destructive",
+          )}
+        >
+          {formatarMoeda(total.previstoCents - total.realizadoCents)}
         </span>
+        <Consumo consumoBp={total.consumoBp} faixa={total.faixa} />
+        <Barra consumoBp={total.consumoBp} faixa={total.faixa} />
       </div>
 
       <div className="pt-3">
@@ -115,5 +115,29 @@ export function OrcamentoForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function Consumo({ consumoBp, faixa }: { consumoBp: number | null; faixa: FaixaConsumo }) {
+  return (
+    <span
+      className={cn("text-right text-sm", faixa !== "OK" && "font-medium", ESTILO_FAIXA[faixa].texto)}
+      title={ESTILO_FAIXA[faixa].rotulo}
+    >
+      {consumoBp !== null ? formatarPercentBp(consumoBp) : "—"}
+    </span>
+  );
+}
+
+function Barra({ consumoBp, faixa }: { consumoBp: number | null; faixa: FaixaConsumo }) {
+  return (
+    <div className="col-span-2 h-2 overflow-hidden rounded-full bg-muted md:col-span-1 md:self-center">
+      {consumoBp !== null && (
+        <div
+          className={cn("h-full rounded-full", ESTILO_FAIXA[faixa].barra)}
+          style={{ width: `${Math.min(100, consumoBp / 100)}%` }}
+        />
+      )}
+    </div>
   );
 }

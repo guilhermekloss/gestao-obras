@@ -59,6 +59,27 @@ export async function realizadoPorEtapa(obraId: string): Promise<Map<string | nu
   return acumular(notas, (_, r) => r.etapaId);
 }
 
+/**
+ * Custo realizado por etapa de todas as obras de uma vez (chave = etapaId;
+ * rateios sem etapa ficam de fora). Usado pelos alertas de estouro, que
+ * percorrem todas as obras — evita uma consulta por obra.
+ */
+export async function realizadoPorEtapaTodas(): Promise<Map<string, number>> {
+  const notas = await prisma.notaFiscal.findMany({
+    where: { rateios: { some: { etapaId: { not: null } } } },
+    select: {
+      itens: { select: { totalCents: true } },
+      rateios: {
+        where: { etapaId: { not: null } },
+        select: { obraId: true, etapaId: true, fracaoBp: true },
+      },
+    },
+  });
+  const porEtapa = acumular(notas, (_, r) => r.etapaId);
+  porEtapa.delete(null);
+  return porEtapa as Map<string, number>;
+}
+
 /** Custo realizado por mês (aaaa-mm) × obra, desde a data informada. */
 export async function realizadoPorMes(
   desde: Date,
@@ -78,7 +99,8 @@ export async function realizadoPorMes(
   return porMes;
 }
 
-function chaveMes(d: Date): string {
+/** Chave "aaaa-mm" (mês local) usada por `realizadoPorMes`. */
+export function chaveMes(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 

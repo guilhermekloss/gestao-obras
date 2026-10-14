@@ -20,12 +20,12 @@ export function NovaMedicaoDialog({
 }) {
   return (
     <FormDialog
-      titulo={`Medição — ${etapaNome}`}
+      titulo={`Lançar avanço — ${etapaNome}`}
       action={criarMedicao}
-      textoBotao="Registrar medição"
+      textoBotao="Registrar avanço"
       trigger={
         <Button variant="outline" size="sm">
-          <Plus className="size-4" /> Medir
+          <Plus className="size-4" /> Avanço
         </Button>
       }
     >

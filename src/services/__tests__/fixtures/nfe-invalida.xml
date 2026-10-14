@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture sintética: XML truncado (tag <det> não fechada), como um download interrompido. -->
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35260998765432000110550010000012341876543210" versao="4.00">
+      <ide>
+        <nNF>1234</nNF>
+      </ide>
+      <det nItem="1">
+        <prod>
+          <xProd>TINTA ACRILICA</xProd>
+        </prod>
+    </infNFe>
+  </NFe>
+</nfeProc>

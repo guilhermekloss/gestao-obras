@@ -3,15 +3,23 @@ import { redirect } from "next/navigation";
 import { startOfMonth, addDays, startOfDay, subMonths } from "date-fns";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { realizadoPorObra, realizadoPorMes } from "@/services/custos";
+import { realizadoPorObra, realizadoPorMes, chaveMes } from "@/services/custos";
+import { carregarAlertas, carregarCurvaAbc } from "@/services/analises";
 import { avancoPonderado } from "@/services/obra";
 import { formatarMoeda } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   GastoMensalChart,
   OrcadoRealizadoChart,
   AvancoChart,
 } from "./dashboard-charts";
+import { CurvaSWidget } from "./widgets/curva-s";
+import { AlertasLista } from "./alertas-lista";
+import { TopInsumos } from "./top-insumos";
+
+/** Quantos alertas o card mostra; o resto fica em /dashboard/alertas. */
+const MAX_ALERTAS = 8;
+const LINK_CARD = "text-sm text-muted-foreground hover:text-foreground hover:underline";
 
 const MESES_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -25,17 +33,14 @@ export default async function DashboardPage() {
   const inicio12Meses = startOfMonth(subMonths(hoje, 11));
 
   const [
-    notasDoMes,
     aVencer7,
     obras,
     porMes,
     realizado,
     etapasComMedicoes,
+    alertas,
+    abc,
   ] = await Promise.all([
-    prisma.notaFiscal.aggregate({
-      where: { dataCompra: { gte: inicioMes } },
-      _sum: { totalCents: true },
-    }),
     prisma.parcela.aggregate({
       where: {
         status: "ABERTA",
@@ -51,15 +56,21 @@ export default async function DashboardPage() {
     realizadoPorMes(inicio12Meses),
     realizadoPorObra(),
     prisma.medicao.findMany({ orderBy: [{ data: "asc" }, { id: "asc" }] }),
+    carregarAlertas(hoje),
+    carregarCurvaAbc(),
   ]);
 
-  // Divergências: notas cujo total difere da soma dos itens
-  const notas = await prisma.notaFiscal.findMany({
-    select: { id: true, totalCents: true, itens: { select: { totalCents: true } } },
-  });
-  const divergencias = notas.filter(
-    (n) => n.itens.reduce((a, i) => a + i.totalCents, 0) !== n.totalCents,
-  ).length;
+  // "Gasto no mês" usa a mesma base dos gráficos (itens × rateio, por data de
+  // compra — `realizadoPorMes`), não `NotaFiscal.totalCents`: assim o KPI
+  // bate com a barra do mês em "Gasto mensal por obra". Quando itens e total
+  // da nota divergem, a diferença aparece no KPI de divergências.
+  const gastoNoMes = [...(porMes.get(chaveMes(inicioMes))?.values() ?? [])].reduce(
+    (a, v) => a + v,
+    0,
+  );
+
+  // Divergências: notas cujo total difere da soma dos itens (vêm dos alertas)
+  const divergencias = alertas.filter((a) => a.tipo === "NOTA_DIVERGENTE").length;
 
   // Gasto mensal por obra (12 meses, empilhado por data de compra)
   const nomeObra = new Map(obras.map((o) => [o.id, o.nome]));
@@ -112,7 +123,8 @@ export default async function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <CardStat
           titulo="Gasto no mês"
-          valor={formatarMoeda(notasDoMes._sum.totalCents ?? 0)}
+          valor={formatarMoeda(gastoNoMes)}
+          rodape="itens rateados às obras"
         />
         <CardStat
           titulo="A vencer em 7 dias"
@@ -130,6 +142,40 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Alertas</CardTitle>
+            {alertas.length > MAX_ALERTAS && (
+              <CardAction>
+                <Link href="/dashboard/alertas" className={LINK_CARD}>
+                  Ver todos ({alertas.length})
+                </Link>
+              </CardAction>
+            )}
+          </CardHeader>
+          <CardContent>
+            <AlertasLista alertas={alertas.slice(0, MAX_ALERTAS)} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Top 5 insumos (curva ABC)</CardTitle>
+            <CardAction>
+              <Link href="/orcamento/abc" className={LINK_CARD}>
+                Ver curva ABC
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            {abc.insumos.length === 0 ? (
+              <Vazio texto="Lance notas com itens para ver os maiores insumos." />
+            ) : (
+              <TopInsumos insumos={abc.insumos.slice(0, 5)} />
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Gasto mensal por obra</CardTitle>
@@ -162,12 +208,14 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {avancoData.length === 0 ? (
-              <Vazio texto="Registre medições para acompanhar o avanço." />
+              <Vazio texto="Lance o avanço das etapas em Cronograma → Avanço." />
             ) : (
               <AvancoChart data={avancoData} />
             )}
           </CardContent>
         </Card>
+
+        <CurvaSWidget />
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 # Gestão de Obras
 
-Plataforma web (responsiva/PWA) de gestão de obras: notas fiscais com rateio entre obras, contas a pagar, diário de obra mobile, orçamento vs. realizado, medições e dashboard. Substitui as planilhas de quantitativo e financeiro.
+Plataforma web (responsiva/PWA) de gestão de obras: lançamentos (NF, recibo, folha, guia) com rateio entre obras, importação de XML da NF-e, contas a pagar, diário de obra mobile com impressão, cronograma com Gantt e curva S, orçamento vs. realizado com curva ABC e alertas, e dashboard. Substitui as planilhas de quantitativo e financeiro.
+
+Roadmap e organização do trabalho: [`docs/plano-evolucao.md`](docs/plano-evolucao.md).
 
 Documentação completa do produto: pasta `../Gestão de Obras/` (vault Obsidian).
 
@@ -31,8 +33,8 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 
 ## Estrutura
 
-- `src/app/(app)/` — módulos: obras, fornecedores, notas, contas, diario, medicoes, orcamento, importar, usuarios, dashboard
-- `src/services/` — parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia
+- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, notas (lançamentos + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu), medicoes (redireciona para cronograma)
+- `src/services/` — parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), nfe-xml
 - `src/lib/` — prisma, auth (`exigirPapel`), acao (`acaoDeEscrita` — seam das server actions), format (moeda/data/percentual BR), storage
 - `prisma/` — schema, seed, `teste-fluxo.ts` (dados de demonstração)
 
@@ -42,11 +44,14 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 |---|---|
 | ADMIN | tudo + usuários |
 | ESCRITORIO | NFs, financeiro, orçamento, importação |
-| CAMPO | RDO, medições, obras — sem valores financeiros (bloqueado no servidor) |
+| CAMPO | RDO (edita/exclui o próprio por 7 dias), avanço no cronograma, obras — sem valores financeiros (bloqueado no servidor) |
 
 ## Pendências conscientes
 
 - Service worker (cache offline) não instalado — o PWA é instalável via manifest; Serwist fica para quando o deploy for definido.
 - Rateio é por nota (aplicado a todos os itens) — o modelo de dados garante isso (`RateioNota` pertence à `NotaFiscal`, não ao item). Para destinar um item a outra obra, lance em uma nota separada.
-- Editar uma NF com parcelas pagas recria as parcelas como abertas — a ação pede confirmação antes de perder o registro de pagamento.
+- Editar um lançamento preserva as parcelas pagas cujo valor e vencimento não mudaram; alterar ou remover uma parcela paga a reabre/remove, com confirmação.
+- Lançamentos sem NF (recibo, folha, guia, outro) recebem número automático por fornecedor quando ficam em branco: `REC-0001`, `FOL-0001`, `GUIA-0001`, `DOC-0001`.
+- Datas em colunas `@db.Date` (RDO, datas previstas de etapa) e datas gravadas à meia-noite UTC podem aparecer um dia antes num servidor fora de UTC — rodar o servidor em UTC até a padronização (ver plano, Onda 2).
+- Fotos removidas de um RDO ficam órfãs em `./uploads` até o driver de storage ganhar `remover` (Onda 2, junto com S3/R2).
 - Importador espera o formato documentado na tela Importar — valide com as planilhas reais exportadas em CSV.

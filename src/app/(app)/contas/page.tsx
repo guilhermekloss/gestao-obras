@@ -5,8 +5,10 @@ import { exigirPapel } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
+import { SelectNativo } from "@/components/select-nativo";
 import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { listarObrasParaFiltro } from "@/services/obras";
+import { TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, parseTipoDocumento } from "@/services/financeiro";
 import { ContasTable, type ParcelaLinha } from "./contas-client";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +24,11 @@ const VISOES = [
 export default async function ContasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ visao?: string; obra?: string; fornecedor?: string }>;
+  searchParams: Promise<{ visao?: string; obra?: string; fornecedor?: string; tipo?: string }>;
 }) {
   await exigirPapel("ADMIN", "ESCRITORIO");
-  const { visao = "semana", obra, fornecedor } = await searchParams;
+  const { visao = "semana", obra, fornecedor, tipo: tipoParam } = await searchParams;
+  const tipo = parseTipoDocumento(tipoParam);
 
   const hoje = new Date();
   const where: Prisma.ParcelaWhereInput = {};
@@ -54,13 +57,18 @@ export default async function ContasPage({
       where.status = "ABERTA";
   }
 
-  if (fornecedor) where.nota = { fornecedorId: fornecedor };
-  if (obra) {
-    where.nota = {
-      ...(where.nota as object ?? {}),
-      rateios: { some: { obraId: obra } },
-    };
-  }
+  const filtroNota: Prisma.NotaFiscalWhereInput = {};
+  if (fornecedor) filtroNota.fornecedorId = fornecedor;
+  if (obra) filtroNota.rateios = { some: { obraId: obra } };
+  if (tipo) filtroNota.tipoDocumento = tipo;
+  if (Object.keys(filtroNota).length > 0) where.nota = filtroNota;
+
+  // Filtros atuais (sem a visão), repassados nos links das visões.
+  const filtrosQuery = new URLSearchParams({
+    ...(obra ? { obra } : {}),
+    ...(fornecedor ? { fornecedor } : {}),
+    ...(tipo ? { tipo } : {}),
+  }).toString();
 
   const [parcelas, fornecedores, obras] = await Promise.all([
     prisma.parcela.findMany({
@@ -93,6 +101,7 @@ export default async function ContasPage({
     fornecedor: p.nota.fornecedor.nome,
     notaId: p.notaId,
     notaNumero: p.nota.numero,
+    tipoDocumento: p.nota.tipoDocumento,
     obras: p.nota.rateios
       .map((r) =>
         r.fracaoBp === 10000 ? r.obra.nome : `${r.obra.nome} (${formatarPercentBp(r.fracaoBp)})`,
@@ -115,7 +124,7 @@ export default async function ContasPage({
         {VISOES.map((v) => (
           <Link
             key={v.key}
-            href={`/contas?visao=${v.key}${obra ? `&obra=${obra}` : ""}${fornecedor ? `&fornecedor=${fornecedor}` : ""}`}
+            href={`/contas?visao=${v.key}${filtrosQuery ? `&${filtrosQuery}` : ""}`}
             className={cn(
               "rounded-full border px-3 py-1 text-sm",
               visao === v.key
@@ -151,6 +160,15 @@ export default async function ContasPage({
             className="w-48"
             options={fornecedores.map((f) => ({ value: f.id, label: f.nome }))}
           />
+        </div>
+        <div className="grid gap-1">
+          <label htmlFor="filtro-tipo" className="text-xs text-muted-foreground">Tipo</label>
+          <SelectNativo id="filtro-tipo" name="tipo" defaultValue={tipo ?? ""} className="w-44">
+            <option value="">Todos</option>
+            {TIPOS_DOCUMENTO.map((t) => (
+              <option key={t} value={t}>{TIPO_DOCUMENTO_LABELS[t]}</option>
+            ))}
+          </SelectNativo>
         </div>
         <Button type="submit" variant="secondary" size="sm">Filtrar</Button>
       </form>

@@ -10,9 +10,8 @@ import {
   ReceiptText,
   CalendarClock,
   NotebookPen,
-  Ruler,
+  ChartGantt,
   PiggyBank,
-  FileUp,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -30,12 +29,11 @@ const ITENS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, papeis: ["ADMIN", "ESCRITORIO"], mobile: true },
   { href: "/obras", label: "Obras", icon: Building2, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"], mobile: true },
   { href: "/fornecedores", label: "Fornecedores", icon: Truck, papeis: ["ADMIN", "ESCRITORIO"] },
-  { href: "/notas", label: "Notas fiscais", icon: ReceiptText, papeis: ["ADMIN", "ESCRITORIO"], mobile: true },
+  { href: "/notas", label: "Lançamentos", icon: ReceiptText, papeis: ["ADMIN", "ESCRITORIO"], mobile: true },
   { href: "/contas", label: "Contas a pagar", icon: CalendarClock, papeis: ["ADMIN", "ESCRITORIO"], mobile: true },
   { href: "/diario", label: "Diário de obra", icon: NotebookPen, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"], mobile: true },
-  { href: "/medicoes", label: "Medições", icon: Ruler, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"], mobile: true },
+  { href: "/cronograma", label: "Cronograma", icon: ChartGantt, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"], mobile: true },
   { href: "/orcamento", label: "Orçamento", icon: PiggyBank, papeis: ["ADMIN", "ESCRITORIO"] },
-  { href: "/importar", label: "Importar", icon: FileUp, papeis: ["ADMIN", "ESCRITORIO"] },
   { href: "/usuarios", label: "Usuários", icon: Users, papeis: ["ADMIN"] },
 ];
 

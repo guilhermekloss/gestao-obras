@@ -32,6 +32,28 @@ enum FormaPagto {
   CARTAO
   DEBITO
   BOLETO
+  TRANSFERENCIA
+  DINHEIRO
+}
+
+/**
+ * Documento que origina o custo — NF é o padrão; os demais cobrem custos sem nota (mão de obra, impostos, taxas).
+ */
+enum TipoDocumento {
+  NF
+  RECIBO
+  FOLHA
+  GUIA
+  OUTRO
+}
+
+/**
+ * Condição de trabalho registrada no RDO.
+ */
+enum CondicaoTrabalho {
+  PRATICAVEL
+  PARCIAL
+  IMPRATICAVEL
 }
 
 enum StatusParcela {
@@ -70,6 +92,8 @@ model Etapa {
   nome           String // "Fundação", "Acabamento"...
   ordem          Int
   orcamentoCents Int          @default(0) // previsto
+  inicioPrevisto DateTime?    @db.Date // cronograma (linha de base)
+  fimPrevisto    DateTime?    @db.Date
   medicoes       Medicao[]
   rateios        RateioNota[] // realizado por etapa (opcional na nota)
 }
@@ -84,25 +108,31 @@ model Fornecedor {
 }
 
 model NotaFiscal {
-  id           String       @id @default(cuid())
-  fornecedorId String
-  fornecedor   Fornecedor   @relation(fields: [fornecedorId], references: [id])
-  numero       String
-  dataCompra   DateTime
-  totalCents   Int // valor da nota
-  formaPagto   FormaPagto
-  obs          String?
-  anexoUrl     String?
-  anexoNome    String? // nome original do arquivo, para exibir no link
-  itens        ItemNota[]
-  rateios      RateioNota[] // rateio se aplica à nota inteira, não a itens individuais
-  parcelas     Parcela[]
-  createdBy    String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id            String        @id @default(cuid())
+  fornecedorId  String
+  fornecedor    Fornecedor    @relation(fields: [fornecedorId], references: [id])
+  numero        String
+  tipoDocumento TipoDocumento @default(NF)
+  /**
+   * Chave de acesso da NF-e (44 dígitos) quando importada do XML — evita importar a mesma nota duas vezes.
+   */
+  chaveNfe      String?       @unique
+  dataCompra    DateTime
+  totalCents    Int // valor da nota
+  formaPagto    FormaPagto
+  obs           String?
+  anexoUrl      String?
+  anexoNome     String? // nome original do arquivo, para exibir no link
+  itens         ItemNota[]
+  rateios       RateioNota[] // rateio se aplica à nota inteira, não a itens individuais
+  parcelas      Parcela[]
+  createdBy     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@unique([fornecedorId, numero])
   @@index([dataCompra])
+  @@index([fornecedorId])
 }
 
 model ItemNota {
@@ -116,9 +146,13 @@ model ItemNota {
   unitCents     Int
   descontoCents Int        @default(0)
   totalCents    Int
+
+  @@index([notaId])
 }
 
-/** Rateio entre obras: se aplica a todos os itens da nota (ver README §Pendências conscientes). */
+/**
+ * Rateio entre obras: se aplica a todos os itens da nota (ver README §Pendências conscientes).
+ */
 model RateioNota {
   id       String     @id @default(cuid())
   notaId   String
@@ -145,6 +179,7 @@ model Parcela {
 
   @@unique([notaId, numero])
   @@index([vencimento, status])
+  @@index([notaId])
 }
 
 model Medicao {
@@ -156,21 +191,28 @@ model Medicao {
   obs       String?
   autorId   String?
   autor     Usuario? @relation(fields: [autorId], references: [id])
+
+  @@index([etapaId])
 }
 
 model DiarioObra {
-  id          String   @id @default(cuid())
-  obraId      String
-  obra        Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
-  data        DateTime @db.Date
-  clima       String? // "Sol / Chuva à tarde"
-  efetivo     Json? // [{funcao:"pedreiro", qtd:4}, ...]
-  atividades  String
-  ocorrencias String?
-  fotos       Foto[]
-  autorId     String?
-  autor       Usuario? @relation(fields: [autorId], references: [id])
-  createdAt   DateTime @default(now())
+  id           String            @id @default(cuid())
+  obraId       String
+  obra         Obra              @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  data         DateTime          @db.Date
+  clima        String? // legado, texto livre: "Sol / Chuva à tarde"
+  climaManha   String? // "SOL" | "NUBLADO" | "CHUVA"...
+  climaTarde   String?
+  condicao     CondicaoTrabalho?
+  efetivo      Json? // [{funcao:"pedreiro", qtd:4}, ...]
+  equipamentos Json? // [{nome:"betoneira", qtd:1}, ...]
+  atividades   String
+  ocorrencias  String?
+  fotos        Foto[]
+  autorId      String?
+  autor        Usuario?          @relation(fields: [autorId], references: [id])
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @default(now()) @updatedAt
 
   @@unique([obraId, data])
   @@index([obraId, data])

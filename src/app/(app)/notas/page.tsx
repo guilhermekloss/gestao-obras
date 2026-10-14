@@ -14,27 +14,30 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Input } from "@/components/ui/input";
+import { SelectNativo } from "@/components/select-nativo";
 import { formatarMoeda, formatarData } from "@/lib/format";
 import { listarObrasParaFiltro } from "@/services/obras";
-import { Paperclip, Plus } from "lucide-react";
-
-const FORMA_LABELS: Record<string, string> = {
-  PIX: "PIX",
-  CARTAO: "Cartão",
-  DEBITO: "Débito",
-  BOLETO: "Boleto",
-};
+import {
+  FORMA_PAGTO_LABELS,
+  TIPO_DOCUMENTO_BADGE,
+  TIPO_DOCUMENTO_LABELS,
+  TIPOS_DOCUMENTO,
+  parseTipoDocumento,
+} from "@/services/financeiro";
+import { FileCode2, Paperclip, Plus } from "lucide-react";
 
 export default async function NotasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fornecedor?: string; obra?: string; de?: string; ate?: string }>;
+  searchParams: Promise<{ fornecedor?: string; obra?: string; de?: string; ate?: string; tipo?: string }>;
 }) {
   await exigirPapel("ADMIN", "ESCRITORIO");
-  const { fornecedor, obra, de, ate } = await searchParams;
+  const { fornecedor, obra, de, ate, tipo: tipoParam } = await searchParams;
+  const tipo = parseTipoDocumento(tipoParam);
 
   const where: Prisma.NotaFiscalWhereInput = {};
   if (fornecedor) where.fornecedorId = fornecedor;
+  if (tipo) where.tipoDocumento = tipo;
   if (obra) where.rateios = { some: { obraId: obra } };
   if (de || ate) {
     where.dataCompra = {
@@ -63,10 +66,15 @@ export default async function NotasPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Notas fiscais</h1>
-        <Button render={<Link href="/notas/nova" />}>
-          <Plus className="size-4" /> Nova NF
-        </Button>
+        <h1 className="text-2xl font-semibold">Lançamentos</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" render={<Link href="/notas/importar-xml" />}>
+            <FileCode2 className="size-4" /> Importar XML
+          </Button>
+          <Button render={<Link href="/notas/nova" />}>
+            <Plus className="size-4" /> Novo lançamento
+          </Button>
+        </div>
       </div>
 
       <form method="get" className="flex flex-wrap items-end gap-2">
@@ -93,6 +101,15 @@ export default async function NotasPage({
           />
         </div>
         <div className="grid gap-1">
+          <label htmlFor="filtro-tipo" className="text-xs text-muted-foreground">Tipo</label>
+          <SelectNativo id="filtro-tipo" name="tipo" defaultValue={tipo ?? ""} className="w-44">
+            <option value="">Todos</option>
+            {TIPOS_DOCUMENTO.map((t) => (
+              <option key={t} value={t}>{TIPO_DOCUMENTO_LABELS[t]}</option>
+            ))}
+          </SelectNativo>
+        </div>
+        <div className="grid gap-1">
           <label className="text-xs text-muted-foreground">De</label>
           <Input type="date" name="de" defaultValue={de ?? ""} className="w-36" />
         </div>
@@ -104,7 +121,7 @@ export default async function NotasPage({
       </form>
 
       <p className="text-sm text-muted-foreground">
-        {notas.length} notas · total {formatarMoeda(totalPeriodo)}
+        {notas.length} {notas.length === 1 ? "lançamento" : "lançamentos"} · total {formatarMoeda(totalPeriodo)}
       </p>
 
       <div className="rounded-md border">
@@ -113,7 +130,7 @@ export default async function NotasPage({
             <TableRow>
               <TableHead>Data</TableHead>
               <TableHead>Fornecedor</TableHead>
-              <TableHead>NF</TableHead>
+              <TableHead>Documento</TableHead>
               <TableHead className="hidden md:table-cell">Forma</TableHead>
               <TableHead className="hidden md:table-cell">Itens</TableHead>
               <TableHead>Parcelas</TableHead>
@@ -133,6 +150,12 @@ export default async function NotasPage({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant={n.tipoDocumento === "NF" ? "outline" : "secondary"}
+                        title={TIPO_DOCUMENTO_LABELS[n.tipoDocumento]}
+                      >
+                        {TIPO_DOCUMENTO_BADGE[n.tipoDocumento]}
+                      </Badge>
                       {n.numero}
                       {n.anexoUrl && (
                         <a
@@ -147,7 +170,7 @@ export default async function NotasPage({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">{FORMA_LABELS[n.formaPagto]}</TableCell>
+                  <TableCell className="hidden md:table-cell">{FORMA_PAGTO_LABELS[n.formaPagto]}</TableCell>
                   <TableCell className="hidden md:table-cell">{n._count.itens}</TableCell>
                   <TableCell>
                     <Badge variant={pagas === n.parcelas.length ? "secondary" : "outline"}>
@@ -163,7 +186,7 @@ export default async function NotasPage({
             {notas.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Nenhuma nota encontrada.
+                  Nenhum lançamento encontrado.
                 </TableCell>
               </TableRow>
             )}

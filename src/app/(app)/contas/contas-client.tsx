@@ -13,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatarMoeda, formatarData } from "@/lib/format";
+import { TIPO_DOCUMENTO_BADGE, TIPO_DOCUMENTO_LABELS } from "@/services/financeiro";
+import type { TipoDocumento } from "@prisma/client";
 import { pagarParcelas, reabrirParcela } from "./actions";
 import { CheckCheck, Undo2 } from "lucide-react";
 import Link from "next/link";
@@ -29,6 +31,7 @@ export type ParcelaLinha = {
   fornecedor: string;
   notaId: string;
   notaNumero: string;
+  tipoDocumento: TipoDocumento;
   obras: string; // "Lote 03 (60%), Lote 19 (40%)"
 };
 
@@ -97,7 +100,7 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
               </TableHead>
               <TableHead>Vencimento</TableHead>
               <TableHead>Fornecedor</TableHead>
-              <TableHead className="hidden md:table-cell">NF</TableHead>
+              <TableHead className="hidden md:table-cell">Documento</TableHead>
               <TableHead className="hidden lg:table-cell">Obras</TableHead>
               <TableHead>Parcela</TableHead>
               <TableHead>Status</TableHead>
@@ -126,7 +129,17 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
                     {p.fornecedor}
                   </Link>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">{p.notaNumero}</TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <div className="flex items-center gap-1.5">
+                    <Badge
+                      variant={p.tipoDocumento === "NF" ? "outline" : "secondary"}
+                      title={TIPO_DOCUMENTO_LABELS[p.tipoDocumento]}
+                    >
+                      {TIPO_DOCUMENTO_BADGE[p.tipoDocumento]}
+                    </Badge>
+                    {p.notaNumero}
+                  </div>
+                </TableCell>
                 <TableCell className="hidden max-w-48 truncate lg:table-cell">{p.obras}</TableCell>
                 <TableCell>
                   {p.numero}/{p.totalParcelas}
