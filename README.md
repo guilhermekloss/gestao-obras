@@ -22,6 +22,12 @@ Login inicial: `admin@obras.local` / `admin123` (troque na tela Usuários).
 
 Para testar no celular: acesse `http://<IP-da-máquina>:3000` na mesma rede Wi-Fi e use "Adicionar à tela inicial".
 
+## Produção (Google Cloud)
+
+Cloud Run + Cloud SQL (PostgreSQL) + Cloud Storage em São Paulo, infraestrutura em Terraform (`infra/`) e deploy automático pelo GitHub Actions a cada merge na `main` (CI → migrations → revisão nova testada antes de receber tráfego). Configuração inicial, operação e segurança: [`docs/deploy-gcp.md`](docs/deploy-gcp.md).
+
+Em produção os arquivos vão para o bucket definido em `STORAGE_BUCKET`; sem essa variável, ficam em `./uploads` (desenvolvimento).
+
 ## Testes
 
 ```bash
@@ -55,5 +61,5 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 - Editar um lançamento preserva as parcelas pagas cujo valor e vencimento não mudaram; alterar ou remover uma parcela paga a reabre/remove, com confirmação.
 - Lançamentos sem NF (recibo, folha, guia, outro) recebem número automático por fornecedor quando ficam em branco: `REC-0001`, `FOL-0001`, `GUIA-0001`, `DOC-0001`.
 - Datas em colunas `@db.Date` (RDO, datas previstas de etapa) e datas gravadas à meia-noite UTC podem aparecer um dia antes num servidor fora de UTC — rodar o servidor em UTC até a padronização (ver plano, Onda 2).
-- Fotos removidas de um RDO ficam órfãs em `./uploads` até o driver de storage ganhar `remover` (Onda 2, junto com S3/R2).
+- Fotos removidas de um RDO ficam órfãs no storage (`./uploads` ou o bucket) até o driver ganhar `remover` (Onda 2).
 - Importador espera o formato documentado na tela Importar — valide com as planilhas reais exportadas em CSV.
