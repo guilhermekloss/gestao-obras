@@ -12,6 +12,7 @@ import {
   OrcadoRealizadoChart,
   AvancoChart,
 } from "./dashboard-charts";
+import { CurvaSWidget } from "./widgets/curva-s";
 
 const MESES_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -168,6 +169,8 @@ export default async function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        <CurvaSWidget />
       </div>
     </div>
   );

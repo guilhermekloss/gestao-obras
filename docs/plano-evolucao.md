@@ -68,22 +68,23 @@ CRM/funil de vendas, base SINAPI completa (avaliar só se surgir demanda de obra
 | 1.1 | Lançamentos sem NF (recibo/folha/guia) + preservar pagamentos ao editar NF | A1 Financeiro |
 | 1.2 | Importação de XML de NF-e (upload do XML → nota pré-preenchida, fornecedor por CNPJ) | A2 NF-e |
 | 1.3 | Cronograma: datas previstas por etapa, Gantt simples, curva S previsto × realizado; Medições vira aba "Avanço" | A3 Planejamento |
-| 1.4 | RDO: edição, equipamentos, clima por turno (manhã/tarde, dia impraticável), exportar PDF | A4 Diário |
+| 1.4 | RDO: edição, equipamentos, clima por turno (manhã/tarde, dia impraticável), versão para impressão/PDF | A4 Diário |
 | 1.5 | Curva ABC de insumos, alertas de estouro por etapa, correção do KPI "gasto no mês" | A5 Análises |
 
-**Onda 2 — novos domínios**
+**Onda 2 — novos domínios** (em ordem de prioridade)
 
 | # | Item | Agente |
 |---|---|---|
-| 2.1 | Contratos de empreiteiro + medição de serviço (retenção caução, INSS 11%, ISS) gerando parcelas a pagar | A6 Contratos |
+| 2.1 | Contratos de empreiteiro + medição de serviço (retenção caução, INSS 11%, ISS) gerando parcelas a pagar — mão de obra é o maior custo que hoje fica fora do sistema | A6 Contratos |
 | 2.2 | Compras: solicitação → mapa de cotação → pedido → NF vinculada | A7 Suprimentos |
 | 2.3 | Contas a receber (cliente/obra), fluxo de caixa realizado + projetado | A8 Recebíveis |
 | 2.4 | Documentos da obra (plantas, contratos, alvarás) + driver S3/R2 | A9 Documentos |
-| 2.5 | PWA offline para RDO (Serwist) | A4 Diário (continuação) |
+| 2.5 | Plataforma (transversal, roda sozinho na Fase 0 da Onda 2): permissão por obra para CAMPO, log de auditoria em `acaoDeEscrita`, dados bancários/PIX do fornecedor | Fundação |
 
 **Onda 3 — diferenciais**
 
-Portal do cliente (link só leitura: avanço, fotos, RDOs) · checklists/FVS simples ·
+Portal do cliente (link só leitura: avanço, fotos, RDOs) — as obras atuais são lotes da própria
+empresa, então o portal só faz sentido quando houver obra por encomenda · checklists/FVS simples ·
 estoque por obra · conciliação OFX · IA: leitura de NF em PDF/foto e resumo semanal do
 RDO para o cliente · notificações por WhatsApp.
 
@@ -99,23 +100,22 @@ Os pontos de colisão do repositório são poucos e conhecidos:
 `src/lib/*`, `package.json`/`package-lock.json`.
 Todos eles são alterados **uma única vez, por um único agente, antes** da onda começar.
 
-### Fase 0 — Agente Fundação (sozinho, sequencial)
+### Fase 0 — Agente Fundação (sozinho, sequencial) — ✅ feita na Onda 1
 
-1. **Schema da onda inteira numa migração só.** Desenha todos os models/campos da onda
-   (ex.: `Etapa.inicioPrevisto/fimPrevisto`, `NotaFiscal.tipoDocumento`, `DiarioObra.equipamentos/climaTurnos`,
-   `UsuarioObra`, `LogAuditoria`) e gera **uma** migração. Durante a onda o schema fica
-   **congelado** — nenhum agente gera migração.
-   Avaliar dividir em `prisma/schema/*.prisma` por domínio (multi-file schema, GA no Prisma 6.7+).
-2. **Menu:** adiciona todas as entradas novas em `nav.tsx` apontando para as rotas que os agentes vão criar.
-3. **Página da obra em abas:** `obras/[id]/page.tsx` vira casca; cada aba é um arquivo
-   em `obras/[id]/abas/<aba>.tsx` com stub — cada agente preenche só a sua.
-4. **Dashboard em widgets:** `dashboard/page.tsx` importa `dashboard/widgets/<x>.tsx` (stubs).
-5. **Assinaturas de services** com stub e tipo de retorno fixo (ex.: `curvaS(obraId)`,
-   `curvaABC(filtro)`), para quem consome não depender de quem implementa.
-6. **Helpers transversais:** `obrasVisiveis(usuario)` em `services/obras.ts` (permissão por
-   obra) e auditoria automática em `acaoDeEscrita` (`lib/acao.ts`).
-7. **Dependências instaladas de uma vez** (parser XML, gerador de PDF, Serwist etc.).
-8. Valida: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`. Commit na `main`.
+1. **Schema da onda inteira numa migração só** (`20261014100000_onda1_fundacao`). Durante a onda
+   o schema fica **congelado** — nenhum agente gera migração. Campos da Onda 1:
+   - `NotaFiscal.tipoDocumento` (NF, RECIBO, FOLHA, GUIA, OUTRO) e `FormaPagto` + TRANSFERENCIA, DINHEIRO → A1
+   - `NotaFiscal.chaveNfe` (único) → A2
+   - `Etapa.inicioPrevisto`, `Etapa.fimPrevisto` → A3
+   - `DiarioObra.climaManha`, `climaTarde`, `condicao` (PRATICAVEL/PARCIAL/IMPRATICAVEL), `equipamentos` (Json), `updatedAt` → A4
+   - correção de drift: os 4 índices de FK que existiam nas migrações mas não no schema.
+2. **Menu:** Cronograma (`/cronograma`) substitui Medições; Importar sai do menu (rota mantida).
+3. **Página da obra em abas:** `obras/[id]/page.tsx` virou casca com abas Resumo · Cronograma · Diário,
+   cada uma em `obras/[id]/abas/<aba>.tsx` com o contrato `AbaObraProps` (`obraId`, `role`).
+4. **Dashboard:** slot `dashboard/widgets/curva-s.tsx` (stub do A3) já importado na página.
+5. **Dependência instalada:** `fast-xml-parser` (A2). PDF do RDO sai por página de impressão — sem dependência.
+6. `.claude/` (worktrees dos agentes) excluído do `tsc` e do `eslint` do repositório principal.
+7. Validado: `lint`, `tsc --noEmit`, `vitest`, `build` e navegação nas abas.
 
 ### Fase 1 — agentes em paralelo
 
@@ -127,8 +127,8 @@ Cada agente roda em **git worktree próprio** (branch `feat/<agente>`) e com **b
 | **A1 Financeiro** | `src/app/(app)/notas/` (exceto `importar-xml/`), `src/app/(app)/contas/`, `src/services/parcelas.ts`, `financeiro.ts`, `src/schemas/nota.ts` | `rateio.ts`, `custos.ts` |
 | **A2 NF-e** | `src/app/(app)/notas/importar-xml/`, `src/services/nfe-xml.ts` (+ testes) | `schemas/nota.ts`, `services/fornecedores.ts`, `rateio.ts` |
 | **A3 Planejamento** | `src/app/(app)/medicoes/`, `src/app/(app)/cronograma/`, `obras/[id]/abas/cronograma.tsx`, `src/services/cronograma.ts`, `services/obra.ts`, `dashboard/widgets/curva-s.tsx` | `custos.ts` |
-| **A4 Diário** | `src/app/(app)/diario/`, `obras/[id]/abas/diario.tsx`, `src/services/rdo-pdf.ts` | `lib/storage.ts`, `api/upload` |
-| **A5 Análises** | `dashboard/widgets/` (exceto `curva-s.tsx`), `src/app/(app)/orcamento/`, `src/services/analises.ts`, `custos.ts` | todo o resto |
+| **A4 Diário** | `src/app/(app)/diario/`, `obras/[id]/abas/diario.tsx`, `src/services/rdo.ts` | `lib/storage.ts`, `api/upload` |
+| **A5 Análises** | `src/app/(app)/dashboard/` (exceto `widgets/curva-s.tsx`), `src/app/(app)/orcamento/`, `src/services/analises.ts`, `custos.ts` | todo o resto |
 
 Regras para todos os agentes:
 
@@ -159,9 +159,10 @@ Fase 1  (worktrees paralelos)  ├─ A3 Planejamento┼─ Fase 2  Integrador �
 
 ---
 
-## 5. Decisões pendentes (dono do produto)
+## 5. Decisões tomadas
 
-1. Remover a tela **Importar CSV** do menu agora?
-2. **Medições** → virar aba "Avanço" dentro do Cronograma (sai do menu)?
-3. Onda 2: qual vem primeiro — **contratos de empreiteiro**, **compras** ou **contas a receber**?
-4. Portal do cliente é prioridade (vende para cliente final) ou fica na Onda 3?
+1. **Importar CSV** sai do menu (rota `/importar` continua acessível; código removido num ciclo futuro).
+2. **Medições** vira a aba "Avanço" do Cronograma e sai do menu.
+3. Ordem da Onda 2: **contratos de empreiteiro → compras → contas a receber**.
+4. **Portal do cliente** fica na Onda 3.
+5. **Offline fica fora** por enquanto (sem service worker / PWA offline).

@@ -27,7 +27,7 @@ export const notaSchema = z.object({
   numero: z.string().min(1, "Número da NF é obrigatório"),
   dataCompra: z.string().min(1, "Data da compra é obrigatória"),
   totalCents: z.number().int().positive("Valor total deve ser maior que zero"),
-  formaPagto: z.enum(["PIX", "CARTAO", "DEBITO", "BOLETO"]),
+  formaPagto: z.enum(["PIX", "CARTAO", "DEBITO", "BOLETO", "TRANSFERENCIA", "DINHEIRO"]),
   obs: z.string().optional(),
   anexoUrl: z.string().optional(),
   anexoNome: z.string().optional(),
