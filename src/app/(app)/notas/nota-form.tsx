@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { toast } from "sonner";
@@ -19,15 +19,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatarMoeda, moedaParaCents, dataParaInput, percentBpParaEditavel } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
 import { BP_TOTAL } from "@/services/rateio";
+import { FORMA_PAGTO_LABELS, TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, exigeNumero } from "@/services/financeiro";
+import type { ParcelaExistente } from "@/services/parcelas";
 import { salvarNota, criarFornecedorInline } from "./actions";
 import {
   dividirIgualmenteForm,
   gerarParcelasForm,
   montarPayload,
+  situacaoParcelasPagas,
   somaItensForm,
   somaParcelasForm,
   somaRateioForm,
+  tipoItemSugerido,
   totalItemForm,
   type ItemForm,
   type NotaFormValues,
@@ -57,23 +62,21 @@ const TIPOS = [
   { value: "ENCARGO", label: "Encargo" },
 ];
 
-const FORMAS = [
-  { value: "PIX", label: "PIX" },
-  { value: "CARTAO", label: "Cartão" },
-  { value: "DEBITO", label: "Débito" },
-  { value: "BOLETO", label: "Boleto" },
-];
+const FORMAS = Object.entries(FORMA_PAGTO_LABELS).map(([value, label]) => ({ value, label }));
 
 export function NotaForm({
   fornecedores: fornecedoresIniciais,
   obras,
   defaultValues,
   notaId,
+  parcelasExistentes = [],
 }: {
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
   defaultValues?: Partial<NotaFormValues>;
   notaId?: string;
+  /** Parcelas gravadas (edição): marca no formulário quais seguem pagas ao salvar. */
+  parcelasExistentes?: ParcelaExistente[];
 }) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
@@ -84,6 +87,7 @@ export function NotaForm({
     useForm<NotaFormValues>({
       defaultValues: {
         fornecedorId: "",
+        tipoDocumento: "NF",
         numero: "",
         dataCompra: dataParaInput(new Date()),
         total: "",
@@ -112,6 +116,17 @@ export function NotaForm({
   const total = watch("total");
   const anexoUrl = watch("anexoUrl");
   const anexoNome = watch("anexoNome");
+  const tipoDocumento = watch("tipoDocumento");
+  const ehNF = exigeNumero(tipoDocumento);
+  const situacaoPagas = situacaoParcelasPagas(parcelasExistentes, parcelas);
+
+  /** Ao trocar o tipo, sugere o tipo de item nas linhas ainda em branco. */
+  function aoMudarTipoDocumento(novo: NotaFormValues["tipoDocumento"]) {
+    const sugerido = tipoItemSugerido(novo);
+    getValues("itens").forEach((item, i) => {
+      if (!item.descricao.trim()) setValue(`itens.${i}.tipo`, sugerido);
+    });
+  }
 
   async function anexarArquivo(files: FileList | null) {
     const file = files?.[0];
@@ -141,7 +156,9 @@ export function NotaForm({
     setValue("anexoNome", "");
   }
 
-  const somaItensCents = useMemo(() => somaItensForm(itens), [itens]);
+  // Sem useMemo: `watch("itens")` devolve o mesmo array mutado pelo RHF, então
+  // memoizar pela referência deixava a soma parada no valor inicial.
+  const somaItensCents = somaItensForm(itens);
   const totalCents = moedaParaCents(total);
   const somaRateioBp = somaRateioForm(rateios);
   const somaParcelasCents = somaParcelasForm(parcelas, totalCents);
@@ -155,7 +172,7 @@ export function NotaForm({
       dataCompra: v.dataCompra,
     });
     if (!geradas) {
-      toast.error("Informe o valor total da nota antes de gerar as parcelas");
+      toast.error("Informe o valor total antes de gerar as parcelas");
       return;
     }
     setValue("parcelas", geradas);
@@ -176,7 +193,7 @@ export function NotaForm({
     startTransition(async () => {
       const res = await salvarNota(payload);
       if (res.ok) {
-        toast.success("Nota fiscal salva");
+        toast.success("Lançamento salvo");
         router.push("/notas");
         router.refresh();
       } else if (res.aviso) {
@@ -192,11 +209,30 @@ export function NotaForm({
       {/* Cabeçalho */}
       <Card>
         <CardHeader>
-          <CardTitle>Dados da nota</CardTitle>
+          <CardTitle>Dados do lançamento</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-2">
+            <LabelAjuda
+              htmlFor="tipoDocumento"
+              titulo="Tipo de documento"
+              ajuda="Use Nota fiscal para compras com NF. Para mão de obra, diárias, impostos e taxas sem nota, escolha Recibo, Folha de pagamento, Guia/imposto ou Outro: o custo entra na obra do mesmo jeito."
+            >
+              Tipo de documento *
+            </LabelAjuda>
+            <SelectNativo
+              id="tipoDocumento"
+              {...register("tipoDocumento", {
+                onChange: (e) => aoMudarTipoDocumento(e.target.value),
+              })}
+            >
+              {TIPOS_DOCUMENTO.map((t) => (
+                <option key={t} value={t}>{TIPO_DOCUMENTO_LABELS[t]}</option>
+              ))}
+            </SelectNativo>
+          </div>
           <div className="grid gap-2 sm:col-span-2">
-            <LabelAjuda ajuda="Empresa ou pessoa que emitiu a nota. Busque por nome ou CNPJ; se ainda não existir, use o botão + ao lado para cadastrar na hora.">
+            <LabelAjuda ajuda="Empresa ou pessoa que recebe o pagamento (em recibo ou folha, pode ser o próprio prestador). Busque por nome ou CNPJ; se ainda não existir, use o botão + ao lado para cadastrar na hora.">
               Fornecedor *
             </LabelAjuda>
             <div className="flex gap-2">
@@ -236,36 +272,52 @@ export function NotaForm({
             </div>
           </div>
           <div className="grid gap-2">
-            <LabelAjuda
-              htmlFor="numero"
-              titulo="Nº da NF (Nota Fiscal)"
-              ajuda="Número impresso na nota fiscal. A combinação fornecedor + número não pode se repetir — evita lançar a mesma nota duas vezes."
-            >
-              Nº da NF *
-            </LabelAjuda>
-            <Input id="numero" {...register("numero", { required: true })} />
+            {ehNF ? (
+              <LabelAjuda
+                htmlFor="numero"
+                titulo="Nº da NF (Nota Fiscal)"
+                ajuda="Número impresso na nota fiscal. A combinação fornecedor + número não pode se repetir — evita lançar a mesma nota duas vezes."
+              >
+                Nº da NF *
+              </LabelAjuda>
+            ) : (
+              <LabelAjuda
+                htmlFor="numero"
+                titulo="Nº do documento"
+                ajuda="Opcional. Se o documento tiver número (ex.: nº do recibo ou da guia), informe; se deixar em branco, o sistema gera um número em sequência para o fornecedor (ex.: REC-0001)."
+              >
+                Nº do documento
+              </LabelAjuda>
+            )}
+            <Input
+              id="numero"
+              placeholder={ehNF ? undefined : "Automático"}
+              {...register("numero", {
+                validate: (v, valores) => !exigeNumero(valores.tipoDocumento) || v.trim() !== "",
+              })}
+            />
           </div>
           <div className="grid gap-2">
-            <LabelAjuda htmlFor="dataCompra" ajuda="Data de emissão da nota. Serve de base para os relatórios por período e para calcular os vencimentos das parcelas.">
-              Data da compra *
+            <LabelAjuda htmlFor="dataCompra" ajuda="Data de emissão do documento (ou do serviço). Serve de base para os relatórios por período e para calcular os vencimentos das parcelas.">
+              Data *
             </LabelAjuda>
             <Input id="dataCompra" type="date" {...register("dataCompra", { required: true })} />
           </div>
           <div className="grid gap-2">
-            <LabelAjuda htmlFor="total" ajuda="Valor total da nota, em reais. A soma dos itens abaixo deve fechar com este valor (o sistema avisa se não bater).">
+            <LabelAjuda htmlFor="total" ajuda="Valor total do lançamento, em reais. A soma dos itens abaixo deve fechar com este valor (o sistema avisa se não bater).">
               Valor total (R$) *
             </LabelAjuda>
             <Input id="total" inputMode="decimal" placeholder="0,00" {...register("total", { required: true })} />
           </div>
-          <div className="grid gap-2 sm:col-span-2 lg:col-span-3">
-            <LabelAjuda htmlFor="obs" ajuda="Anotações livres sobre a nota (ex.: pedido de compra, condição negociada).">
+          <div className="grid gap-2 sm:col-span-2">
+            <LabelAjuda htmlFor="obs" ajuda="Anotações livres sobre o lançamento (ex.: pedido de compra, condição negociada, período da folha).">
               Observações
             </LabelAjuda>
             <Input id="obs" {...register("obs")} />
           </div>
           <div className="grid gap-2 sm:col-span-2 lg:col-span-4">
-            <LabelAjuda ajuda="Anexe o arquivo da nota fiscal (PDF ou foto do documento). Ajuda a conferir a compra depois, sem precisar guardar o papel.">
-              Arquivo da nota
+            <LabelAjuda ajuda="Anexe o arquivo do documento (PDF ou foto da nota, recibo ou guia). Ajuda a conferir o lançamento depois, sem precisar guardar o papel.">
+              Arquivo do documento
             </LabelAjuda>
             <input
               ref={inputAnexoRef}
@@ -306,7 +358,7 @@ export function NotaForm({
                 onClick={() => inputAnexoRef.current?.click()}
               >
                 <Paperclip className="size-4" />
-                {enviandoAnexo ? "Enviando..." : "Anexar nota fiscal"}
+                {enviandoAnexo ? "Enviando..." : "Anexar documento"}
               </Button>
             )}
           </div>
@@ -318,12 +370,12 @@ export function NotaForm({
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
             Itens
-            <CampoAjuda titulo="Itens da nota">
-              Detalhe o que foi comprado, linha a linha. Colunas: <b>Tipo</b> (Material,
+            <CampoAjuda titulo="Itens do lançamento">
+              Detalhe o que foi comprado ou pago, linha a linha. Colunas: <b>Tipo</b> (Material,
               Serviço, Frete ou Encargo — classifica o custo nos relatórios); <b>Qtde</b> e{" "}
               <b>Und</b> (quantidade e unidade, ex.: 10 SC, 2 M³); <b>Unitário</b> (preço de
               uma unidade) e <b>Desconto</b> (abatimento em R$). O subtotal é calculado
-              automaticamente, e a soma dos itens deve fechar com o valor total da nota.
+              automaticamente, e a soma dos itens deve fechar com o valor total.
             </CampoAjuda>
           </CardTitle>
           <span
@@ -397,7 +449,7 @@ export function NotaForm({
           <CardTitle className="flex items-center gap-2">
             Rateio entre obras
             <CampoAjuda titulo="Rateio entre obras">
-              Distribui o valor desta nota entre uma ou mais obras, em percentual. A soma
+              Distribui o valor deste lançamento entre uma ou mais obras, em percentual. A soma
               precisa fechar <b>100%</b> (o indicador ao lado fica verde quando bate). Informe
               a <b>etapa</b> se quiser lançar o custo num estágio específico da obra. Use{" "}
               <b>Dividir igualmente</b> para repartir automaticamente entre as obras
@@ -473,7 +525,7 @@ export function NotaForm({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            O rateio se aplica a todos os itens da nota. Para destinar um item específico a outra obra, lance-o em uma nota separada ou divida em linhas.
+            O rateio se aplica a todos os itens do lançamento. Para destinar um item específico a outra obra, lance-o separadamente.
           </p>
         </CardContent>
       </Card>
@@ -484,10 +536,11 @@ export function NotaForm({
           <CardTitle className="flex items-center gap-2">
             Pagamento
             <CampoAjuda titulo="Pagamento">
-              Escolha a <b>forma</b> (PIX, Cartão, Débito ou Boleto) e o número de{" "}
-              <b>parcelas</b>. Depois clique em <b>Gerar parcelas</b> para o sistema criar os
-              vencimentos automaticamente — você ainda pode ajustar cada valor e data. A soma
-              das parcelas deve fechar com o valor total da nota.
+              Escolha a <b>forma</b> (PIX, Cartão, Débito, Boleto, Transferência ou Dinheiro) e
+              o número de <b>parcelas</b>. Depois clique em <b>Gerar parcelas</b> para o sistema
+              criar os vencimentos automaticamente — você ainda pode ajustar cada valor e data. A
+              soma das parcelas deve fechar com o valor total. Ao editar, parcelas já pagas
+              continuam pagas se o valor e o vencimento não mudarem.
             </CampoAjuda>
           </CardTitle>
           <span
@@ -504,7 +557,7 @@ export function NotaForm({
           <div className="flex flex-wrap items-end gap-2">
             <div className="grid gap-1">
               <Label className="text-xs">Forma</Label>
-              <SelectNativo {...register("formaPagto")} className="w-32">
+              <SelectNativo {...register("formaPagto")} className="w-40">
                 {FORMAS.map((f) => (
                   <option key={f.value} value={f.value}>{f.label}</option>
                 ))}
@@ -525,14 +578,32 @@ export function NotaForm({
 
           {parcelasArr.fields.length > 0 && (
             <div className="space-y-2">
-              {parcelasArr.fields.map((field, i) => (
-                <div key={field.id} className="grid grid-cols-[40px_1fr_1fr] items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{i + 1}ª</span>
-                  <Input inputMode="decimal" placeholder="Valor" {...register(`parcelas.${i}.valor`, { required: true })} />
-                  <Input type="date" {...register(`parcelas.${i}.vencimento`, { required: true })} />
-                </div>
-              ))}
+              {parcelasArr.fields.map((field, i) => {
+                const situacao = situacaoPagas.porNumero.get(parcelas[i]?.numero ?? field.numero);
+                return (
+                  <div key={field.id} className="grid grid-cols-[40px_1fr_1fr] items-center gap-2 sm:grid-cols-[40px_1fr_1fr_150px]">
+                    <span className="text-sm text-muted-foreground">{i + 1}ª</span>
+                    <Input inputMode="decimal" placeholder="Valor" {...register(`parcelas.${i}.valor`, { required: true })} />
+                    <Input type="date" {...register(`parcelas.${i}.vencimento`, { required: true })} />
+                    {situacao && (
+                      <span className="col-start-2 col-end-4 text-xs sm:col-auto">
+                        {situacao === "paga" ? (
+                          <Badge variant="secondary">Paga</Badge>
+                        ) : (
+                          <span className="font-medium text-amber-600">Paga · volta a abrir</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          )}
+          {situacaoPagas.pagasRemovidas.length > 0 && (
+            <p className="text-xs font-medium text-amber-600">
+              Parcela(s) paga(s) removida(s): {situacaoPagas.pagasRemovidas.map((n) => `${n}ª`).join(", ")}.
+              O registro do pagamento será perdido ao salvar.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -542,7 +613,7 @@ export function NotaForm({
           Cancelar
         </Button>
         <Button type="submit" disabled={pendente || enviandoAnexo}>
-          {pendente ? "Salvando..." : notaId ? "Salvar alterações" : "Lançar nota"}
+          {pendente ? "Salvando..." : notaId ? "Salvar alterações" : ehNF ? "Lançar nota" : "Lançar"}
         </Button>
       </div>
 

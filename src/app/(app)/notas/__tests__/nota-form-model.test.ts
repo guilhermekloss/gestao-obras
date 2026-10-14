@@ -4,9 +4,11 @@ import {
   gerarParcelasForm,
   montarPayload,
   parseQtde,
+  situacaoParcelasPagas,
   somaItensForm,
   somaParcelasForm,
   somaRateioForm,
+  tipoItemSugerido,
   totalItemForm,
   type ItemForm,
   type NotaFormValues,
@@ -133,6 +135,7 @@ describe("dividirIgualmenteForm", () => {
 describe("montarPayload", () => {
   const valores: NotaFormValues = {
     fornecedorId: "forn-1",
+    tipoDocumento: "NF",
     numero: "100",
     dataCompra: "2026-01-15",
     total: "1200,00",
@@ -173,5 +176,53 @@ describe("montarPayload", () => {
       false,
     );
     expect(payload.rateios[0].etapaId).toBe("etapa-x");
+  });
+
+  it("envia o tipo de documento e o número sem espaços nas pontas", () => {
+    const payload = montarPayload({ ...valores, tipoDocumento: "RECIBO", numero: "  " }, undefined, false);
+    expect(payload.tipoDocumento).toBe("RECIBO");
+    expect(payload.numero).toBe("");
+  });
+});
+
+describe("tipoItemSugerido", () => {
+  it("guia vira encargo; recibo e folha viram serviço; NF e outro, material", () => {
+    expect(tipoItemSugerido("GUIA")).toBe("ENCARGO");
+    expect(tipoItemSugerido("RECIBO")).toBe("SERVICO");
+    expect(tipoItemSugerido("FOLHA")).toBe("SERVICO");
+    expect(tipoItemSugerido("NF")).toBe("MATERIAL");
+    expect(tipoItemSugerido("OUTRO")).toBe("MATERIAL");
+  });
+});
+
+describe("situacaoParcelasPagas", () => {
+  const pagaEm = new Date(2026, 1, 10);
+  const existentes = [
+    { numero: 1, valorCents: 50000, vencimento: "2026-02-15", status: "PAGA" as const, pagaEm },
+    { numero: 2, valorCents: 50000, vencimento: "2026-03-15", status: "PAGA" as const, pagaEm },
+    { numero: 3, valorCents: 50000, vencimento: "2026-04-15", status: "ABERTA" as const, pagaEm: null },
+  ];
+  const parcela = (numero: number, valor: string, vencimento: string): ParcelaForm => ({ numero, valor, vencimento });
+
+  it("marca como paga a parcela sem mudança e como 'reabre' a paga alterada", () => {
+    const { porNumero, pagasRemovidas } = situacaoParcelasPagas(existentes, [
+      parcela(1, "500,00", "2026-02-15"),
+      parcela(2, "600,00", "2026-03-15"),
+      parcela(3, "400,00", "2026-04-15"),
+    ]);
+    expect(porNumero.get(1)).toBe("paga");
+    expect(porNumero.get(2)).toBe("reabre");
+    expect(porNumero.has(3)).toBe(false); // aberta não aparece
+    expect(pagasRemovidas).toEqual([]);
+  });
+
+  it("lista as pagas removidas", () => {
+    const { pagasRemovidas } = situacaoParcelasPagas(existentes, [parcela(1, "1500,00", "2026-02-15")]);
+    expect(pagasRemovidas).toEqual([2]);
+  });
+
+  it("sem parcelas pagas (ou lançamento novo) não marca nada", () => {
+    const { porNumero } = situacaoParcelasPagas([], [parcela(1, "500,00", "2026-02-15")]);
+    expect(porNumero.size).toBe(0);
   });
 });
