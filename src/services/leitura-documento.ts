@@ -1,0 +1,455 @@
+/**
+ * Leitura automática de documentos de custo (foto ou PDF de NF-e/DANFE,
+ * NFC-e, NFS-e, recibo, boleto, guia) para pré-preencher um lançamento.
+ *
+ * O modelo de visão (ver `leitor-ia.ts`) só transcreve o documento no formato
+ * `DocumentoLido`. Tudo o que decide o que entra no sistema fica aqui, puro e
+ * testado: conversão para centavos, conferência dos dígitos verificadores
+ * (CNPJ/CPF e chave de acesso), cruzamento da chave com o CNPJ e o número
+ * lidos, coerência de cada item (qtde × unitário − desconto = total do item)
+ * e a soma dos itens contra o total. O que não fecha vira aviso para o
+ * usuário conferir — nada é "consertado" em silêncio, porque numa foto uma
+ * diferença costuma ser erro de leitura, não arredondamento.
+ */
+import { z } from "zod";
+import type { FormaPagto, TipoDocumento, TipoItem } from "@prisma/client";
+import { formatarMoeda } from "@/lib/format";
+import { calcularTotalItem } from "./rateio";
+import { unitarioCoerente } from "./nfe-xml";
+
+// ---------------------------------------------------------------------------
+// Formato que o modelo devolve (structured output)
+//
+// Só tipos simples, `nullable` e `describe`: o schema vira JSON Schema para a
+// API, e restrições como regex/min/max não são garantidas pelo decodificador.
+// A validação de verdade acontece em `normalizarLeitura`.
+
+const valor = (descricao: string) => z.number().nullable().describe(descricao);
+const texto = (descricao: string) => z.string().nullable().describe(descricao);
+
+export const documentoLidoSchema = z.object({
+  tipo: z
+    .enum(["NFE", "NFCE", "NFSE", "RECIBO", "BOLETO", "GUIA", "OUTRO", "NAO_E_DOCUMENTO"])
+    .describe(
+      "NFE = DANFE de NF-e (modelo 55); NFCE = cupom/DANFE NFC-e (modelo 65); NFSE = nota de serviço municipal; RECIBO; BOLETO; GUIA = DARF/GPS/DAS/guia de imposto; OUTRO = outro comprovante de despesa; NAO_E_DOCUMENTO = a imagem não é um documento de compra/pagamento",
+    ),
+  legibilidade: z
+    .enum(["BOA", "PARCIAL", "RUIM"])
+    .describe("PARCIAL = parte do documento cortada, borrada ou ilegível; RUIM = quase nada legível"),
+  emitente: z.object({
+    nome: texto("Razão social ou nome de quem emitiu / recebe o pagamento"),
+    documento: texto("CNPJ ou CPF do emitente, só os dígitos"),
+    telefone: texto("Telefone do emitente, se impresso"),
+  }),
+  numero: texto("Número do documento (nº da NF, do recibo...) exatamente como impresso"),
+  serie: texto("Série da nota, se houver"),
+  chaveAcesso: texto("Chave de acesso de 44 dígitos (NF-e/NFC-e), só os dígitos, sem espaços"),
+  dataEmissao: texto("Data de emissão no formato AAAA-MM-DD"),
+  valorTotal: valor("Valor total a pagar do documento, em reais"),
+  valorFrete: valor("Valor do frete no quadro de totais, em reais; null se não houver"),
+  valorOutrasDespesas: valor(
+    "Soma de IPI, ICMS-ST, seguro e outras despesas acessórias que somam ao total e NÃO estão nos itens, em reais; null se não houver",
+  ),
+  descontoGeral: valor(
+    "Desconto aplicado ao total que NÃO está distribuído nos itens, em reais; null se não houver",
+  ),
+  formaPagamento: z
+    .enum(["PIX", "CARTAO", "DEBITO", "BOLETO", "TRANSFERENCIA", "DINHEIRO", "NAO_INFORMADA"])
+    .describe("CARTAO = cartão de crédito; TRANSFERENCIA = TED/DOC/depósito"),
+  itens: z
+    .array(
+      z.object({
+        descricao: z.string().describe("Descrição do produto ou serviço como impressa"),
+        quantidade: valor("Quantidade"),
+        unidade: texto("Unidade (UN, PC, KG, M, M2, M3, SC, CX...)"),
+        valorUnitario: valor("Valor unitário, em reais"),
+        desconto: valor("Desconto do item, em reais; null se não houver"),
+        valorTotal: valor("Valor total da linha do item, em reais"),
+        tipo: z
+          .enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"])
+          .describe("MATERIAL = produto/insumo; SERVICO = mão de obra ou serviço; FRETE = transporte; ENCARGO = imposto, taxa ou tarifa"),
+      }),
+    )
+    .describe("Uma entrada por linha de item do documento, na ordem impressa"),
+  parcelas: z
+    .array(
+      z.object({
+        vencimento: texto("Data de vencimento no formato AAAA-MM-DD"),
+        valor: valor("Valor da parcela, em reais"),
+      }),
+    )
+    .describe("Duplicatas/fatura (ou o vencimento do boleto). Vazio se o documento não mostra vencimentos"),
+  observacoes: texto(
+    "Algo que o usuário precisa saber para conferir (ex.: itens cortados na foto, valor rasurado); null se nada",
+  ),
+});
+
+export type DocumentoLido = z.infer<typeof documentoLidoSchema>;
+
+// ---------------------------------------------------------------------------
+// Dígitos verificadores
+
+function digitos(s: string | null | undefined): string {
+  return (s ?? "").replace(/\D/g, "");
+}
+
+/** Módulo 11 com pesos 2..9 da direita para a esquerda (CNPJ e chave de acesso). */
+function dvModulo11(base: string): number {
+  let soma = 0;
+  let peso = 2;
+  for (let i = base.length - 1; i >= 0; i--) {
+    soma += Number(base[i]) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
+  }
+  const resto = soma % 11;
+  return resto < 2 ? 0 : 11 - resto;
+}
+
+export function cnpjValido(valor: string): boolean {
+  const d = digitos(valor);
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
+  return dvModulo11(d.slice(0, 12)) === Number(d[12]) && dvModulo11(d.slice(0, 13)) === Number(d[13]);
+}
+
+export function cpfValido(valor: string): boolean {
+  const d = digitos(valor);
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const dv = (base: string) => {
+    const soma = [...base].reduce((acc, c, i) => acc + Number(c) * (base.length + 1 - i), 0);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  return dv(d.slice(0, 9)) === Number(d[9]) && dv(d.slice(0, 10)) === Number(d[10]);
+}
+
+export function documentoValido(valor: string): boolean {
+  const d = digitos(valor);
+  return d.length === 14 ? cnpjValido(d) : d.length === 11 ? cpfValido(d) : false;
+}
+
+/** Chave de acesso NF-e/NFC-e: 44 dígitos com o último sendo o DV módulo 11 dos 43 anteriores. */
+export function chaveAcessoValida(chave: string): boolean {
+  const d = digitos(chave);
+  return d.length === 44 && dvModulo11(d.slice(0, 43)) === Number(d[43]);
+}
+
+/**
+ * Campos embutidos na chave de acesso (leiaute NF-e): cUF(2) AAMM(4) CNPJ(14)
+ * mod(2) série(3) nNF(9) tpEmis(1) cNF(8) DV(1).
+ */
+export function dadosDaChave(chave: string) {
+  const d = digitos(chave);
+  return {
+    cnpj: d.slice(6, 20),
+    modelo: d.slice(20, 22),
+    serie: String(Number(d.slice(22, 25))),
+    numero: String(Number(d.slice(25, 34))),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Normalização
+
+export type ItemLeitura = {
+  descricao: string;
+  tipo: TipoItem;
+  qtde: number;
+  unidade: string;
+  unitCents: number;
+  descontoCents: number;
+  /** = calcularTotalItem(qtde, unitCents, descontoCents) */
+  totalCents: number;
+};
+
+export type LeituraNormalizada = {
+  tipoDocumento: TipoDocumento;
+  /** rótulo do que foi reconhecido, para a tela: "NF-e (DANFE)", "Recibo"... */
+  descricaoDocumento: string;
+  fornecedor: {
+    nome: string | null;
+    /** só dígitos; null quando não lido ou com dígito verificador inválido */
+    documento: string | null;
+    fone: string | null;
+  };
+  numero: string;
+  serie: string | null;
+  /** só quando os 44 dígitos conferem com o DV */
+  chaveNfe: string | null;
+  /** aaaa-mm-dd ou null quando não lida/ inválida */
+  dataEmissao: string | null;
+  totalCents: number;
+  formaPagto: FormaPagto;
+  itens: ItemLeitura[];
+  /** vazio quando o documento não traz vencimentos (ou eles não fecham com o total) */
+  parcelas: { numero: number; valorCents: number; vencimento: string }[];
+  /** pontos para o usuário conferir antes de salvar */
+  avisos: string[];
+};
+
+export type ResultadoLeitura = { ok: true; leitura: LeituraNormalizada } | { ok: false; erro: string };
+
+const DESCRICAO_TIPO: Record<DocumentoLido["tipo"], string> = {
+  NFE: "NF-e (DANFE)",
+  NFCE: "NFC-e (cupom fiscal)",
+  NFSE: "NFS-e (nota de serviço)",
+  RECIBO: "Recibo",
+  BOLETO: "Boleto",
+  GUIA: "Guia de imposto",
+  OUTRO: "Comprovante",
+  NAO_E_DOCUMENTO: "Não reconhecido",
+};
+
+const TIPO_DOCUMENTO: Record<DocumentoLido["tipo"], TipoDocumento> = {
+  NFE: "NF",
+  NFCE: "NF",
+  NFSE: "NF",
+  RECIBO: "RECIBO",
+  GUIA: "GUIA",
+  BOLETO: "OUTRO",
+  OUTRO: "OUTRO",
+  NAO_E_DOCUMENTO: "OUTRO",
+};
+
+const TIPO_ITEM_PADRAO: Record<TipoDocumento, TipoItem> = {
+  NF: "MATERIAL",
+  RECIBO: "SERVICO",
+  FOLHA: "SERVICO",
+  GUIA: "ENCARGO",
+  OUTRO: "MATERIAL",
+};
+
+/** Reais (número do modelo) → centavos; negativos e não-números viram null. */
+export function reaisParaCents(v: number | null | undefined): number | null {
+  if (v === null || v === undefined || !Number.isFinite(v) || v < 0) return null;
+  return Math.round(v * 100);
+}
+
+/** Data AAAA-MM-DD existente no calendário; aceita também DD/MM/AAAA. */
+export function normalizarData(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const t = s.trim();
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  const iso = br ? `${br[3]}-${br[2]}-${br[1]}` : t.slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]) ? iso : null;
+}
+
+/**
+ * Número de NF como o XML grava (`nNF` sem zeros à esquerda): "000.012.345"
+ * → "12345". Mantém o mesmo número entre nota lida da foto e importada do
+ * XML, para o bloqueio de duplicata (fornecedor + número) funcionar.
+ */
+export function normalizarNumeroNf(numero: string): string {
+  const d = numero.replace(/[\s.\-/]/g, "");
+  return /^\d+$/.test(d) ? String(Number(d)) : numero.trim();
+}
+
+/**
+ * Converte o que o modelo leu num lançamento conferido. `hoje` (aaaa-mm-dd)
+ * entra como parâmetro para a função continuar pura.
+ */
+export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoLeitura {
+  if (lido.tipo === "NAO_E_DOCUMENTO") {
+    return {
+      ok: false,
+      erro: "Não reconhecemos uma nota, recibo ou boleto nesse arquivo. Tente outra foto, com o documento inteiro e bem iluminado.",
+    };
+  }
+
+  const avisos: string[] = [];
+  const tipoDocumento = TIPO_DOCUMENTO[lido.tipo];
+  const ehNota = tipoDocumento === "NF";
+
+  if (lido.legibilidade !== "BOA") {
+    avisos.push(
+      lido.legibilidade === "RUIM"
+        ? "A imagem está difícil de ler: confira todos os campos com atenção (ou tire outra foto)."
+        : "Parte do documento estava cortada ou pouco legível: confira os campos.",
+    );
+  }
+  if (lido.observacoes?.trim()) avisos.push(lido.observacoes.trim());
+
+  // Chave de acesso: só vale com o dígito verificador correto. Ela também
+  // carrega o CNPJ do emitente e o número da nota — servem de conferência.
+  let chaveNfe: string | null = null;
+  const chaveLida = digitos(lido.chaveAcesso);
+  if (chaveLida) {
+    if (chaveAcessoValida(chaveLida)) chaveNfe = chaveLida;
+    else avisos.push("A chave de acesso não pôde ser lida com segurança e foi ignorada.");
+  }
+  const daChave = chaveNfe ? dadosDaChave(chaveNfe) : null;
+
+  // Fornecedor
+  let documento: string | null = digitos(lido.emitente.documento) || null;
+  if (documento && !documentoValido(documento)) {
+    avisos.push(`O CNPJ/CPF lido (${documento}) não confere com os dígitos verificadores — confira o fornecedor.`);
+    documento = null;
+  }
+  if (daChave && cnpjValido(daChave.cnpj)) {
+    if (!documento) documento = daChave.cnpj;
+    else if (documento !== daChave.cnpj) {
+      avisos.push("O CNPJ impresso no emitente difere do CNPJ da chave de acesso; foi usado o da chave.");
+      documento = daChave.cnpj;
+    }
+  }
+
+  // Número
+  let numero = (lido.numero ?? "").trim();
+  if (ehNota && numero) numero = normalizarNumeroNf(numero);
+  if (daChave) {
+    if (!numero) numero = daChave.numero;
+    else if (ehNota && numero !== daChave.numero) {
+      avisos.push(`O número lido (${numero}) difere do número da chave de acesso (${daChave.numero}); foi usado o da chave.`);
+      numero = daChave.numero;
+    }
+  }
+  if (ehNota && !numero) avisos.push("Número da nota não encontrado — preencha antes de salvar.");
+
+  // Data
+  const dataEmissao = normalizarData(lido.dataEmissao);
+  if (lido.dataEmissao && !dataEmissao) avisos.push("A data de emissão lida é inválida — confira.");
+  if (!lido.dataEmissao) avisos.push("Data de emissão não encontrada — usada a data de hoje.");
+  if (dataEmissao && dataEmissao > hoje) {
+    avisos.push("A data de emissão lida está no futuro — confira.");
+  }
+
+  // Itens: o total da linha manda; o unitário é ajustado para reproduzi-lo
+  // (mesma regra da importação do XML — o excedente vira desconto do item).
+  const tipoPadrao = TIPO_ITEM_PADRAO[tipoDocumento];
+  const itens: ItemLeitura[] = [];
+  for (const [i, it] of lido.itens.entries()) {
+    const descricao = it.descricao.trim();
+    if (!descricao) continue;
+    const qtdeLida = it.quantidade && it.quantidade > 0 ? Math.round(it.quantidade * 1000) / 1000 : null;
+    const qtde = qtdeLida ?? 1;
+    const unitLido = reaisParaCents(it.valorUnitario);
+    const descontoLido = reaisParaCents(it.desconto) ?? 0;
+    const totalLido = reaisParaCents(it.valorTotal);
+
+    let unitCents: number;
+    let descontoCents = descontoLido;
+    if (totalLido !== null) {
+      const bruto = totalLido + descontoLido;
+      const coerente = unitarioCoerente(qtde, unitLido ?? 0, bruto);
+      unitCents = coerente.unitCents;
+      descontoCents += coerente.ajusteCents;
+      if (unitLido !== null && Math.abs(unitCents - unitLido) > Math.max(10, unitLido * 0.01)) {
+        avisos.push(
+          `Item ${i + 1} (${descricao}): quantidade × unitário não bate com o total da linha; foi mantido o total (${formatarMoeda(totalLido)}).`,
+        );
+      }
+    } else if (unitLido !== null) {
+      unitCents = unitLido;
+    } else {
+      avisos.push(`Item ${i + 1} (${descricao}) sem valor legível — foi deixado de fora.`);
+      continue;
+    }
+    if (qtdeLida === null && it.quantidade !== null) {
+      avisos.push(`Item ${i + 1} (${descricao}): quantidade ilegível, considerada 1.`);
+    }
+
+    itens.push({
+      descricao,
+      tipo: it.tipo,
+      qtde,
+      unidade: (it.unidade?.trim() || "UN").toUpperCase(),
+      unitCents,
+      descontoCents,
+      totalCents: calcularTotalItem(qtde, unitCents, descontoCents),
+    });
+  }
+
+  const acessorio = (descricao: string, cents: number | null, tipo: TipoItem) => {
+    if (cents && cents > 0) {
+      itens.push({ descricao, tipo, qtde: 1, unidade: "UN", unitCents: cents, descontoCents: 0, totalCents: cents });
+    }
+  };
+  acessorio("Frete", reaisParaCents(lido.valorFrete), "FRETE");
+  acessorio("Impostos e despesas acessórias (IPI, ST, seguro, outras)", reaisParaCents(lido.valorOutrasDespesas), "ENCARGO");
+
+  // Desconto no total que não está nos itens: entra no maior item, como no XML.
+  const descontoGeral = reaisParaCents(lido.descontoGeral) ?? 0;
+  if (descontoGeral > 0 && itens.length > 0) {
+    const maior = itens.reduce((m, it) => (it.totalCents > m.totalCents ? it : m), itens[0]);
+    if (maior.totalCents >= descontoGeral) {
+      maior.descontoCents += descontoGeral;
+      maior.totalCents = calcularTotalItem(maior.qtde, maior.unitCents, maior.descontoCents);
+    }
+  }
+
+  // Total
+  const somaItens = itens.reduce((a, it) => a + it.totalCents, 0);
+  let totalCents = reaisParaCents(lido.valorTotal) ?? 0;
+  if (totalCents <= 0) {
+    totalCents = somaItens;
+    avisos.push(
+      somaItens > 0
+        ? "Valor total não encontrado — usada a soma dos itens."
+        : "Valor total não encontrado — preencha antes de salvar.",
+    );
+  }
+
+  if (itens.length === 0 && totalCents > 0) {
+    // Sem itens legíveis (recibo, guia, foto cortada): uma linha com o total,
+    // para o custo entrar na obra; o usuário detalha se quiser.
+    const rotulo = numero ? `${DESCRICAO_TIPO[lido.tipo]} nº ${numero}` : DESCRICAO_TIPO[lido.tipo];
+    itens.push({
+      descricao: lido.emitente.nome ? `${rotulo} — ${lido.emitente.nome}` : rotulo,
+      tipo: tipoPadrao,
+      qtde: 1,
+      unidade: "UN",
+      unitCents: totalCents,
+      descontoCents: 0,
+      totalCents,
+    });
+    if (lido.itens.length === 0) avisos.push("Os itens não foram identificados: o valor total entrou como um item único.");
+  } else if (somaItens !== totalCents && somaItens > 0) {
+    avisos.push(
+      `A soma dos itens (${formatarMoeda(somaItens)}) difere do total do documento (${formatarMoeda(totalCents)}) — confira os valores.`,
+    );
+  }
+
+  // Parcelas: as do documento, se fecham com o total; senão o formulário gera.
+  const parcelasLidas = lido.parcelas
+    .map((p) => ({ vencimento: normalizarData(p.vencimento), valorCents: reaisParaCents(p.valor) }))
+    .filter((p): p is { vencimento: string; valorCents: number } => !!p.vencimento && !!p.valorCents);
+  let parcelas: LeituraNormalizada["parcelas"] = [];
+  if (parcelasLidas.length > 0) {
+    const soma = parcelasLidas.reduce((a, p) => a + p.valorCents, 0);
+    if (soma === totalCents && parcelasLidas.length === lido.parcelas.length) {
+      parcelas = parcelasLidas
+        .sort((a, b) => a.vencimento.localeCompare(b.vencimento))
+        .map((p, i) => ({ numero: i + 1, ...p }));
+    } else {
+      avisos.push("Os vencimentos lidos não fecham com o total — as parcelas foram geradas automaticamente; confira.");
+    }
+  }
+
+  let formaPagto: FormaPagto;
+  if (lido.formaPagamento !== "NAO_INFORMADA") formaPagto = lido.formaPagamento;
+  else formaPagto = parcelas.length > 0 || lido.tipo === "BOLETO" ? "BOLETO" : "PIX";
+
+  return {
+    ok: true,
+    leitura: {
+      tipoDocumento,
+      descricaoDocumento: DESCRICAO_TIPO[lido.tipo],
+      fornecedor: {
+        nome: lido.emitente.nome?.trim() || null,
+        documento,
+        fone: lido.emitente.telefone?.trim() || null,
+      },
+      numero,
+      serie: lido.serie?.trim() || (daChave ? daChave.serie : null),
+      chaveNfe,
+      dataEmissao,
+      totalCents,
+      formaPagto,
+      itens,
+      parcelas,
+      avisos,
+    },
+  };
+}

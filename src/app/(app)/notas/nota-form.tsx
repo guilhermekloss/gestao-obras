@@ -70,6 +70,7 @@ export function NotaForm({
   defaultValues,
   notaId,
   parcelasExistentes = [],
+  fornecedorSugerido,
 }: {
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
@@ -77,11 +78,14 @@ export function NotaForm({
   notaId?: string;
   /** Parcelas gravadas (edição): marca no formulário quais seguem pagas ao salvar. */
   parcelasExistentes?: ParcelaExistente[];
+  /** Emitente lido do documento (foto/PDF) que ainda não está cadastrado. */
+  fornecedorSugerido?: { nome: string; documento: string | null };
 }) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [fornecedores, setFornecedores] = useState(fornecedoresIniciais);
   const [dialogFornecedor, setDialogFornecedor] = useState(false);
+  const [cadastrandoSugerido, startCadastroSugerido] = useTransition();
 
   const { register, control, handleSubmit, watch, setValue, getValues } =
     useForm<NotaFormValues>({
@@ -96,6 +100,7 @@ export function NotaForm({
         obs: "",
         anexoUrl: "",
         anexoNome: "",
+        chaveNfe: "",
         itens: [ITEM_VAZIO],
         rateios: [{ obraId: obras[0]?.id ?? "", etapaId: "", percent: "100" }],
         parcelas: [],
@@ -117,6 +122,7 @@ export function NotaForm({
   const anexoUrl = watch("anexoUrl");
   const anexoNome = watch("anexoNome");
   const tipoDocumento = watch("tipoDocumento");
+  const fornecedorId = watch("fornecedorId");
   const ehNF = exigeNumero(tipoDocumento);
   const situacaoPagas = situacaoParcelasPagas(parcelasExistentes, parcelas);
 
@@ -149,6 +155,25 @@ export function NotaForm({
       setEnviandoAnexo(false);
       if (inputAnexoRef.current) inputAnexoRef.current.value = "";
     }
+  }
+
+  function selecionarFornecedor(f: FornecedorOption) {
+    setFornecedores((prev) => [...prev, f].sort((a, b) => a.nome.localeCompare(b.nome)));
+    setValue("fornecedorId", f.id, { shouldValidate: true });
+  }
+
+  function cadastrarSugerido() {
+    if (!fornecedorSugerido) return;
+    startCadastroSugerido(async () => {
+      const doc = fornecedorSugerido.documento;
+      const res = await criarFornecedorInline(fornecedorSugerido.nome, doc ? formatarCnpj(doc) : undefined);
+      if (res.ok && res.fornecedor) {
+        toast.success("Fornecedor cadastrado");
+        selecionarFornecedor(res.fornecedor);
+      } else {
+        toast.error(res.erro ?? "Erro ao cadastrar fornecedor");
+      }
+    });
   }
 
   function removerAnexo() {
@@ -297,6 +322,19 @@ export function NotaForm({
               })}
             />
           </div>
+          {fornecedorSugerido && !fornecedorId && (
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              <span className="min-w-0 flex-1">
+                Lido no documento: <b>{fornecedorSugerido.nome}</b>
+                {fornecedorSugerido.documento && ` · ${formatarCnpj(fornecedorSugerido.documento)}`} — ainda
+                não cadastrado.
+              </span>
+              <Button type="button" size="sm" disabled={cadastrandoSugerido} onClick={cadastrarSugerido}>
+                <Plus className="size-4" />
+                {cadastrandoSugerido ? "Cadastrando..." : "Cadastrar e usar"}
+              </Button>
+            </div>
+          )}
           <div className="grid gap-2">
             <LabelAjuda htmlFor="dataCompra" ajuda="Data de emissão do documento (ou do serviço). Serve de base para os relatórios por período e para calcular os vencimentos das parcelas.">
               Data *
@@ -624,9 +662,10 @@ export function NotaForm({
             <DialogTitle>Novo fornecedor</DialogTitle>
           </DialogHeader>
           <NovoFornecedorInline
+            nomeInicial={fornecedorSugerido?.nome}
+            cnpjInicial={fornecedorSugerido?.documento ? formatarCnpj(fornecedorSugerido.documento) : undefined}
             onCriado={(f) => {
-              setFornecedores((prev) => [...prev, f].sort((a, b) => a.nome.localeCompare(b.nome)));
-              setValue("fornecedorId", f.id);
+              selecionarFornecedor(f);
               setDialogFornecedor(false);
             }}
           />
@@ -644,11 +683,15 @@ function formatarCnpj(cnpj: string): string {
 
 function NovoFornecedorInline({
   onCriado,
+  nomeInicial = "",
+  cnpjInicial = "",
 }: {
   onCriado: (f: FornecedorOption) => void;
+  nomeInicial?: string;
+  cnpjInicial?: string;
 }) {
-  const [nome, setNome] = useState("");
-  const [cnpj, setCnpj] = useState("");
+  const [nome, setNome] = useState(nomeInicial);
+  const [cnpj, setCnpj] = useState(cnpjInicial);
   const [pendente, startTransition] = useTransition();
 
   return (

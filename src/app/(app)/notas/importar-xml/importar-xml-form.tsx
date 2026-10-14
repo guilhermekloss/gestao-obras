@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { TipoItem } from "@prisma/client";
@@ -36,7 +36,14 @@ function bpDaLinha(r: RateioLinha): number {
   return percentEditavelParaBp(r.percent) ?? 0;
 }
 
-export function ImportarXmlForm({ obras }: { obras: ObraRateio[] }) {
+export function ImportarXmlForm({
+  obras,
+  arquivoInicial,
+}: {
+  obras: ObraRateio[];
+  /** XML já escolhido em outra tela (envio único em /notas/nova): lido ao montar. */
+  arquivoInicial?: File;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pendente, startTransition] = useTransition();
   const [lendo, setLendo] = useState(false);
@@ -62,8 +69,17 @@ export function ImportarXmlForm({ obras }: { obras: ObraRateio[] }) {
     setParcelas([]);
   }
 
-  async function escolherArquivo(files: FileList | null) {
-    const file = files?.[0];
+  const inicialLido = useRef(false);
+  useEffect(() => {
+    if (arquivoInicial && !inicialLido.current) {
+      inicialLido.current = true;
+      void escolherArquivo(arquivoInicial);
+    }
+    // só no primeiro render: o arquivo inicial não muda depois de montado
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function escolherArquivo(file: File | undefined) {
     if (!file) return;
     limpar();
     setErroArquivo(null);
@@ -182,7 +198,7 @@ export function ImportarXmlForm({ obras }: { obras: ObraRateio[] }) {
             type="file"
             accept=".xml,text/xml,application/xml"
             className="hidden"
-            onChange={(e) => escolherArquivo(e.target.files)}
+            onChange={(e) => escolherArquivo(e.target.files?.[0])}
           />
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" variant="outline" disabled={lendo || pendente} onClick={() => inputRef.current?.click()}>

@@ -10,11 +10,13 @@ import {
   somaRateioForm,
   tipoItemSugerido,
   totalItemForm,
+  valoresDaLeitura,
   type ItemForm,
   type NotaFormValues,
   type ParcelaForm,
   type RateioForm,
 } from "../nota-form-model";
+import type { LeituraNormalizada } from "@/services/leitura-documento";
 
 const ITEM: ItemForm = {
   descricao: "Cimento",
@@ -224,5 +226,70 @@ describe("situacaoParcelasPagas", () => {
   it("sem parcelas pagas (ou lançamento novo) não marca nada", () => {
     const { porNumero } = situacaoParcelasPagas([], [parcela(1, "500,00", "2026-02-15")]);
     expect(porNumero.size).toBe(0);
+  });
+});
+
+describe("valoresDaLeitura", () => {
+  const leitura: LeituraNormalizada = {
+    tipoDocumento: "NF",
+    descricaoDocumento: "NF-e (DANFE)",
+    fornecedor: { nome: "Casa do Construtor", documento: "11222333000181", fone: null },
+    numero: "12345",
+    serie: "1",
+    chaveNfe: "35260911222333000181550010000123451876543218",
+    dataEmissao: "2026-09-15",
+    totalCents: 15050,
+    formaPagto: "PIX",
+    itens: [
+      { descricao: "Cimento", tipo: "MATERIAL", qtde: 3, unidade: "SC", unitCents: 5017, descontoCents: 1, totalCents: 15050 },
+    ],
+    parcelas: [],
+    avisos: [],
+  };
+  const opts = { fornecedorId: "f1", anexoUrl: "/api/fotos/a.jpg", anexoNome: "nota.jpg", hoje: "2026-10-14" };
+
+  it("preenche cabeçalho, itens e anexo; o payload fecha com o total", () => {
+    const v = valoresDaLeitura(leitura, opts);
+    expect(v).toMatchObject({
+      fornecedorId: "f1",
+      tipoDocumento: "NF",
+      numero: "12345",
+      dataCompra: "2026-09-15",
+      total: "150,50",
+      obs: "Série 1",
+      anexoUrl: "/api/fotos/a.jpg",
+      anexoNome: "nota.jpg",
+      chaveNfe: leitura.chaveNfe,
+    });
+    expect(v.itens).toEqual([
+      { descricao: "Cimento", tipo: "MATERIAL", qtde: "3", unidade: "SC", unit: "50,17", desconto: "0,01" },
+    ]);
+    expect(somaItensForm(v.itens!)).toBe(15050);
+    // PIX sem vencimentos no documento: parcela única na data da compra
+    expect(v.parcelas).toEqual([{ numero: 1, valor: "150,50", vencimento: "2026-09-15" }]);
+  });
+
+  it("usa as parcelas lidas quando existem", () => {
+    const v = valoresDaLeitura(
+      {
+        ...leitura,
+        formaPagto: "BOLETO",
+        parcelas: [
+          { numero: 1, valorCents: 7525, vencimento: "2026-10-15" },
+          { numero: 2, valorCents: 7525, vencimento: "2026-11-15" },
+        ],
+      },
+      opts,
+    );
+    expect(v.numParcelas).toBe("2");
+    expect(v.parcelas?.map((p) => p.valor)).toEqual(["75,25", "75,25"]);
+  });
+
+  it("sem data lida usa hoje; chave só vai no payload de criação", () => {
+    const v = valoresDaLeitura({ ...leitura, dataEmissao: null }, opts);
+    expect(v.dataCompra).toBe("2026-10-14");
+    const valores = { ...(v as NotaFormValues), rateios: [] };
+    expect(montarPayload(valores, undefined, false).chaveNfe).toBe(leitura.chaveNfe);
+    expect(montarPayload(valores, "nota-1", false).chaveNfe).toBeUndefined();
   });
 });

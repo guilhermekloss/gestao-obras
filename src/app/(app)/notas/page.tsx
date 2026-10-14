@@ -163,7 +163,6 @@ export default async function NotasPage({
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Ver anexo"
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <Paperclip className="size-3.5 text-muted-foreground hover:text-foreground" />
                         </a>

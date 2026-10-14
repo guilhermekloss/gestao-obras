@@ -42,6 +42,11 @@ export const notaSchema = z.object({
   obs: z.string().optional(),
   anexoUrl: z.string().optional(),
   anexoNome: z.string().optional(),
+  /**
+   * Chave de acesso lida da foto/PDF da NF-e (só na criação; a edição
+   * preserva a chave gravada). Evita lançar a mesma nota duas vezes.
+   */
+  chaveNfe: z.string().regex(/^\d{44}$/, "Chave de acesso inválida").optional(),
   itens: z.array(itemNotaSchema).min(1, "A nota precisa de ao menos 1 item"),
   rateios: z.array(rateioSchema).min(1, "Defina o rateio entre obras"),
   parcelas: z.array(parcelaSchema).min(1, "A nota precisa de ao menos 1 parcela"),

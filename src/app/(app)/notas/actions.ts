@@ -12,6 +12,7 @@ import {
 import { exigeNumero, gerarNumeroDocumento, PREFIXO_DOCUMENTO } from "@/services/financeiro";
 import { validarRateio, calcularTotalItem, somaItens } from "@/services/rateio";
 import { fornecedorSchema, criarFornecedorValidado } from "@/services/fornecedores";
+import { chaveAcessoValida } from "@/services/leitura-documento";
 import { dataParaInput, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 
@@ -56,6 +57,14 @@ export const salvarNota = acaoDeEscrita(
         select: { tipoDocumento: true },
       });
       if (repetida) return { ok: false, erro: mensagemNumeroRepetido(tipoDocumento, d.numero) };
+    }
+
+    // Chave lida do documento (só na criação): a mesma NF-e não entra duas vezes.
+    const chaveNfe = d.id ? undefined : d.chaveNfe;
+    if (chaveNfe) {
+      if (!chaveAcessoValida(chaveNfe)) return { ok: false, erro: "Chave de acesso inválida" };
+      const mesma = await prisma.notaFiscal.findUnique({ where: { chaveNfe }, select: { numero: true } });
+      if (mesma) return { ok: false, erro: `Esta NF-e já foi lançada (NF ${mesma.numero}).` };
     }
 
     // Edição: casa as parcelas pelo número para preservar os pagamentos.
@@ -115,7 +124,7 @@ export const salvarNota = acaoDeEscrita(
         await tx.notaFiscal.update({ where: { id: notaId }, data: { ...dadosNota, numero } });
       } else {
         const nota = await tx.notaFiscal.create({
-          data: { ...dadosNota, numero, createdBy: user.id },
+          data: { ...dadosNota, numero, chaveNfe, createdBy: user.id },
         });
         notaId = nota.id;
       }
