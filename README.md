@@ -26,7 +26,7 @@ Para testar no celular: acesse `http://<IP-da-máquina>:3000` na mesma rede Wi-F
 
 ## Produção (Google Cloud)
 
-Cloud Run + Cloud SQL (PostgreSQL) + Cloud Storage em São Paulo, infraestrutura em Terraform (`infra/`) e deploy automático pelo GitHub Actions a cada merge na `main` (CI → migrations → revisão nova testada antes de receber tráfego). Configuração inicial, operação e segurança: [`docs/deploy-gcp.md`](docs/deploy-gcp.md).
+Cloud Run + Cloud SQL (PostgreSQL) + Cloud Storage em São Paulo, infraestrutura em Terraform (`infra/`) e deploy automático pelo GitHub Actions a cada merge na `main` (CI → migrations → revisão nova testada antes de receber tráfego). Configuração inicial, operação e segurança: [`docs/deploy-gcp.md`](docs/deploy-gcp.md). Como trabalhar no dia a dia (branch → PR → merge → deploy, migrations, rollback): [`docs/fluxo-de-trabalho.md`](docs/fluxo-de-trabalho.md).
 
 Em produção os arquivos vão para o bucket definido em `STORAGE_BUCKET`; sem essa variável, ficam em `./uploads` (desenvolvimento).
 

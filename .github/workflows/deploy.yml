@@ -6,6 +6,12 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Mudanças só de documentação não geram deploy.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/dependabot.yml"
+      - ".github/rulesets/**"
   workflow_dispatch:
 
 permissions:
@@ -102,7 +108,9 @@ jobs:
       - name: Nova revisão sem tráfego
         id: candidata
         run: |
+          # Nome da revisão carrega o nº do deploy e o commit: gestao-obras-r12-1-63fe7f9
           gcloud run deploy "$APP" --region "$REGION" --image "$REGISTRY/app:$GITHUB_SHA" \
+            --revision-suffix "r${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA::7}" \
             --no-traffic --tag candidata --quiet
           url=$(gcloud run services describe "$APP" --region "$REGION" --format=json \
             | jq -r '.status.traffic[] | select(.tag == "candidata") | .url')
@@ -120,3 +128,21 @@ jobs:
         run: |
           gcloud run services update-traffic "$APP" --region "$REGION" --to-latest --quiet
           echo "url=$(gcloud run services describe "$APP" --region "$REGION" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
+
+      - name: Resumo
+        if: always()
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          SUCESSO: ${{ steps.deploy.outcome == 'success' }}
+        run: |
+          {
+            if [ "$SUCESSO" = "true" ]; then
+              echo "### ✅ Em produção"
+              echo "- App: $URL"
+              echo "- Commit: \`${GITHUB_SHA::7}\`"
+              echo "- Revisão: \`$APP-r${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA::7}\`"
+            else
+              echo "### ❌ Deploy não concluído — produção continua na versão anterior"
+              echo "Veja o passo que falhou acima. Para voltar uma versão já publicada: Actions → Rollback."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
