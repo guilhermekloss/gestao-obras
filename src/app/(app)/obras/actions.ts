@@ -114,7 +114,7 @@ export const excluirEtapa = acaoDeEscrita(
     });
     if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
     if (etapa._count.medicoes > 0 || etapa._count.rateios > 0) {
-      return { ok: false, erro: "Etapa possui medições ou custos vinculados — não pode ser excluída." };
+      return { ok: false, erro: "Etapa possui avanço lançado ou custos vinculados — não pode ser excluída." };
     }
     await prisma.etapa.delete({ where: { id } });
     revalidatePath(`/obras/${etapa.obraId}`);

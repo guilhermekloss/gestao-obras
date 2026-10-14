@@ -208,7 +208,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {avancoData.length === 0 ? (
-              <Vazio texto="Registre medições para acompanhar o avanço." />
+              <Vazio texto="Lance o avanço das etapas em Cronograma → Avanço." />
             ) : (
               <AvancoChart data={avancoData} />
             )}

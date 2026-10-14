@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { criarEtapa, excluirEtapa } from "../../actions";
 import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { Plus, Trash2 } from "lucide-react";
+import { dataDoRdo } from "@/services/rdo";
 import type { AbaObraProps } from "./tipos";
 
 export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
@@ -77,19 +78,24 @@ export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Etapas</CardTitle>
-            {podeEditar && (
-              <FormDialog
-                titulo="Nova etapa"
-                action={criarEtapa.bind(null, obra.id)}
-                trigger={
-                  <Button variant="outline" size="sm">
-                    <Plus className="size-4" /> Etapa
-                  </Button>
-                }
-              >
-                <Input name="nome" placeholder="Nome da etapa" required />
-              </FormDialog>
-            )}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" render={<Link href={`/cronograma?obra=${obra.id}`} />}>
+                Cronograma
+              </Button>
+              {podeEditar && (
+                <FormDialog
+                  titulo="Nova etapa"
+                  action={criarEtapa.bind(null, obra.id)}
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Plus className="size-4" /> Etapa
+                    </Button>
+                  }
+                >
+                  <Input name="nome" placeholder="Nome da etapa" required />
+                </FormDialog>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {obra.etapas.length === 0 ? (
@@ -159,7 +165,7 @@ export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
               <Button
                 variant="outline"
                 size="sm"
-                render={<Link href={`/diario?obra=${obra.id}`} />}
+                render={<Link href={`/obras/${obra.id}?aba=diario`} />}
               >
                 Ver todos
               </Button>
@@ -171,7 +177,9 @@ export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
                 <ul className="divide-y">
                   {ultimosRdos.map((rdo) => (
                     <li key={rdo.id} className="py-2 text-sm">
-                      <span className="font-medium">{formatarData(rdo.data)}</span>
+                      <Link href={`/diario/${rdo.id}`} className="font-medium hover:underline">
+                        {formatarData(dataDoRdo(rdo.data))}
+                      </Link>
                       {rdo.autor ? ` · ${rdo.autor.nome}` : ""} —{" "}
                       <span className="text-muted-foreground">
                         {rdo.atividades.length > 80
