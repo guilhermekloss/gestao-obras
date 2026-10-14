@@ -41,6 +41,10 @@ export const documentoLidoSchema = z.object({
     documento: texto("CNPJ ou CPF do emitente, só os dígitos"),
     telefone: texto("Telefone do emitente, se impresso"),
   }),
+  destinatario: z.object({
+    nome: texto("Nome de quem comprou / tomou o serviço (destinatário, tomador ou pagador)"),
+    documento: texto("CNPJ ou CPF do destinatário/tomador, só os dígitos"),
+  }),
   numero: texto("Número do documento (nº da NF, do recibo...) exatamente como impresso"),
   serie: texto("Série da nota, se houver"),
   chaveAcesso: texto("Chave de acesso de 44 dígitos (NF-e/NFC-e), só os dígitos, sem espaços"),
@@ -169,7 +173,15 @@ export type LeituraNormalizada = {
     nome: string | null;
     /** só dígitos; null quando não lido ou com dígito verificador inválido */
     documento: string | null;
+    /** dígitos como foram lidos, mesmo inválidos — para o usuário corrigir na conferência */
+    documentoLido: string | null;
     fone: string | null;
+  };
+  /** quem comprou / tomou o serviço — conferido, não gravado */
+  destinatario: {
+    nome: string | null;
+    documento: string | null;
+    documentoLido: string | null;
   };
   numero: string;
   serie: string | null;
@@ -282,7 +294,8 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
   const daChave = chaveNfe ? dadosDaChave(chaveNfe) : null;
 
   // Fornecedor
-  let documento: string | null = digitos(lido.emitente.documento) || null;
+  const documentoLido = digitos(lido.emitente.documento) || null;
+  let documento: string | null = documentoLido;
   if (documento && !documentoValido(documento)) {
     avisos.push(`O CNPJ/CPF lido (${documento}) não confere com os dígitos verificadores — confira o fornecedor.`);
     documento = null;
@@ -293,6 +306,13 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
       avisos.push("O CNPJ impresso no emitente difere do CNPJ da chave de acesso; foi usado o da chave.");
       documento = daChave.cnpj;
     }
+  }
+
+  // Destinatário / tomador
+  const destinatarioLido = digitos(lido.destinatario.documento) || null;
+  const destinatarioValido = destinatarioLido && documentoValido(destinatarioLido) ? destinatarioLido : null;
+  if (destinatarioLido && !destinatarioValido) {
+    avisos.push(`O CNPJ/CPF do destinatário lido (${destinatarioLido}) não confere com os dígitos verificadores.`);
   }
 
   // Número
@@ -439,7 +459,13 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
       fornecedor: {
         nome: lido.emitente.nome?.trim() || null,
         documento,
+        documentoLido: documentoLido ?? documento,
         fone: lido.emitente.telefone?.trim() || null,
+      },
+      destinatario: {
+        nome: lido.destinatario.nome?.trim() || null,
+        documento: destinatarioValido,
+        documentoLido: destinatarioLido,
       },
       numero,
       serie: lido.serie?.trim() || (daChave ? daChave.serie : null),

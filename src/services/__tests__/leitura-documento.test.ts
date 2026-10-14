@@ -25,6 +25,7 @@ function documento(parcial: Partial<DocumentoLido> = {}): DocumentoLido {
     tipo: "NFE",
     legibilidade: "BOA",
     emitente: { nome: "Casa do Construtor Ltda", documento: CNPJ, telefone: null },
+    destinatario: { nome: "Construtora Exemplo", documento: "12345678000195" },
     numero: "12345",
     serie: "1",
     chaveAcesso: null,
@@ -113,7 +114,8 @@ describe("normalizarLeitura", () => {
     const l = ok(documento());
     expect(l.avisos).toEqual([]);
     expect(l.tipoDocumento).toBe("NF");
-    expect(l.fornecedor).toEqual({ nome: "Casa do Construtor Ltda", documento: CNPJ, fone: null });
+    expect(l.fornecedor).toEqual({ nome: "Casa do Construtor Ltda", documento: CNPJ, documentoLido: CNPJ, fone: null });
+    expect(l.destinatario).toEqual({ nome: "Construtora Exemplo", documento: "12345678000195", documentoLido: "12345678000195" });
     expect(l.totalCents).toBe(15050);
     expect(l.formaPagto).toBe("PIX");
     const [item] = l.itens;
@@ -153,7 +155,15 @@ describe("normalizarLeitura", () => {
   it("CNPJ com DV errado não é usado para achar o fornecedor", () => {
     const l = ok(documento({ emitente: { nome: "X", documento: "11222333000182", telefone: null } }));
     expect(l.fornecedor.documento).toBeNull();
+    expect(l.fornecedor.documentoLido).toBe("11222333000182"); // fica para o usuário corrigir
     expect(l.avisos.join()).toMatch(/CNPJ\/CPF/);
+  });
+
+  it("destinatário com DV errado é avisado e não conta como válido", () => {
+    const l = ok(documento({ destinatario: { nome: "X", documento: "12345678000190" } }));
+    expect(l.destinatario.documento).toBeNull();
+    expect(l.destinatario.documentoLido).toBe("12345678000190");
+    expect(l.avisos.join()).toMatch(/destinatário/);
   });
 
   it("número da NF lido com máscara vira o nNF", () => {

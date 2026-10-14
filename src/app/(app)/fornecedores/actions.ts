@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
-import { fornecedorSchema, criarFornecedorValidado } from "@/services/fornecedores";
+import { fornecedorSchema, criarFornecedorValidado, validarDocumentoFornecedor } from "@/services/fornecedores";
 
 function parseFornecedor(formData: FormData) {
   return fornecedorSchema.safeParse({
@@ -32,16 +32,13 @@ export const atualizarFornecedor = acaoDeEscrita(
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
     const d = parsed.data;
 
-    if (d.cnpj) {
-      const duplicado = await prisma.fornecedor.findFirst({
-        where: { cnpj: d.cnpj, NOT: { id } },
-      });
-      if (duplicado) return { ok: false, erro: `CNPJ já cadastrado para "${duplicado.nome}"` };
-    }
+    const atual = await prisma.fornecedor.findUnique({ where: { id }, select: { cnpj: true } });
+    const doc = await validarDocumentoFornecedor(d.cnpj, { ignorarId: id, atual: atual?.cnpj });
+    if (!doc.ok) return doc;
 
     await prisma.fornecedor.update({
       where: { id },
-      data: { nome: d.nome, cnpj: d.cnpj ?? null, fone: d.fone ?? null, obs: d.obs ?? null },
+      data: { nome: d.nome, cnpj: doc.cnpj, fone: d.fone ?? null, obs: d.obs ?? null },
     });
     return { ok: true };
   },
