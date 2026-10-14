@@ -96,12 +96,7 @@ Depois coloque `leitura_ia_habilitada = true` no `terraform.tfvars` e rode `./in
 ## Dia a dia
 
 - **Deploy**: merge na `main`. O CI roda de novo; se passar, as migrations são aplicadas, a nova revisão sobe **sem tráfego**, passa por um smoke test na URL própria dela e só então recebe 100% dos acessos. Se qualquer passo falhar, os usuários continuam na versão anterior.
-- **Voltar uma versão**: Console → Cloud Run → gestao-obras → Revisões → "Gerenciar tráfego", ou:
-  ```bash
-  gcloud run revisions list --service gestao-obras --region southamerica-east1
-  gcloud run services update-traffic gestao-obras --region southamerica-east1 --to-revisions NOME-DA-REVISAO=100
-  ```
-  O próximo deploy volta a mandar o tráfego para a revisão mais nova.
+- **Voltar uma versão**: *Actions → Rollback* (sem rebuild, em segundos). Passo a passo e regras do fluxo em [`fluxo-de-trabalho.md`](fluxo-de-trabalho.md).
 - **Logs**: Console → Cloud Run → gestao-obras → Logs (ou Logging → Logs Explorer).
 - **Mudar a infraestrutura** (máquina do banco, instâncias, alertas): edite `infra/terraform/`, abra PR (o CI valida), faça o merge e rode `./infra/bootstrap.sh SEU_PROJECT_ID` no Cloud Shell.
 - **Migrations**: rodam antes da nova versão entrar no ar, e a versão anterior continua atendendo durante o deploy. Por isso, mudanças destrutivas (renomear/apagar coluna) vão em dois deploys: primeiro o código para de usar a coluna, depois a migration a remove.

@@ -1,0 +1,66 @@
+name: Rollback
+
+# Volta o tráfego de produção para uma revisão anterior do Cloud Run, sem rebuild.
+# Rode sem informar a revisão para ver a lista; depois rode de novo com o nome escolhido.
+# O próximo deploy da main volta a mandar o tráfego para a revisão mais nova.
+# Atenção: não desfaz migrations do banco (ver docs/fluxo-de-trabalho.md).
+on:
+  workflow_dispatch:
+    inputs:
+      revisao:
+        description: "Revisão de destino (ex.: gestao-obras-r12-1-63fe7f9). Vazio = só listar as revisões."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Rollback no Cloud Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      APP: gestao-obras
+      REGION: ${{ vars.GCP_REGION }}
+      REVISAO: ${{ inputs.revisao }}
+    steps:
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Revisões disponíveis
+        run: |
+          {
+            echo "### Revisões de \`$APP\` (mais novas primeiro)"
+            echo '```'
+            gcloud run revisions list --service "$APP" --region "$REGION" --limit 15 \
+              --sort-by "~metadata.creationTimestamp" \
+              --format "table(metadata.name:label=REVISAO, metadata.creationTimestamp:label=CRIADA_UTC)"
+            echo '```'
+            echo "Tráfego atual:"
+            echo '```'
+            gcloud run services describe "$APP" --region "$REGION" --format "yaml(status.traffic)"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Volta o tráfego
+        if: inputs.revisao != ''
+        run: |
+          gcloud run revisions describe "$REVISAO" --region "$REGION" --format "value(metadata.name)" >/dev/null
+          gcloud run services update-traffic "$APP" --region "$REGION" --to-revisions "$REVISAO=100" --quiet
+          url=$(gcloud run services describe "$APP" --region "$REGION" --format 'value(status.url)')
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "$url/api/health"
+          echo "### ↩️ Produção agora em \`$REVISAO\`" >> "$GITHUB_STEP_SUMMARY"
