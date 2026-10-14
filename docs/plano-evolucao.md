@@ -41,7 +41,7 @@ hoje só no ecossistema caro da Sienge ou em ferramentas americanas sem aderênc
 | **Obras + etapas** | EAP de 1 nível; sem datas, sem cliente | **Ajustar** (datas previstas, cliente, área) |
 | **Dashboard** | KPIs bons; falta curva S, ABC, alertas | **Ampliar** |
 | **Importar CSV** | Ferramenta de migração única — dados reais já importados | **Excluir do menu** (manter código 1 ciclo, depois remover) |
-| **Usuários / 3 papéis** | CAMPO vê todas as obras; sem log de auditoria | **Ajustar** (permissão por obra, auditoria) |
+| **Usuários / 3 papéis** | ~~CAMPO vê todas as obras; sem log de auditoria~~ feito: permissão por obra, log de auditoria, convite por link e página de atuação do usuário | **Ajustar** ✅ |
 
 ### Ajustes e correções encontrados no código
 
@@ -79,7 +79,7 @@ CRM/funil de vendas, base SINAPI completa (avaliar só se surgir demanda de obra
 | 2.2 | Compras: solicitação → mapa de cotação → pedido → NF vinculada | A7 Suprimentos |
 | 2.3 | Contas a receber (cliente/obra), fluxo de caixa realizado + projetado | A8 Recebíveis |
 | 2.4 | Documentos da obra (plantas, contratos, alvarás) + driver S3/R2 | A9 Documentos |
-| 2.5 | Plataforma (transversal, roda sozinho na Fase 0 da Onda 2): permissão por obra para CAMPO, log de auditoria em `acaoDeEscrita`, dados bancários/PIX do fornecedor | Fundação |
+| 2.5 | Plataforma (transversal, roda sozinho na Fase 0 da Onda 2): ~~permissão por obra para CAMPO, log de auditoria em `acaoDeEscrita`~~ (feito, junto com convite por link), dados bancários/PIX do fornecedor | Fundação |
 
 **Onda 3 — diferenciais**
 

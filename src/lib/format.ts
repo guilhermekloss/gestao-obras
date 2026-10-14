@@ -89,3 +89,20 @@ export function dataParaInput(data: Date | string): string {
 export function inputParaData(valor: string): Date {
   return new Date(`${valor}T12:00:00`);
 }
+
+/**
+ * Tempo decorrido em texto curto: "agora", "há 5 min", "há 3 h", "ontem",
+ * "há 4 dias"; acima de 30 dias, a data. Ex.: último acesso de um usuário.
+ */
+export function formatarTempoRelativo(data: Date | string, agora: Date = new Date()): string {
+  const d = new Date(data);
+  const min = Math.floor((agora.getTime() - d.getTime()) / 60_000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const horas = Math.floor(min / 60);
+  if (horas < 24) return `há ${horas} h`;
+  const dias = Math.floor(horas / 24);
+  if (dias === 1) return "ontem";
+  if (dias <= 30) return `há ${dias} dias`;
+  return formatarData(d);
+}

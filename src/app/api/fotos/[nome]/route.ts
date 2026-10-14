@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { usuarioAtual } from "@/lib/auth";
 import { storage } from "@/lib/storage";
 
 const MIME: Record<string, string> = {
@@ -13,8 +13,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ nome: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user) return new NextResponse(null, { status: 401 });
+  if (!(await usuarioAtual())) return new NextResponse(null, { status: 401 });
 
   const { nome } = await params;
   try {

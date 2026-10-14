@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
-import { auth, signIn } from "@/lib/auth";
+import { signIn, usuarioAtual } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +15,12 @@ import {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; cadastro?: string }>;
 }) {
-  const session = await auth();
-  if (session?.user) redirect("/dashboard");
+  // conta desativada com cookie ainda válido cai aqui sem loop de redirecionamento
+  if (await usuarioAtual()) redirect("/dashboard");
 
-  const { erro } = await searchParams;
+  const { erro, cadastro } = await searchParams;
 
   async function login(formData: FormData) {
     "use server";
@@ -66,6 +66,9 @@ export default async function LoginPage({
                 autoComplete="current-password"
               />
             </div>
+            {cadastro && !erro && (
+              <p className="text-sm text-muted-foreground">Conta criada! Entre com seu e-mail e senha.</p>
+            )}
             {erro && (
               <p className="text-sm text-destructive">
                 E-mail ou senha inválidos.

@@ -4,6 +4,7 @@ import {
   dataParaInput,
   formatarMoeda,
   formatarPercentBp,
+  formatarTempoRelativo,
   inputParaData,
   moedaParaCents,
   percentBpParaEditavel,
@@ -89,5 +90,18 @@ describe("dataParaInput / inputParaData", () => {
     for (const iso of ["2026-01-01", "2026-02-28", "2026-12-31"]) {
       expect(dataParaInput(inputParaData(iso))).toBe(iso);
     }
+  });
+});
+
+describe("formatarTempoRelativo", () => {
+  const agora = new Date("2026-10-14T12:00:00Z");
+  const antes = (ms: number) => new Date(agora.getTime() - ms);
+  it("texto curto até 30 dias, depois a data", () => {
+    expect(formatarTempoRelativo(antes(10_000), agora)).toBe("agora");
+    expect(formatarTempoRelativo(antes(5 * 60_000), agora)).toBe("há 5 min");
+    expect(formatarTempoRelativo(antes(3 * 3_600_000), agora)).toBe("há 3 h");
+    expect(formatarTempoRelativo(antes(30 * 3_600_000), agora)).toBe("ontem");
+    expect(formatarTempoRelativo(antes(4 * 86_400_000), agora)).toBe("há 4 dias");
+    expect(formatarTempoRelativo(antes(45 * 86_400_000), agora)).toMatch(/^\d{2}\/\d{2}\/2026$/);
   });
 });

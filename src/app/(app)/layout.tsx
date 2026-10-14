@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/lib/auth";
+import { signOut, usuarioAtual } from "@/lib/auth";
+import { ROLE_LABELS } from "@/services/acesso";
 import { Sidebar, BottomNav } from "@/components/nav";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,8 +11,9 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  // lido do banco: conta desativada perde o acesso na hora, e o menu segue o papel atual
+  const user = await usuarioAtual();
+  if (!user) redirect("/login");
 
   async function sair() {
     "use server";
@@ -20,12 +22,12 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-svh">
-      <Sidebar role={session.user.role} />
+      <Sidebar role={user.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b px-4">
           <span className="font-semibold md:hidden">Gestão de Obras</span>
           <span className="hidden text-sm text-muted-foreground md:block">
-            {session.user.nome} · {session.user.role.toLowerCase()}
+            {user.nome} · {ROLE_LABELS[user.role]}
           </span>
           <form action={sair}>
             <Button variant="ghost" size="sm" type="submit">
@@ -36,7 +38,7 @@ export default async function AppLayout({
         </header>
         <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
       </div>
-      <BottomNav role={session.user.role} />
+      <BottomNav role={user.role} />
       <Toaster />
     </div>
   );

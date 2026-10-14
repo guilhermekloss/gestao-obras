@@ -25,12 +25,18 @@ export default async function CronogramaPage({
   const user = await exigirPapel();
   const { obra: obraParam, aba: abaParam } = await searchParams;
 
-  const obras = await listarObrasParaFiltro();
+  const obras = await listarObrasParaFiltro(user.obrasPermitidas);
   const obraId = obras.some((o) => o.id === obraParam) ? obraParam! : obras[0]?.id;
   const aba = ABAS.find((a) => a.key === abaParam) ?? ABAS[0];
 
   if (!obraId) {
-    return <p className="text-muted-foreground">Cadastre uma obra primeiro.</p>;
+    return (
+      <p className="text-muted-foreground">
+        {user.obrasPermitidas === null
+          ? "Cadastre uma obra primeiro."
+          : "Nenhuma obra liberada para você — fale com o administrador."}
+      </p>
+    );
   }
 
   const cronograma = await carregarCronograma(obraId);

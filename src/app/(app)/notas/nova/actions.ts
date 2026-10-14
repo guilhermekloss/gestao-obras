@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { storage } from "@/lib/storage";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
 import { dataParaInput } from "@/lib/format";
 import {
   buscarFornecedorPorDocumento,
@@ -108,9 +109,18 @@ export type ResolverFornecedorResult = ActionResult & {
  * CNPJ/CPF já existe vira o cadastro existente; completar o documento de um
  * existente só acontece se ele ainda não tem um e se o número não é de outro.
  */
+function registrarFornecedor(descricao: string, fornecedorId: string) {
+  anotarAtividade({ descricao, entidade: "fornecedor", entidadeId: fornecedorId });
+}
+
 export const resolverFornecedor = acaoDeEscrita(
-  { papeis: [...PAPEIS], revalidar: ["/fornecedores"] },
+  {
+    papeis: [...PAPEIS],
+    revalidar: ["/fornecedores"],
+    atividade: (escolha: FornecedorConferido) => (escolha.modo === "existente" ? "fornecedor.editar" : "fornecedor.criar"),
+  },
   async (_user, escolha: FornecedorConferido): Promise<ResolverFornecedorResult> => {
+    ignorarAtividade(); // só registra quando grava algo (abaixo)
     if (escolha.modo === "existente") {
       const f = await prisma.fornecedor.findUnique({
         where: { id: escolha.id },
@@ -126,6 +136,7 @@ export const resolverFornecedor = acaoDeEscrita(
         data: { cnpj: doc.cnpj },
         select: { id: true, nome: true, cnpj: true },
       });
+      registrarFornecedor(`Completou o CNPJ/CPF do fornecedor ${f.nome}`, f.id);
       return { ok: true, fornecedor: atualizado, info: `CNPJ/CPF ${doc.cnpj} gravado no cadastro de ${f.nome}` };
     }
 
@@ -140,6 +151,7 @@ export const resolverFornecedor = acaoDeEscrita(
     const criado = await criarFornecedorValidado({ nome, cnpj: escolha.documento?.trim() || undefined });
     if (!criado.ok) return criado;
     const { id, cnpj } = criado.fornecedor;
+    registrarFornecedor(`Cadastrou o fornecedor ${nome}`, id);
     return { ok: true, fornecedor: { id, nome: criado.fornecedor.nome, cnpj }, info: `Fornecedor ${nome} cadastrado` };
   },
 );

@@ -8,6 +8,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { excluirRdo } from "./actions";
 import { CondicaoBadge } from "./condicao-badge";
 import { listarObrasParaFiltro } from "@/services/obras";
+import { whereObraIdPermitido } from "@/services/acesso";
 import { formatarData } from "@/lib/format";
 import {
   dataDoRdo,
@@ -28,7 +29,7 @@ export default async function DiarioPage({
 
   const [rdos, obras] = await Promise.all([
     prisma.diarioObra.findMany({
-      where: obra ? { obraId: obra } : undefined,
+      where: { AND: [whereObraIdPermitido(user.obrasPermitidas), obra ? { obraId: obra } : {}] },
       orderBy: { data: "desc" },
       take: 60,
       include: {
@@ -37,7 +38,7 @@ export default async function DiarioPage({
         fotos: true,
       },
     }),
-    listarObrasParaFiltro(),
+    listarObrasParaFiltro(user.obrasPermitidas),
   ]);
 
   return (

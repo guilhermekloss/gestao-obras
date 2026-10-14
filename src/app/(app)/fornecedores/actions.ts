@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { anotarAtividade } from "@/lib/atividade";
 import { fornecedorSchema, criarFornecedorValidado, validarDocumentoFornecedor } from "@/services/fornecedores";
 
 function parseFornecedor(formData: FormData) {
@@ -14,19 +15,20 @@ function parseFornecedor(formData: FormData) {
 }
 
 export const criarFornecedor = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"] },
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"], atividade: "fornecedor.criar" },
   async (_user, formData: FormData): Promise<ActionResult> => {
     const parsed = parseFornecedor(formData);
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
 
     const resultado = await criarFornecedorValidado(parsed.data);
     if (!resultado.ok) return { ok: false, erro: resultado.erro };
+    anotarFornecedorCriado(resultado.fornecedor);
     return { ok: true };
   },
 );
 
 export const atualizarFornecedor = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"] },
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"], atividade: "fornecedor.editar" },
   async (_user, id: string, formData: FormData): Promise<ActionResult> => {
     const parsed = parseFornecedor(formData);
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
@@ -40,18 +42,24 @@ export const atualizarFornecedor = acaoDeEscrita(
       where: { id },
       data: { nome: d.nome, cnpj: doc.cnpj, fone: d.fone ?? null, obs: d.obs ?? null },
     });
+    anotarAtividade({ descricao: `Editou o fornecedor ${d.nome}`, entidade: "fornecedor", entidadeId: id });
     return { ok: true };
   },
 );
 
 export const excluirFornecedor = acaoDeEscrita(
-  { papeis: ["ADMIN"], revalidar: ["/fornecedores"] },
+  { papeis: ["ADMIN"], revalidar: ["/fornecedores"], atividade: "fornecedor.excluir" },
   async (_user, id: string): Promise<ActionResult> => {
     const notas = await prisma.notaFiscal.count({ where: { fornecedorId: id } });
     if (notas > 0) {
       return { ok: false, erro: "Fornecedor possui notas fiscais — não pode ser excluído." };
     }
-    await prisma.fornecedor.delete({ where: { id } });
+    const fornecedor = await prisma.fornecedor.delete({ where: { id }, select: { nome: true } });
+    anotarAtividade({ descricao: `Excluiu o fornecedor ${fornecedor.nome}`, entidade: "fornecedor", entidadeId: id });
     return { ok: true };
   },
 );
+
+function anotarFornecedorCriado(f: { id: string; nome: string }) {
+  anotarAtividade({ descricao: `Cadastrou o fornecedor ${f.nome}`, entidade: "fornecedor", entidadeId: f.id });
+}
