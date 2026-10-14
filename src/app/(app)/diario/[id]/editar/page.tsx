@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { listarObrasAtivas } from "@/services/obras";
+import { podeVerObra } from "@/services/acesso";
 import { dataParaInput } from "@/lib/format";
 import {
   dataDoRdo,
@@ -26,7 +27,7 @@ export default async function EditarRdoPage({
     where: { id },
     include: { fotos: { orderBy: { id: "asc" } } },
   });
-  if (!rdo) notFound();
+  if (!rdo || !podeVerObra(user.obrasPermitidas, rdo.obraId)) notFound();
 
   const permissao = permissaoRdo(user, rdo);
   if (!permissao.ok) {
@@ -42,7 +43,7 @@ export default async function EditarRdoPage({
   }
 
   // inclui a obra do RDO mesmo que já tenha sido concluída/pausada
-  const obras = await listarObrasAtivas([rdo.obraId]);
+  const obras = await listarObrasAtivas([rdo.obraId], user.obrasPermitidas);
 
   const valores: RdoValores = {
     obraId: rdo.obraId,

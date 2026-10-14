@@ -5,8 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { validarAvanco } from "@/services/obra";
 import { diaParaBanco, validarDatasEtapa } from "@/services/cronograma";
-import { inputParaData, percentEditavelParaBp } from "@/lib/format";
+import { formatarPercentBp, inputParaData, percentEditavelParaBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { exigirAcessoObra } from "@/lib/auth";
+import { anotarAtividade } from "@/lib/atividade";
 
 const ROTAS = ["/cronograma", "/dashboard"];
 
@@ -17,7 +19,7 @@ function revalidarObra(obraId: string) {
 
 /** Salva as datas previstas de todas as etapas da obra de uma vez (campos inicio-<id> / fim-<id>). */
 export const salvarDatasEtapas = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS },
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS, atividade: "cronograma.datas" },
   async (_user, obraId: string, formData: FormData): Promise<ActionResult> => {
     const etapas = await prisma.etapa.findMany({
       where: { obraId },
@@ -48,6 +50,12 @@ export const salvarDatasEtapas = acaoDeEscrita(
         }),
       ),
     );
+    anotarAtividade({
+      descricao: `Alterou as datas previstas de ${alteracoes.length} etapa${alteracoes.length === 1 ? "" : "s"}`,
+      entidade: "obra",
+      entidadeId: obraId,
+      obraIds: [obraId],
+    });
     revalidarObra(obraId);
     return { ok: true };
   },
@@ -62,7 +70,7 @@ const medicaoSchema = z.object({
 
 /** Lança o avanço físico acumulado de uma etapa — o campo pode lançar (qualquer papel). */
 export const criarMedicao = acaoDeEscrita(
-  { revalidar: ROTAS },
+  { revalidar: ROTAS, atividade: "medicao.criar" },
   async (user, formData: FormData): Promise<ActionResult> => {
     const parsed = medicaoSchema.safeParse({
       etapaId: formData.get("etapaId"),
@@ -76,8 +84,12 @@ export const criarMedicao = acaoDeEscrita(
     const percentBp = percentEditavelParaBp(d.percent);
     if (percentBp === null) return { ok: false, erro: "Percentual inválido" };
 
-    const etapa = await prisma.etapa.findUnique({ where: { id: d.etapaId }, select: { obraId: true } });
+    const etapa = await prisma.etapa.findUnique({
+      where: { id: d.etapaId },
+      select: { obraId: true, nome: true, obra: { select: { nome: true } } },
+    });
     if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
+    exigirAcessoObra(user, etapa.obraId);
 
     const ultima = await prisma.medicao.findFirst({
       where: { etapaId: d.etapaId },
@@ -86,7 +98,7 @@ export const criarMedicao = acaoDeEscrita(
     const valido = validarAvanco(percentBp, ultima?.percentBp ?? 0);
     if (!valido.ok) return { ok: false, erro: valido.erro };
 
-    await prisma.medicao.create({
+    const medicao = await prisma.medicao.create({
       data: {
         etapaId: d.etapaId,
         data: inputParaData(d.data),
@@ -94,6 +106,13 @@ export const criarMedicao = acaoDeEscrita(
         obs: d.obs || null,
         autorId: user.id,
       },
+      select: { id: true },
+    });
+    anotarAtividade({
+      descricao: `Lançou ${formatarPercentBp(percentBp)} de avanço em ${etapa.nome} (${etapa.obra.nome})`,
+      entidade: "medicao",
+      entidadeId: medicao.id,
+      obraIds: [etapa.obraId],
     });
     revalidarObra(etapa.obraId);
     return { ok: true };
@@ -101,11 +120,17 @@ export const criarMedicao = acaoDeEscrita(
 );
 
 export const excluirMedicao = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS },
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS, atividade: "medicao.excluir" },
   async (_user, id: string): Promise<ActionResult> => {
     const medicao = await prisma.medicao.delete({
       where: { id },
-      select: { etapa: { select: { obraId: true } } },
+      select: { percentBp: true, etapa: { select: { obraId: true, nome: true, obra: { select: { nome: true } } } } },
+    });
+    anotarAtividade({
+      descricao: `Excluiu o avanço de ${formatarPercentBp(medicao.percentBp)} em ${medicao.etapa.nome} (${medicao.etapa.obra.nome})`,
+      entidade: "medicao",
+      entidadeId: id,
+      obraIds: [medicao.etapa.obraId],
     });
     revalidarObra(medicao.etapa.obraId);
     return { ok: true };

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { startOfMonth, addDays, startOfDay, subMonths } from "date-fns";
-import { auth } from "@/lib/auth";
+import { usuarioAtual } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { realizadoPorObra, realizadoPorMes, chaveMes } from "@/services/custos";
 import { carregarAlertas, carregarCurvaAbc } from "@/services/analises";
@@ -24,9 +24,9 @@ const LINK_CARD = "text-sm text-muted-foreground hover:text-foreground hover:und
 const MESES_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  if (session.user.role === "CAMPO") redirect("/diario");
+  const user = await usuarioAtual();
+  if (!user) redirect("/login");
+  if (user.role === "CAMPO") redirect("/diario");
 
   const hoje = new Date();
   const inicioMes = startOfMonth(hoje);

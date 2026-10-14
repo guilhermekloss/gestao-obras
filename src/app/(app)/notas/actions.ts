@@ -15,11 +15,16 @@ import { fornecedorSchema, criarFornecedorValidado } from "@/services/fornecedor
 import { chaveAcessoValida } from "@/services/leitura-documento";
 import { dataParaInput, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { anotarAtividade } from "@/lib/atividade";
 
 export type SalvarNotaResult = ActionResult & { id?: string };
 
 export const salvarNota = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/notas", "/contas"] },
+  {
+    papeis: ["ADMIN", "ESCRITORIO"],
+    revalidar: ["/notas", "/contas"],
+    atividade: (input: NotaInput) => (input.id ? "nota.editar" : "nota.criar"),
+  },
   async (user, input: NotaInput): Promise<SalvarNotaResult> => {
     const parsed = notaSchema.safeParse(input);
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
@@ -181,7 +186,7 @@ export const salvarNota = acaoDeEscrita(
         });
       }
 
-      return notaId;
+      return { notaId, numero };
     }).catch((erro: unknown) => {
       // Corrida rara: outro lançamento pegou o mesmo número entre a checagem e a gravação.
       if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
@@ -191,7 +196,16 @@ export const salvarNota = acaoDeEscrita(
     });
 
     if (!id) return { ok: false, erro: mensagemNumeroRepetido(tipoDocumento, d.numero) };
-    return { ok: true, id };
+
+    const fornecedor = await prisma.fornecedor.findUnique({ where: { id: d.fornecedorId }, select: { nome: true } });
+    anotarAtividade({
+      descricao: `${d.id ? "Editou" : "Lançou"} ${ROTULO_DOCUMENTO[tipoDocumento]} ${id.numero} — ${fornecedor?.nome ?? "fornecedor"} (${formatarMoeda(d.totalCents)})`,
+      entidade: "nota",
+      entidadeId: id.notaId,
+      obraIds: d.rateios.map((r) => r.obraId),
+      valorCents: d.totalCents,
+    });
+    return { ok: true, id: id.notaId };
   },
 );
 
@@ -206,6 +220,14 @@ async function parcelasExistentes(notaId: string): Promise<ParcelaExistente[]> {
   return parcelas.map((p) => ({ ...p, vencimento: dataParaInput(p.vencimento) }));
 }
 
+const ROTULO_DOCUMENTO: Record<TipoDocumento, string> = {
+  NF: "a NF",
+  RECIBO: "o recibo",
+  FOLHA: "a folha",
+  GUIA: "a guia",
+  OUTRO: "o documento",
+};
+
 function mensagemNumeroRepetido(tipo: TipoDocumento, numero: string): string {
   if (tipo === "NF") {
     return `Já existe a NF ${numero} deste fornecedor. Confira se a nota não foi lançada antes.`;
@@ -216,13 +238,29 @@ function mensagemNumeroRepetido(tipo: TipoDocumento, numero: string): string {
 }
 
 export const excluirNota = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/notas", "/contas"] },
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/notas", "/contas"], atividade: "nota.excluir" },
   async (_user, id: string): Promise<ActionResult> => {
     const pagas = await prisma.parcela.count({ where: { notaId: id, status: "PAGA" } });
     if (pagas > 0) {
       return { ok: false, erro: "Nota possui parcelas pagas — não pode ser excluída." };
     }
-    await prisma.notaFiscal.delete({ where: { id } });
+    const nota = await prisma.notaFiscal.delete({
+      where: { id },
+      select: {
+        numero: true,
+        tipoDocumento: true,
+        totalCents: true,
+        fornecedor: { select: { nome: true } },
+        rateios: { select: { obraId: true } },
+      },
+    });
+    anotarAtividade({
+      descricao: `Excluiu ${ROTULO_DOCUMENTO[nota.tipoDocumento]} ${nota.numero} — ${nota.fornecedor.nome} (${formatarMoeda(nota.totalCents)})`,
+      entidade: "nota",
+      entidadeId: id,
+      obraIds: nota.rateios.map((r) => r.obraId),
+      valorCents: nota.totalCents,
+    });
     return { ok: true };
   },
 );
@@ -233,13 +271,18 @@ export type CriarFornecedorInlineResult = ActionResult & {
 
 /** Criação rápida de fornecedor sem sair do formulário de NF. */
 export const criarFornecedorInline = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"] },
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"], atividade: "fornecedor.criar" },
   async (_user, nome: string, cnpj?: string): Promise<CriarFornecedorInlineResult> => {
     const parsed = fornecedorSchema.safeParse({ nome, cnpj: cnpj?.trim() || undefined });
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
 
     const resultado = await criarFornecedorValidado(parsed.data);
     if (!resultado.ok) return { ok: false, erro: resultado.erro };
+    anotarAtividade({
+      descricao: `Cadastrou o fornecedor ${resultado.fornecedor.nome}`,
+      entidade: "fornecedor",
+      entidadeId: resultado.fornecedor.id,
+    });
     return {
       ok: true,
       fornecedor: {

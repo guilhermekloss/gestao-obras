@@ -7,8 +7,12 @@ import { CondicaoTrabalho, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { inputParaData } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { exigirAcessoObra } from "@/lib/auth";
+import { anotarAtividade } from "@/lib/atividade";
+import { formatarData } from "@/lib/format";
 import {
   CLIMAS,
+  dataDoRdo,
   diffFotos,
   permissaoRdo,
   urlFotoValida,
@@ -69,6 +73,17 @@ function prepararRdo(input: RdoInput) {
   };
 }
 
+/** "Registrou o RDO de 14/10/2026 — Lote 03" */
+async function anotarRdo(verbo: string, rdo: { id: string; obraId: string; data: Date }) {
+  const obra = await prisma.obra.findUnique({ where: { id: rdo.obraId }, select: { nome: true } });
+  anotarAtividade({
+    descricao: `${verbo} o RDO de ${formatarData(dataDoRdo(rdo.data))} — ${obra?.nome ?? "obra"}`,
+    entidade: "rdo",
+    entidadeId: rdo.id,
+    obraIds: [rdo.obraId],
+  });
+}
+
 /** Violação do @@unique([obraId, data]) — corrida entre a checagem e a gravação. */
 function ehDuplicado(erro: unknown): boolean {
   return erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002";
@@ -76,10 +91,11 @@ function ehDuplicado(erro: unknown): boolean {
 
 export const criarRdo = acaoDeEscrita(
   // qualquer papel autenticado (campo incluso)
-  { revalidar: (input: RdoInput) => ["/diario", `/obras/${input.obraId}`] },
+  { revalidar: (input: RdoInput) => ["/diario", `/obras/${input.obraId}`], atividade: "rdo.criar" },
   async (user, input: RdoInput): Promise<ActionResult & { id?: string }> => {
     const p = prepararRdo(input);
     if (!p.ok) return p;
+    exigirAcessoObra(user, p.dados.obraId);
 
     const existente = await prisma.diarioObra.findUnique({
       where: { obraId_data: { obraId: p.dados.obraId, data: p.dados.data } },
@@ -96,6 +112,7 @@ export const criarRdo = acaoDeEscrita(
         },
         select: { id: true },
       });
+      await anotarRdo("Registrou", { id: rdo.id, obraId: p.dados.obraId, data: p.dados.data });
       return { ok: true, id: rdo.id };
     } catch (erro) {
       if (ehDuplicado(erro)) return { ok: false, erro: MSG_DUPLICADO };
@@ -111,6 +128,7 @@ export const atualizarRdo = acaoDeEscrita(
       `/diario/${id}`,
       `/obras/${input.obraId}`,
     ],
+    atividade: "rdo.editar",
   },
   async (user, id: string, input: RdoInput): Promise<ActionResult> => {
     const rdo = await prisma.diarioObra.findUnique({
@@ -118,12 +136,14 @@ export const atualizarRdo = acaoDeEscrita(
       select: { id: true, obraId: true, autorId: true, createdAt: true, fotos: { select: { id: true, url: true } } },
     });
     if (!rdo) return { ok: false, erro: "RDO não encontrado" };
+    exigirAcessoObra(user, rdo.obraId);
 
     const permissao = permissaoRdo(user, rdo);
     if (!permissao.ok) return permissao;
 
     const p = prepararRdo(input);
     if (!p.ok) return p;
+    exigirAcessoObra(user, p.dados.obraId);
 
     // mudar obra ou data não pode colidir com outro RDO da mesma obra+data
     const conflito = await prisma.diarioObra.findFirst({
@@ -149,6 +169,7 @@ export const atualizarRdo = acaoDeEscrita(
       throw erro;
     }
 
+    await anotarRdo("Editou", { id, obraId: p.dados.obraId, data: p.dados.data });
     // o RDO mudou de obra: a página da obra antiga também lista o RDO
     if (rdo.obraId !== p.dados.obraId) revalidatePath(`/obras/${rdo.obraId}`);
     return { ok: true };
@@ -161,18 +182,20 @@ export const atualizarRdo = acaoDeEscrita(
  * e não pela opção `revalidar` do wrapper.
  */
 export const excluirRdo = acaoDeEscrita(
-  {},
+  { atividade: "rdo.excluir" },
   async (user, id: string, destino?: string): Promise<ActionResult> => {
     const rdo = await prisma.diarioObra.findUnique({
       where: { id },
-      select: { obraId: true, autorId: true, createdAt: true },
+      select: { obraId: true, data: true, autorId: true, createdAt: true },
     });
     if (!rdo) return { ok: false, erro: "RDO não encontrado" };
+    exigirAcessoObra(user, rdo.obraId);
 
     const permissao = permissaoRdo(user, rdo);
     if (!permissao.ok) return permissao;
 
     await prisma.diarioObra.delete({ where: { id } });
+    await anotarRdo("Excluiu", { id, obraId: rdo.obraId, data: rdo.data });
     revalidatePath("/diario");
     revalidatePath(`/obras/${rdo.obraId}`);
     // só caminhos internos: evita usar a action como redirecionador aberto

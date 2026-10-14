@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
+import { podeVerObra } from "@/services/acesso";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/confirm-button";
 import { formatarData } from "@/lib/format";
@@ -51,7 +52,7 @@ export default async function RdoDetalhePage({
       fotos: { orderBy: { id: "asc" } },
     },
   });
-  if (!rdo) notFound();
+  if (!rdo || !podeVerObra(user.obrasPermitidas, rdo.obraId)) notFound();
 
   const dia = dataDoRdo(rdo.data);
   const efetivo = normalizarEfetivo(rdo.efetivo);

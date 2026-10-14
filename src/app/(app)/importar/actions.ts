@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { importarPlanilhas, normalizarChave } from "@/services/importacao";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
+import { formatarMoeda } from "@/lib/format";
 
 export type PreviewImportacao = ActionResult & {
   totalNotas?: number;
@@ -20,6 +22,7 @@ const processar = acaoDeEscrita(
     papeis: ["ADMIN", "ESCRITORIO"],
     revalidar: (_formData: FormData, executar: boolean) =>
       executar ? ["/notas", "/contas", "/fornecedores"] : [],
+    atividade: "importacao.planilhas",
   },
   async (user, formData: FormData, executar: boolean): Promise<PreviewImportacao> => {
     const arqItens = formData.get("csvItens");
@@ -74,7 +77,10 @@ const processar = acaoDeEscrita(
       valorTotalCents: notas.reduce((a, n) => a + n.totalCents, 0),
       inconsistencias,
     };
-    if (!executar) return resumo;
+    if (!executar) {
+      ignorarAtividade(); // a prévia não grava nada
+      return resumo;
+    }
 
     let importadas = 0;
     for (const n of novas) {
@@ -143,6 +149,14 @@ const processar = acaoDeEscrita(
       importadas++;
     }
 
+    if (importadas === 0) ignorarAtividade();
+    else anotarAtividade({
+      descricao: `Importou ${importadas} lançamento${importadas === 1 ? "" : "s"} das planilhas (${formatarMoeda(novas.reduce((a, n) => a + n.totalCents, 0))})`,
+      obraIds: [...new Set(novas.flatMap((n) => n.rateios.map((r) => obraPorCodigo.get(normalizarChave(r.codigoObra)))))].filter(
+        (id): id is string => !!id,
+      ),
+      valorCents: novas.reduce((a, n) => a + n.totalCents, 0),
+    });
     return { ...resumo, importadas };
   },
 );

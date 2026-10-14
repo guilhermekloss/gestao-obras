@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { storage } from "@/lib/storage";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { anotarAtividade } from "@/lib/atividade";
 import { formatarMoeda, formatarPercentBp, inputParaData } from "@/lib/format";
 import { parcelaSchema, rateioSchema } from "@/schemas/nota";
 import { validarParcelas } from "@/services/parcelas";
@@ -65,7 +66,7 @@ export async function consultarSituacaoImportacao(
  * `revalidar` do wrapper fica de fora (ver `acaoDeEscrita`).
  */
 export const importarNfe = acaoDeEscrita(
-  { papeis: [...PAPEIS] },
+  { papeis: [...PAPEIS], atividade: "nota.importar_xml" },
   async (user, input: ImportarNfeInput): Promise<ImportarNfeResult> => {
     const parsed = importarSchema.safeParse(input);
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
@@ -194,6 +195,13 @@ export const importarNfe = acaoDeEscrita(
       throw e;
     }
 
+    anotarAtividade({
+      descricao: `Importou a NF ${nfe.numero} — ${nfe.emitente.razaoSocial} (${formatarMoeda(nfe.totalCents)})${fornecedorCriado ? " e cadastrou o fornecedor" : ""}`,
+      entidade: "nota",
+      entidadeId: notaId,
+      obraIds: d.rateios.map((r) => r.obraId),
+      valorCents: nfe.totalCents,
+    });
     revalidatePath("/notas");
     revalidatePath("/contas");
     if (fornecedorCriado) revalidatePath("/fornecedores");

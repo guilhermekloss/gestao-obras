@@ -7,10 +7,10 @@ export default async function NovoRdoPage({
 }: {
   searchParams: Promise<{ obra?: string }>;
 }) {
-  await exigirPapel();
+  const user = await exigirPapel();
   const { obra } = await searchParams;
 
-  const obras = await listarObrasAtivas();
+  const obras = await listarObrasAtivas([], user.obrasPermitidas);
   // `?obra=<id>` (vindo da aba Diário da obra) só pré-seleciona obra ativa
   const obraInicial = obra && obras.some((o) => o.id === obra) ? obra : undefined;
 

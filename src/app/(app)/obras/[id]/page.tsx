@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { usuarioAtual } from "@/lib/auth";
+import { podeVerObra } from "@/services/acesso";
 import { StatusObraBadge } from "@/components/status-obra-badge";
 import { ConfirmButton } from "@/components/confirm-button";
 import { EditarObraDialog } from "../obra-dialogs";
@@ -11,16 +12,20 @@ import { Trash2 } from "lucide-react";
 import { AbaResumo } from "./abas/resumo";
 import { AbaCronograma } from "./abas/cronograma";
 import { AbaDiario } from "./abas/diario";
+import { AbaEquipe } from "./abas/equipe";
+import type { Role } from "@prisma/client";
 
 /**
  * Casca da página da obra: cabeçalho + barra de abas. Cada aba vive em
  * `abas/<aba>.tsx` com o contrato `AbaObraProps`, para que módulos
  * diferentes evoluam sua aba sem tocar neste arquivo.
  */
+const TODOS: Role[] = ["ADMIN", "ESCRITORIO", "CAMPO"];
 const ABAS = [
-  { key: "resumo", label: "Resumo", Componente: AbaResumo },
-  { key: "cronograma", label: "Cronograma", Componente: AbaCronograma },
-  { key: "diario", label: "Diário", Componente: AbaDiario },
+  { key: "resumo", label: "Resumo", Componente: AbaResumo, papeis: TODOS },
+  { key: "cronograma", label: "Cronograma", Componente: AbaCronograma, papeis: TODOS },
+  { key: "diario", label: "Diário", Componente: AbaDiario, papeis: TODOS },
+  { key: "equipe", label: "Equipe", Componente: AbaEquipe, papeis: ["ADMIN", "ESCRITORIO"] as Role[] },
 ] as const;
 
 export default async function ObraPage({
@@ -30,16 +35,18 @@ export default async function ObraPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ aba?: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  const podeEditar = session.user.role !== "CAMPO";
-  const ehAdmin = session.user.role === "ADMIN";
+  const user = await usuarioAtual();
+  if (!user) redirect("/login");
+  const podeEditar = user.role !== "CAMPO";
+  const ehAdmin = user.role === "ADMIN";
 
   const [{ id }, { aba: abaParam }] = await Promise.all([params, searchParams]);
+  if (!podeVerObra(user.obrasPermitidas, id)) notFound();
   const obra = await prisma.obra.findUnique({ where: { id } });
   if (!obra) notFound();
 
-  const aba = ABAS.find((a) => a.key === abaParam) ?? ABAS[0];
+  const abas = ABAS.filter((a) => a.papeis.includes(user.role));
+  const aba = abas.find((a) => a.key === abaParam) ?? abas[0];
 
   return (
     <div className="space-y-6">
@@ -64,7 +71,7 @@ export default async function ObraPage({
       </div>
 
       <nav className="flex gap-1 border-b">
-        {ABAS.map((a) => (
+        {abas.map((a) => (
           <Link
             key={a.key}
             href={a.key === "resumo" ? `/obras/${obra.id}` : `/obras/${obra.id}?aba=${a.key}`}
@@ -80,7 +87,7 @@ export default async function ObraPage({
         ))}
       </nav>
 
-      <aba.Componente obraId={obra.id} role={session.user.role} />
+      <aba.Componente obraId={obra.id} role={user.role} />
     </div>
   );
 }

@@ -62,27 +62,104 @@ enum StatusParcela {
 }
 
 model Usuario {
-  id        String       @id @default(cuid())
-  nome      String
-  email     String       @unique
-  senhaHash String
-  role      Role         @default(ESCRITORIO)
-  ativo     Boolean      @default(true)
-  diarios   DiarioObra[]
-  medicoes  Medicao[]
+  id              String        @id @default(cuid())
+  nome            String
+  email           String        @unique
+  senhaHash       String
+  role            Role          @default(ESCRITORIO)
+  ativo           Boolean       @default(true)
+  /**
+   * CAMPO: false limita o acesso às obras de `obras` (ADMIN e ESCRITORIO veem todas sempre).
+   */
+  todasObras      Boolean       @default(true)
+  criadoEm        DateTime      @default(now())
+  /**
+   * Atualizado no login e a cada uso (no máximo a cada poucos minutos).
+   */
+  ultimoAcessoEm  DateTime?
+  obras           UsuarioObra[]
+  diarios         DiarioObra[]
+  medicoes        Medicao[]
+  atividades      Atividade[]
+  convitesCriados Convite[]     @relation("ConviteCriadoPor")
+  conviteAceito   Convite?      @relation("ConviteAceito")
+}
+
+/**
+ * Obras liberadas para um usuário com `todasObras = false`.
+ */
+model UsuarioObra {
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  obraId    String
+  obra      Obra    @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, obraId])
+  @@index([obraId])
+}
+
+/**
+ * Link de cadastro: o admin gera, envia, e a pessoa cria a própria conta com o papel e as obras do convite.
+ * O token só existe no link — aqui fica o hash (SHA-256). Uso único.
+ */
+model Convite {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  /**
+   * Quando preenchido, o cadastro fica preso a este e-mail.
+   */
+  email       String?
+  nome        String?
+  role        Role
+  todasObras  Boolean   @default(true)
+  obraIds     String[]  @default([])
+  criadoPorId String?
+  criadoPor   Usuario?  @relation("ConviteCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  criadoEm    DateTime  @default(now())
+  expiraEm    DateTime
+  revogadoEm  DateTime?
+  usadoEm     DateTime?
+  usuarioId   String?   @unique
+  usuario     Usuario?  @relation("ConviteAceito", fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([criadoEm])
+}
+
+/**
+ * Log de auditoria: uma linha por ação de escrita bem-sucedida (gravada por `acaoDeEscrita`).
+ */
+model Atividade {
+  id         String   @id @default(cuid())
+  usuarioId  String?
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  tipo       String // "nota.salvar", "rdo.criar"... (ver services/atividade.ts)
+  descricao  String
+  entidade   String? // "nota" | "rdo" | "obra" | "fornecedor" | "usuario" | "convite" | "medicao"
+  entidadeId String?
+  /**
+   * Obras afetadas (uma nota rateada toca várias) — sem FK: o log sobrevive à exclusão da obra.
+   */
+  obraIds    String[] @default([])
+  valorCents Int?
+  criadoEm   DateTime @default(now())
+
+  @@index([usuarioId, criadoEm])
+  @@index([criadoEm])
+  @@index([obraIds], type: Gin)
 }
 
 model Obra {
-  id       String       @id @default(cuid())
+  id       String        @id @default(cuid())
   nome     String // "Lote 03"
-  codigo   String       @unique
+  codigo   String        @unique
   cno      String? // Cadastro Nacional de Obras
   endereco String?
-  status   StatusObra   @default(ANDAMENTO)
+  status   StatusObra    @default(ANDAMENTO)
   inicioEm DateTime?
   etapas   Etapa[]
   rateios  RateioNota[]
   diarios  DiarioObra[]
+  usuarios UsuarioObra[]
 }
 
 model Etapa {
