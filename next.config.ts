@@ -1,5 +1,14 @@
 import type { NextConfig } from "next";
 
+const securityHeaders = [
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // câmera liberada para a própria origem: o diário e os lançamentos tiram foto pelo celular
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), browsing-topics=()" },
+];
+
 const nextConfig: NextConfig = {
   /**
    * Sem isso, o Next 16 bloqueia por segurança as requisições de dev (inclusive
@@ -9,6 +18,15 @@ const nextConfig: NextConfig = {
    * 192.168.x.x, então continua funcionando mesmo se o roteador trocar o IP.
    */
   allowedDevOrigins: ["192.168.*.*"],
+  /** Imagem Docker enxuta para o Cloud Run (ver Dockerfile). */
+  output: "standalone",
+  /** Proteção contra version skew durante o rollout de uma nova revisão (SHA do commit, vindo do build). */
+  deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
+  poweredByHeader: false,
+  serverExternalPackages: ["@google-cloud/storage"],
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
 };
 
 export default nextConfig;

@@ -43,3 +43,7 @@ uploads/
 
 # worktrees dos agentes paralelos
 /.claude/worktrees/
+
+# relatórios do Playwright
+/test-results/
+/playwright-report/

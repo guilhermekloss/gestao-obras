@@ -1,0 +1,16 @@
+# Copie para terraform.tfvars (ignorado pelo git) e ajuste.
+project_id = "seu-projeto-id"
+
+# Conta de faturamento para o alerta de orçamento (gcloud billing accounts list)
+billing_account_id = ""
+orcamento_mensal   = 300
+moeda_orcamento    = "BRL"
+
+# Recebe alertas de app fora do ar / erros 5xx
+email_alertas = ""
+
+# Depois de cadastrar a chave no Secret Manager (ver docs/deploy-gcp.md)
+leitura_ia_habilitada = false
+
+# cnpjs_empresa = "12.345.678/0001-90"
+# min_instancias = 1   # elimina o "cold start" (custo fixo maior)
