@@ -140,6 +140,23 @@ Regras para todos os agentes:
 - Antes de entregar: `lint`, `tsc`, `vitest` verdes e testes novos para os services criados.
 - Entrega = branch + `docs/handoff/<agente>.md` (o que foi feito, pendências, pedidos).
 
+### Status da Onda 1 — ✅ integrada
+
+Os 5 branches foram integrados sem conflito (cada agente ficou nas suas pastas). Pedidos dos
+handoffs (`docs/handoff/A*.md`) aplicados pelo integrador: menu "Lançamentos", botões "Importar XML",
+chave NF-e na edição, links RDO/Cronograma na aba Resumo, textos de Avanço, README.
+Validação: `tsc`, `eslint` (0 erros), 217 testes Vitest, `next build`, e2e Playwright (2/2) e
+smoke de todas as rotas como ADMIN e CAMPO.
+
+**Achados dos agentes que entram no início da Onda 2 (Fase 0, transversal):**
+- **Fuso horário de datas.** Colunas `@db.Date` e datas gravadas à meia-noite UTC aparecem um
+  dia antes num servidor fora de UTC. Padronizar um helper `dataCivil` em `lib/format.ts`
+  (hoje existe como `dataDoRdo` em `services/rdo.ts`) e migrar as datas de parcela/compra para meio-dia.
+  Até lá, rodar o servidor em UTC.
+- `StorageDriver.remover(url)` para não deixar fotos órfãs (junto com o driver S3/R2 do A9).
+- Upload de NF-e limitado a 900 KB (limite de 1 MB das server actions) — avaliar `serverActions.bodySizeLimit`.
+- Curva ABC, alertas e custos leem todas as notas em memória — virar agregação SQL quando o volume crescer.
+
 ### Fase 2 — Agente Integrador (sozinho)
 
 Faz o merge das branches em ordem fixa (A1 → A2 → A3 → A4 → A5), atende os pedidos dos
