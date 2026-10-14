@@ -2,7 +2,7 @@
 #   runner   — o app (Next.js standalone), usuário sem privilégios, porta 8080
 #   migrator — `prisma migrate deploy` (Cloud Run Job executado antes de cada deploy)
 
-FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS base
+FROM node:26-bookworm-slim@sha256:86f07bc9c5dce4578cf37e5a418b7bfc7f817cda25cde66e2b66e95ed86c4567 AS base
 # openssl: exigido pelo engine do Prisma
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
