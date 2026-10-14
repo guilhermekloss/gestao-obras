@@ -8,7 +8,8 @@ export default defineConfig({
     locale: "pt-BR",
   },
   webServer: {
-    command: "npm run dev",
+    // No CI o e2e roda contra o build de produção (o mesmo server.js da imagem do Cloud Run).
+    command: process.env.CI ? "HOSTNAME=0.0.0.0 node .next/standalone/server.js" : "npm run dev",
     url: "http://localhost:3000/login",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

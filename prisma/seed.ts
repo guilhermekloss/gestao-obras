@@ -4,18 +4,24 @@ import { hash } from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const senhaHash = await hash("admin123", 10);
+  // Em produção a senha padrão é proibida: passe SEED_ADMIN_SENHA (ver docs/deploy-gcp.md).
+  const senha = process.env.SEED_ADMIN_SENHA ?? (process.env.NODE_ENV === "production" ? "" : "admin123");
+  if (senha.length < 12 && process.env.NODE_ENV === "production") {
+    throw new Error("Defina SEED_ADMIN_SENHA com pelo menos 12 caracteres para rodar o seed em produção.");
+  }
+  const email = process.env.SEED_ADMIN_EMAIL ?? "admin@obras.local";
+  const senhaHash = await hash(senha, 10);
   const admin = await prisma.usuario.upsert({
-    where: { email: "admin@obras.local" },
+    where: { email },
     update: {},
     create: {
       nome: "Administrador",
-      email: "admin@obras.local",
+      email,
       senhaHash,
       role: "ADMIN",
     },
   });
-  console.log(`Seed ok: usuário admin (${admin.email} / senha: admin123)`);
+  console.log(`Seed ok: usuário admin (${admin.email}${process.env.SEED_ADMIN_SENHA ? "" : " / senha: admin123"})`);
 
   const ETAPAS_PADRAO = ["Fundação", "Estrutura", "Alvenaria", "Instalações", "Acabamento"];
   const LOTES = ["01", "02", "03", "19", "20", "21"];
