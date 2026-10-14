@@ -11,6 +11,21 @@ PROJECT_ID="${1:?uso: $0 PROJECT_ID [REGIAO]}"
 REGION="${2:-southamerica-east1}"
 STATE_BUCKET="${PROJECT_ID}-tfstate"
 TF_DIR="$(cd "$(dirname "$0")/terraform" && pwd)"
+TF_VERSION="1.13.3"
+
+# O Cloud Shell não traz mais o Terraform (o comando lá só imprime instruções).
+# Instala em ~/bin, que o Cloud Shell mantém entre sessões.
+if ! terraform version 2>/dev/null | grep -q '^Terraform v'; then
+  echo "==> Instalando Terraform $TF_VERSION em ~/bin"
+  mkdir -p "$HOME/bin"
+  curl -fsSL -o /tmp/terraform.zip \
+    "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
+  unzip -o -q /tmp/terraform.zip -d "$HOME/bin" terraform
+  rm -f /tmp/terraform.zip
+  export PATH="$HOME/bin:$PATH"
+  hash -r
+fi
+terraform version | head -1
 
 echo "==> Projeto: $PROJECT_ID · Região: $REGION"
 gcloud config set project "$PROJECT_ID" >/dev/null
