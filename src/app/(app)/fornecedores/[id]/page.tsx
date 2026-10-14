@@ -136,7 +136,7 @@ export default async function FornecedorDetalhePage({
               valor={formatarPercentBp(Math.round(dep.fatores.shareGasto * BP_TOTAL))}
               destaque
             />
-            <InfoCard titulo="Notas fiscais" valor={String(dep.numNotas)} />
+            <InfoCard titulo="Lançamentos" valor={String(dep.numNotas)} />
             <InfoCard
               titulo="Última compra"
               valor={dep.ultimaCompra ? formatarData(dep.ultimaCompra) : "—"}
@@ -268,7 +268,7 @@ export default async function FornecedorDetalhePage({
                     <TableHeader>
                       <TableRow>
                         <TableHead>Data</TableHead>
-                        <TableHead>NF</TableHead>
+                        <TableHead>Documento</TableHead>
                         <TableHead className="hidden md:table-cell text-right">Itens</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                       </TableRow>

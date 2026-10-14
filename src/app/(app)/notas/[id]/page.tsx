@@ -90,6 +90,11 @@ export default async function EditarNotaPage({
           </ConfirmButton>
         )}
       </div>
+      {nota.chaveNfe && (
+        <p className="text-xs text-muted-foreground">
+          Importada do XML · chave NF-e <span className="font-mono">{nota.chaveNfe}</span>
+        </p>
+      )}
       {temParcelaPaga && (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           Este lançamento tem parcelas pagas. Elas continuam pagas se o valor e o vencimento não

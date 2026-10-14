@@ -24,7 +24,7 @@ import {
   TIPOS_DOCUMENTO,
   parseTipoDocumento,
 } from "@/services/financeiro";
-import { Paperclip, Plus } from "lucide-react";
+import { FileCode2, Paperclip, Plus } from "lucide-react";
 
 export default async function NotasPage({
   searchParams,
@@ -67,9 +67,14 @@ export default async function NotasPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Lançamentos</h1>
-        <Button render={<Link href="/notas/nova" />}>
-          <Plus className="size-4" /> Novo lançamento
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" render={<Link href="/notas/importar-xml" />}>
+            <FileCode2 className="size-4" /> Importar XML
+          </Button>
+          <Button render={<Link href="/notas/nova" />}>
+            <Plus className="size-4" /> Novo lançamento
+          </Button>
+        </div>
       </div>
 
       <form method="get" className="flex flex-wrap items-end gap-2">
