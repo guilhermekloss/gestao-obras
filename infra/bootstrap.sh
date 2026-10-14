@@ -37,8 +37,14 @@ fi
 gcloud auth application-default set-quota-project "$PROJECT_ID" >/dev/null 2>&1 || true
 
 echo "==> Habilitando APIs básicas"
-gcloud services enable serviceusage.googleapis.com cloudresourcemanager.googleapis.com \
-  storage.googleapis.com iam.googleapis.com --project "$PROJECT_ID"
+# Projetos novos batem às vezes no limite por minuto da API (erro 429): espera e tenta de novo.
+for tentativa in 1 2 3 4 5; do
+  gcloud services enable serviceusage.googleapis.com cloudresourcemanager.googleapis.com \
+    storage.googleapis.com iam.googleapis.com --project "$PROJECT_ID" && break
+  [[ $tentativa -lt 5 ]] || exit 1
+  echo "    Limite de requisições do Google; tentando de novo em 60s ($tentativa/5)..."
+  sleep 60
+done
 
 echo "==> Bucket do estado do Terraform: gs://$STATE_BUCKET"
 if ! gcloud storage buckets describe "gs://$STATE_BUCKET" >/dev/null 2>&1; then
