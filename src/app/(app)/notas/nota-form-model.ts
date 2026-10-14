@@ -24,6 +24,7 @@ import {
 } from "@/services/parcelas";
 import { calcularTotalItem, dividirIgualmente, somaItens, validarRateio } from "@/services/rateio";
 import type { NotaInput } from "@/schemas/nota";
+import type { LeituraNormalizada } from "@/services/leitura-documento";
 
 export type ItemForm = {
   descricao: string;
@@ -48,6 +49,8 @@ export type NotaFormValues = {
   obs: string;
   anexoUrl: string;
   anexoNome: string;
+  /** chave de acesso lida da foto/PDF da NF-e (só na criação) */
+  chaveNfe?: string;
   itens: ItemForm[];
   rateios: RateioForm[];
   parcelas: ParcelaForm[];
@@ -135,6 +138,7 @@ export function montarPayload(
     obs: v.obs || undefined,
     anexoUrl: v.anexoUrl || undefined,
     anexoNome: v.anexoNome || undefined,
+    chaveNfe: notaId ? undefined : v.chaveNfe || undefined,
     itens: v.itens.map((i) => ({
       descricao: i.descricao,
       tipo: i.tipo,
@@ -206,4 +210,52 @@ export function situacaoParcelasPagas(
     else pagasRemovidas.push(a.numero);
   }
   return { porNumero, pagasRemovidas };
+}
+
+/**
+ * Valores do formulário a partir de um documento lido (foto/PDF). Parcelas:
+ * as do documento quando vieram e fecham com o total; senão as geradas pela
+ * forma de pagamento, como o botão "Gerar parcelas" faria.
+ */
+export function valoresDaLeitura(
+  leitura: LeituraNormalizada,
+  opts: { fornecedorId: string; anexoUrl: string; anexoNome: string; hoje: string },
+): Partial<NotaFormValues> {
+  const dataCompra = leitura.dataEmissao ?? opts.hoje;
+  const parcelas: ParcelaForm[] =
+    leitura.parcelas.length > 0
+      ? leitura.parcelas.map((p) => ({
+          numero: p.numero,
+          valor: centsParaEditavel(p.valorCents),
+          vencimento: p.vencimento,
+        }))
+      : (gerarParcelasForm({
+          totalCents: leitura.totalCents,
+          numParcelas: "1",
+          formaPagto: leitura.formaPagto,
+          dataCompra,
+        }) ?? []);
+
+  return {
+    fornecedorId: opts.fornecedorId,
+    tipoDocumento: leitura.tipoDocumento,
+    numero: leitura.numero,
+    dataCompra,
+    total: leitura.totalCents > 0 ? centsParaEditavel(leitura.totalCents) : "",
+    formaPagto: leitura.formaPagto,
+    numParcelas: String(Math.min(6, Math.max(1, parcelas.length))),
+    obs: leitura.serie ? `Série ${leitura.serie}` : "",
+    anexoUrl: opts.anexoUrl,
+    anexoNome: opts.anexoNome,
+    chaveNfe: leitura.chaveNfe ?? "",
+    itens: leitura.itens.map((i) => ({
+      descricao: i.descricao,
+      tipo: i.tipo,
+      qtde: String(i.qtde).replace(".", ","),
+      unidade: i.unidade,
+      unit: centsParaEditavel(i.unitCents),
+      desconto: i.descontoCents ? centsParaEditavel(i.descontoCents) : "",
+    })),
+    parcelas,
+  };
 }

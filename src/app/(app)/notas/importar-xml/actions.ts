@@ -12,8 +12,8 @@ import { formatarMoeda, formatarPercentBp, inputParaData } from "@/lib/format";
 import { parcelaSchema, rateioSchema } from "@/schemas/nota";
 import { validarParcelas } from "@/services/parcelas";
 import { validarRateio } from "@/services/rateio";
-import { criarFornecedorValidado, fornecedorSchema } from "@/services/fornecedores";
-import { formatarDocumento, parseNfeXml, variantesDocumento } from "@/services/nfe-xml";
+import { buscarFornecedorPorDocumento, criarFornecedorValidado, fornecedorSchema } from "@/services/fornecedores";
+import { formatarDocumento, parseNfeXml } from "@/services/nfe-xml";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -38,13 +38,6 @@ async function notaPorChave(chave: string) {
   return prisma.notaFiscal.findUnique({ where: { chaveNfe: chave }, select: { id: true, numero: true } });
 }
 
-/** Fornecedor cadastrado com este CNPJ/CPF, com ou sem máscara. */
-async function fornecedorPorDocumento(documento: string) {
-  return prisma.fornecedor.findFirst({
-    where: { cnpj: { in: variantesDocumento(documento) } },
-    select: { id: true, nome: true },
-  });
-}
 
 export type SituacaoImportacao = {
   notaExistente: { id: string; numero: string } | null;
@@ -59,7 +52,7 @@ export async function consultarSituacaoImportacao(
   await exigirPapel(...PAPEIS);
   const [notaExistente, fornecedor] = await Promise.all([
     notaPorChave(chave),
-    fornecedorPorDocumento(documento),
+    buscarFornecedorPorDocumento(documento),
   ]);
   return { notaExistente, fornecedor };
 }
@@ -108,7 +101,7 @@ export const importarNfe = acaoDeEscrita(
     }
 
     // Fornecedor: pelo CNPJ/CPF; se não existir, cadastra com os dados do emitente.
-    let fornecedorId = (await fornecedorPorDocumento(nfe.emitente.documento))?.id;
+    let fornecedorId = (await buscarFornecedorPorDocumento(nfe.emitente.documento))?.id;
     let fornecedorCriado = false;
     if (!fornecedorId) {
       const dadosFornecedor = fornecedorSchema.safeParse({

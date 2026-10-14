@@ -85,7 +85,8 @@ CRM/funil de vendas, base SINAPI completa (avaliar só se surgir demanda de obra
 
 Portal do cliente (link só leitura: avanço, fotos, RDOs) — as obras atuais são lotes da própria
 empresa, então o portal só faz sentido quando houver obra por encomenda · checklists/FVS simples ·
-estoque por obra · conciliação OFX · IA: leitura de NF em PDF/foto e resumo semanal do
+estoque por obra · conciliação OFX · IA: ~~leitura de NF em PDF/foto~~ (feito — ver
+[`leitura-nota-fiscal.md`](leitura-nota-fiscal.md)) e resumo semanal do
 RDO para o cliente · notificações por WhatsApp.
 
 ---

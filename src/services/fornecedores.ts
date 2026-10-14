@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Fornecedor } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { variantesDocumento } from "./nfe-xml";
 
 export const fornecedorSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
@@ -21,4 +22,12 @@ export async function criarFornecedorValidado(
   }
   const fornecedor = await prisma.fornecedor.create({ data: dados });
   return { ok: true, fornecedor };
+}
+
+/** Fornecedor cadastrado com este CNPJ/CPF, com ou sem máscara (o campo é texto livre). */
+export async function buscarFornecedorPorDocumento(documento: string) {
+  return prisma.fornecedor.findFirst({
+    where: { cnpj: { in: variantesDocumento(documento) } },
+    select: { id: true, nome: true },
+  });
 }

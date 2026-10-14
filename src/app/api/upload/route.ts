@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   }
   const extensao = (file.name.split(".").pop() ?? "jpg").toLowerCase();
   if (!EXTENSOES.has(extensao)) {
-    return NextResponse.json({ erro: "Formato não suportado" }, { status: 415 });
+    return NextResponse.json({ erro: "Formato não suportado — envie JPG, PNG, WEBP ou PDF" }, { status: 415 });
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

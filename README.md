@@ -1,6 +1,6 @@
 # Gestão de Obras
 
-Plataforma web (responsiva/PWA) de gestão de obras: lançamentos (NF, recibo, folha, guia) com rateio entre obras, importação de XML da NF-e, contas a pagar, diário de obra mobile com impressão, cronograma com Gantt e curva S, orçamento vs. realizado com curva ABC e alertas, e dashboard. Substitui as planilhas de quantitativo e financeiro.
+Plataforma web (responsiva/PWA) de gestão de obras: lançamentos (NF, recibo, folha, guia) com rateio entre obras, leitura automática da nota por foto, PDF ou XML da NF-e, contas a pagar, diário de obra mobile com impressão, cronograma com Gantt e curva S, orçamento vs. realizado com curva ABC e alertas, e dashboard. Substitui as planilhas de quantitativo e financeiro.
 
 Roadmap e organização do trabalho: [`docs/plano-evolucao.md`](docs/plano-evolucao.md).
 
@@ -15,6 +15,8 @@ npx prisma migrate dev      # cria as tabelas
 npm run db:seed             # admin + 6 lotes com etapas padrão
 npm run dev                 # http://localhost:3000
 ```
+
+Leitura automática de foto/PDF de nota: defina `ANTHROPIC_API_KEY` no `.env` (opcional — sem ela, XML e preenchimento manual funcionam e foto/PDF ficam só anexados). Detalhes em [`docs/leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md).
 
 Login inicial: `admin@obras.local` / `admin123` (troque na tela Usuários).
 
@@ -33,9 +35,9 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 
 ## Estrutura
 
-- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, notas (lançamentos + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu), medicoes (redireciona para cronograma)
-- `src/services/` — parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), nfe-xml
-- `src/lib/` — prisma, auth (`exigirPapel`), acao (`acaoDeEscrita` — seam das server actions), format (moeda/data/percentual BR), storage
+- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, notas (lançamentos com envio único de foto/PDF/XML em `nova/` + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu), medicoes (redireciona para cronograma)
+- `src/services/` — parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), nfe-xml, leitura-documento (conferência da nota lida) + leitor-ia (Claude: foto/PDF → dados)
+- `src/lib/` — prisma, auth (`exigirPapel`), acao (`acaoDeEscrita` — seam das server actions), format (moeda/data/percentual BR), storage, imagem (reduz a foto antes do upload)
 - `prisma/` — schema, seed, `teste-fluxo.ts` (dados de demonstração)
 
 ## Papéis
