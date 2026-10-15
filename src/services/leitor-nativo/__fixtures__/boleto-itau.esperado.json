@@ -1,0 +1,30 @@
+{
+  "tipo": "BOLETO",
+  "legibilidade": "BOA",
+  "emitente": {
+    "nome": "DEPOSITO DE MATERIAIS FICTICIOS LTDA",
+    "documento": "11222333000181",
+    "telefone": null
+  },
+  "destinatario": {
+    "nome": "CONSTRUTORA EXEMPLO LTDA",
+    "documento": "98765432000198"
+  },
+  "numero": "12345/002",
+  "serie": null,
+  "chaveAcesso": null,
+  "dataEmissao": "2026-09-15",
+  "valorTotal": 1234.56,
+  "valorFrete": null,
+  "valorOutrasDespesas": null,
+  "descontoGeral": null,
+  "formaPagamento": "BOLETO",
+  "itens": [],
+  "parcelas": [
+    {
+      "vencimento": "2026-10-30",
+      "valor": 1234.56
+    }
+  ],
+  "observacoes": null
+}
