@@ -35,6 +35,9 @@ export const TIPOS_ATIVIDADE = {
   "convite.renovar": { rotulo: "Gerou um novo link de convite", categoria: "acesso" },
   "convite.revogar": { rotulo: "Cancelou um convite", categoria: "acesso" },
   "convite.aceito": { rotulo: "Fez o cadastro pelo convite", categoria: "acesso" },
+  "conta.login": { rotulo: "Entrou no sistema", categoria: "acesso" },
+  "conta.senha": { rotulo: "Trocou a própria senha", categoria: "acesso" },
+  "conta.encerrar_sessoes": { rotulo: "Encerrou as sessões em todos os dispositivos", categoria: "acesso" },
 } as const satisfies Record<string, { rotulo: string; categoria: CategoriaAtividade }>;
 
 export type TipoAtividade = keyof typeof TIPOS_ATIVIDADE;

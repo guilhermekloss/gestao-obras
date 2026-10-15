@@ -10,7 +10,7 @@ async function main() {
     throw new Error("Defina SEED_ADMIN_SENHA com pelo menos 12 caracteres para rodar o seed em produção.");
   }
   const email = process.env.SEED_ADMIN_EMAIL ?? "admin@obras.local";
-  const senhaHash = await hash(senha, 10);
+  const senhaHash = await hash(senha, 12);
   const admin = await prisma.usuario.upsert({
     where: { email },
     update: {},

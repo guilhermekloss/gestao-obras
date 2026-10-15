@@ -32,7 +32,8 @@ export type EtapaCronograma = {
   inicioPrevisto: Dia | null;
   fimPrevisto: Dia | null;
   realizadoBp: number;
-  pesoBp: number;
+  /** participação no orçamento da obra — `null` para quem não vê valores financeiros (CAMPO) */
+  pesoBp: number | null;
   situacao: SituacaoEtapa;
 };
 
@@ -67,7 +68,7 @@ export function paraPlano(
   };
 }
 
-export async function carregarCronograma(obraId: string): Promise<Cronograma> {
+export async function carregarCronograma(obraId: string, opcoes: { comPesos: boolean }): Promise<Cronograma> {
   const [etapas, medicoes] = await Promise.all([
     prisma.etapa.findMany({
       where: { obraId },
@@ -98,7 +99,7 @@ export async function carregarCronograma(obraId: string): Promise<Cronograma> {
         inicioPrevisto: p.inicioPrevisto,
         fimPrevisto: p.fimPrevisto,
         realizadoBp,
-        pesoBp: pesos.get(p.id) ?? 0,
+        pesoBp: opcoes.comPesos ? (pesos.get(p.id) ?? 0) : null,
         situacao: situacaoEtapa(p, realizadoBp, hoje),
       };
     }),

@@ -6,7 +6,7 @@ billing_account_id = ""
 orcamento_mensal   = 300
 moeda_orcamento    = "BRL"
 
-# Recebe alertas de app fora do ar / erros 5xx
+# Recebe alertas de app fora do ar / erros 5xx / ataques ao login / mudanças de permissão
 email_alertas = ""
 
 # Leitura de foto/PDF de nota: local (padrão, sem serviço externo), vision ou desligado
@@ -17,3 +17,9 @@ email_alertas = ""
 
 # cnpjs_empresa = "12.345.678/0001-90"
 # min_instancias = 1   # elimina o "cold start" (custo fixo maior)
+
+# Endereço público, se houver domínio próprio (vazio = URL do Cloud Run)
+# app_url = "https://obras.suaempresa.com.br"
+
+# Varredura de vulnerabilidades das imagens Docker (cobrada por imagem)
+# varredura_imagens = true

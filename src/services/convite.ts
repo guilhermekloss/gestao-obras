@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { SENHA_MINIMA, problemaSenha } from "./senha";
 
-/** Mínimo para senhas novas (cadastro por convite e senhas definidas pelo admin). */
-export const SENHA_MINIMA = 8;
+export { SENHA_MINIMA } from "./senha";
 
 export const VALIDADES_DIAS = [1, 3, 7, 15, 30] as const;
 export const VALIDADE_PADRAO_DIAS = 7;
@@ -68,12 +68,15 @@ export const cadastroConviteSchema = z
   .object({
     nome: z.string().trim().min(2, "Informe seu nome").max(120),
     email: z.string().trim().transform(normalizarEmail).pipe(z.email("E-mail inválido")),
-    senha: z.string().min(SENHA_MINIMA, `A senha precisa ter no mínimo ${SENHA_MINIMA} caracteres`),
+    senha: z.string(),
     confirmacao: z.string(),
   })
-  .refine((c) => c.senha === c.confirmacao, {
-    message: "As senhas não conferem",
-    path: ["confirmacao"],
+  .superRefine((c, ctx) => {
+    const problema = problemaSenha(c.senha, { email: c.email, nome: c.nome });
+    if (problema) ctx.addIssue({ code: "custom", message: problema, path: ["senha"] });
+    else if (c.senha !== c.confirmacao) {
+      ctx.addIssue({ code: "custom", message: "As senhas não conferem", path: ["confirmacao"] });
+    }
   });
 
 /**
@@ -96,7 +99,7 @@ export function mensagemConvite(opcoes: {
   const validade = opcoes.expiraEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   return [
     `${saudacao} Você foi convidado(a) para acessar a plataforma Gestão de Obras como ${opcoes.papel}.`,
-    `Faça seu cadastro por este link (válido até ${validade}):`,
+    `Faça seu cadastro por este link (válido até ${validade}). Você vai criar uma senha de pelo menos ${SENHA_MINIMA} caracteres — pode ser uma frase fácil de lembrar:`,
     opcoes.link,
   ].join("\n");
 }

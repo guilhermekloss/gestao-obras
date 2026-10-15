@@ -9,6 +9,7 @@ import { formatarPercentBp, inputParaData, percentEditavelParaBp } from "@/lib/f
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { exigirAcessoObra } from "@/lib/auth";
 import { anotarAtividade } from "@/lib/atividade";
+import { dataIso, id, texto } from "@/schemas/comum";
 
 const ROTAS = ["/cronograma", "/dashboard"];
 
@@ -62,10 +63,10 @@ export const salvarDatasEtapas = acaoDeEscrita(
 );
 
 const medicaoSchema = z.object({
-  etapaId: z.string().min(1, "Selecione a etapa"),
-  data: z.string().min(1, "Data é obrigatória"),
-  percent: z.string().min(1, "Informe o percentual"),
-  obs: z.string().optional(),
+  etapaId: id("Selecione a etapa"),
+  data: dataIso(),
+  percent: z.string().min(1, "Informe o percentual").max(20),
+  obs: texto(1000, "A observação").optional(),
 });
 
 /** Lança o avanço físico acumulado de uma etapa — o campo pode lançar (qualquer papel). */
@@ -89,7 +90,7 @@ export const criarMedicao = acaoDeEscrita(
       select: { obraId: true, nome: true, obra: { select: { nome: true } } },
     });
     if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
-    exigirAcessoObra(user, etapa.obraId);
+    exigirAcessoObra(user, etapa.obraId, "Etapa não encontrada");
 
     const ultima = await prisma.medicao.findFirst({
       where: { etapaId: d.etapaId },

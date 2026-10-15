@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SENHA_MINIMA } from "@/services/convite";
+import { CampoSenhaNova } from "@/components/campo-senha-nova";
 import { aceitarConvite, type EstadoCadastro } from "./actions";
 
 export function CadastroForm({ token, nome, email }: { token: string; nome: string; email: string | null }) {
@@ -36,16 +36,7 @@ export function CadastroForm({ token, nome, email }: { token: string; nome: stri
       </div>
       <div className="grid gap-2">
         <Label htmlFor="senha">Crie uma senha</Label>
-        <Input
-          id="senha"
-          name="senha"
-          type="password"
-          required
-          minLength={SENHA_MINIMA}
-          autoComplete="new-password"
-          aria-invalid={invalido("senha")}
-        />
-        <p className="text-xs text-muted-foreground">Mínimo de {SENHA_MINIMA} caracteres.</p>
+        <CampoSenhaNova invalido={invalido("senha")} />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="confirmacao">Repita a senha</Label>
@@ -54,6 +45,7 @@ export function CadastroForm({ token, nome, email }: { token: string; nome: stri
           name="confirmacao"
           type="password"
           required
+          maxLength={72}
           autoComplete="new-password"
           aria-invalid={invalido("confirmacao")}
         />

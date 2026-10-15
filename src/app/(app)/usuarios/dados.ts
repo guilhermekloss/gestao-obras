@@ -9,6 +9,9 @@ import {
 } from "@/services/atividade";
 import { statusConvite } from "@/services/convite";
 
+/** Login, troca de senha e encerramento de sessão aparecem no histórico, mas não contam como produção. */
+const SEM_EVENTOS_DE_CONTA = { NOT: { tipo: { startsWith: "conta." } } } satisfies Prisma.AtividadeWhereInput;
+
 /** Mapa id → nome das obras citadas, para não fazer join em cada linha. */
 async function nomesDasObras(ids: Iterable<string>): Promise<Map<string, string>> {
   const unicos = [...new Set(ids)];
@@ -42,7 +45,7 @@ export async function carregarListaUsuarios(agora: Date = new Date()) {
     prisma.diarioObra.groupBy({ by: ["autorId"], where: { createdAt: { gte: desde } }, _count: true }),
     prisma.notaFiscal.groupBy({ by: ["createdBy"], where: { createdAt: { gte: desde } }, _count: true }),
     prisma.medicao.groupBy({ by: ["autorId"], where: { data: { gte: desde } }, _count: true }),
-    prisma.atividade.groupBy({ by: ["usuarioId"], where: { criadoEm: { gte: desde } }, _count: true }),
+    prisma.atividade.groupBy({ by: ["usuarioId"], where: { criadoEm: { gte: desde }, ...SEM_EVENTOS_DE_CONTA }, _count: true }),
     prisma.convite.findMany({
       where: { usadoEm: null, revogadoEm: null, expiraEm: { gt: agora } },
       select: { id: true },
@@ -190,7 +193,7 @@ export async function carregarPerfilUsuario(id: string) {
       select: { id: true, data: true, percentBp: true, etapa: { select: { nome: true, obraId: true } } },
     }),
     listarAtividades({ usuarioId: id }),
-    prisma.atividade.count({ where: { usuarioId: id, criadoEm: { gte: subDays(new Date(), 30) } } }),
+    prisma.atividade.count({ where: { usuarioId: id, criadoEm: { gte: subDays(new Date(), 30) }, ...SEM_EVENTOS_DE_CONTA } }),
   ]);
 
   const porObra = resumirPorObra({

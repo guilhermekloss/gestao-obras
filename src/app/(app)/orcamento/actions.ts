@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda, moedaParaCents } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
+import { MAX_CENTS } from "@/schemas/comum";
 
 /** Salva os orçamentos de todas as etapas da obra de uma vez (campos etapa-<id>). */
 export const salvarOrcamentos = acaoDeEscrita(
@@ -15,8 +16,14 @@ export const salvarOrcamentos = acaoDeEscrita(
   async (_user, obraId: string, formData: FormData): Promise<ActionResult> => {
     const etapas = await prisma.etapa.findMany({
       where: { obraId },
-      select: { id: true, orcamentoCents: true },
+      select: { id: true, nome: true, orcamentoCents: true },
     });
+    for (const e of etapas) {
+      const valor = formData.get(`etapa-${e.id}`);
+      if (valor === null) continue;
+      const cents = moedaParaCents(String(valor));
+      if (cents < 0 || cents > MAX_CENTS) return { ok: false, erro: `${e.nome}: valor fora do limite permitido` };
+    }
 
     await prisma.$transaction(
       etapas

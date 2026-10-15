@@ -55,3 +55,18 @@ export async function listarObrasParaRateio(idsJaUsados: string[] = []): Promise
     },
   });
 }
+
+/**
+ * Cada etapa escolhida no rateio pertence à obra da mesma linha (o formulário
+ * garante, mas a action recebe o que o cliente mandar). `null` = tudo certo.
+ */
+export async function erroEtapasDoRateio(rateios: { obraId: string; etapaId?: string | null }[]): Promise<string | null> {
+  const comEtapa = rateios.filter((r) => r.etapaId);
+  if (comEtapa.length === 0) return null;
+  const etapas = await prisma.etapa.findMany({
+    where: { id: { in: comEtapa.map((r) => r.etapaId!) } },
+    select: { id: true, obraId: true },
+  });
+  const obraDaEtapa = new Map(etapas.map((e) => [e.id, e.obraId]));
+  return comEtapa.every((r) => obraDaEtapa.get(r.etapaId!) === r.obraId) ? null : "Etapa do rateio não pertence à obra escolhida";
+}

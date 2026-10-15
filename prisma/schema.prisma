@@ -77,12 +77,17 @@ model Usuario {
    * Atualizado no login e a cada uso (no máximo a cada poucos minutos).
    */
   ultimoAcessoEm  DateTime?
+  /**
+   * Incrementada ao trocar a senha ou encerrar as sessões: JWTs emitidos com outra versão deixam de valer.
+   */
+  sessaoVersao    Int           @default(0)
   obras           UsuarioObra[]
   diarios         DiarioObra[]
   medicoes        Medicao[]
   atividades      Atividade[]
   convitesCriados Convite[]     @relation("ConviteCriadoPor")
   conviteAceito   Convite?      @relation("ConviteAceito")
+  arquivos        Arquivo[]
 }
 
 /**
@@ -301,4 +306,34 @@ model Foto {
   diario   DiarioObra @relation(fields: [diarioId], references: [id], onDelete: Cascade)
   url      String
   legenda  String?
+
+  @@index([url])
+}
+
+/**
+ * Arquivo enviado por /api/upload: quem enviou pode ler o próprio arquivo antes de ele ser ligado a um RDO ou lançamento.
+ */
+model Arquivo {
+  nome         String   @id // nome no storage (`1760000000000-a1b2c3d4e5f6.jpg`)
+  enviadoPorId String?
+  enviadoPor   Usuario? @relation(fields: [enviadoPorId], references: [id], onDelete: SetNull)
+  tamanhoBytes Int
+  criadoEm     DateTime @default(now())
+
+  @@index([enviadoPorId])
+}
+
+/**
+ * Tentativas de login (sucesso e falha) — base do bloqueio por excesso de tentativas. Linhas antigas são apagadas.
+ */
+model TentativaLogin {
+  id       String   @id @default(cuid())
+  email    String
+  ip       String?
+  sucesso  Boolean
+  criadoEm DateTime @default(now())
+
+  @@index([email, criadoEm])
+  @@index([ip, criadoEm])
+  @@index([criadoEm])
 }

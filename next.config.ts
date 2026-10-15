@@ -1,10 +1,19 @@
 import type { NextConfig } from "next";
 
+/**
+ * Cabeçalhos de segurança de todas as respostas. A Content-Security-Policy das
+ * páginas sai do `src/proxy.ts` (precisa de um nonce novo por requisição).
+ */
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // janela aberta por outro site não controla a do app (e vice-versa)
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // fotos, anexos e scripts do app não podem ser embutidos por outros sites
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   // câmera liberada para a própria origem: o diário e os lançamentos tiram foto pelo celular
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), browsing-topics=()" },
 ];

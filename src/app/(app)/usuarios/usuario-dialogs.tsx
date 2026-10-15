@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LabelAjuda } from "@/components/campo-ajuda";
-import { SENHA_MINIMA } from "@/services/convite";
+import { CampoSenhaNova } from "@/components/campo-senha-nova";
 import { criarUsuario, atualizarUsuario } from "./actions";
 import { CamposAcesso, type ObraOpcao } from "./campos-acesso";
 import { Pencil, UserPlus } from "lucide-react";
@@ -39,13 +39,13 @@ function CamposUsuario({ usuario, obras }: { usuario?: UsuarioSeguro; obras: Obr
           htmlFor="senha"
           ajuda={
             usuario
-              ? `Deixe em branco para manter a senha atual. Para trocar, digite a nova senha (mínimo de ${SENHA_MINIMA} caracteres).`
-              : `Mínimo de ${SENHA_MINIMA} caracteres. Prefere que a pessoa crie a própria senha? Use “Convidar por link”.`
+              ? "Deixe em branco para manter a senha atual. Ao trocar, a pessoa é desconectada de todos os aparelhos."
+              : "Prefere que a pessoa crie a própria senha? Use “Convidar por link”."
           }
         >
           {usuario ? "Nova senha (deixe vazio para manter)" : "Senha *"}
         </LabelAjuda>
-        <Input id="senha" name="senha" type="password" required={!usuario} minLength={SENHA_MINIMA} autoComplete="new-password" />
+        <CampoSenhaNova required={!usuario} outraPessoa />
       </div>
       <CamposAcesso
         obras={obras}

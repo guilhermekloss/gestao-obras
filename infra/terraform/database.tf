@@ -46,6 +46,16 @@ resource "google_sql_database_instance" "main" {
       name  = "log_min_duration_statement"
       value = "1000" # registra queries com mais de 1s
     }
+
+    # trilha de auditoria: quem conectou, de onde e por quanto tempo
+    database_flags {
+      name  = "log_connections"
+      value = "on"
+    }
+    database_flags {
+      name  = "log_disconnections"
+      value = "on"
+    }
   }
 
   depends_on = [google_project_service.apis]

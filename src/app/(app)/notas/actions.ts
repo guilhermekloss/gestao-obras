@@ -16,6 +16,7 @@ import { chaveAcessoValida } from "@/services/leitura-documento";
 import { dataParaInput, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
+import { erroEtapasDoRateio } from "@/services/obras";
 
 export type SalvarNotaResult = ActionResult & { id?: string };
 
@@ -35,6 +36,8 @@ export const salvarNota = acaoDeEscrita(
     if (exigeNumero(tipoDocumento) && !d.numero) {
       return { ok: false, erro: "Número da NF é obrigatório" };
     }
+    const erroEtapa = await erroEtapasDoRateio(d.rateios);
+    if (erroEtapa) return { ok: false, erro: erroEtapa };
     const rateio = validarRateio(d.rateios);
     if (!rateio.ok) {
       return {

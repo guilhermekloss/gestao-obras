@@ -8,8 +8,8 @@ import { CurvaSChart } from "@/app/(app)/cronograma/curva-s-chart";
 import type { AbaObraProps } from "./tipos";
 
 /** Aba Cronograma da obra: versão compacta do Gantt e da curva S, com link para `/cronograma`. */
-export async function AbaCronograma({ obraId }: AbaObraProps) {
-  const cronograma = await carregarCronograma(obraId);
+export async function AbaCronograma({ obraId, role }: AbaObraProps) {
+  const cronograma = await carregarCronograma(obraId, { comPesos: role !== "CAMPO" });
 
   return (
     <div className="space-y-6">

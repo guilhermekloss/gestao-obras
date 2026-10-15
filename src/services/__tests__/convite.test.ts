@@ -70,14 +70,14 @@ describe("novoConviteSchema", () => {
 });
 
 describe("cadastroConviteSchema", () => {
-  const ok = { nome: "João Silva", email: "Joao@Obra.com", senha: "segura123", confirmacao: "segura123" };
+  const ok = { nome: "João Silva", email: "Joao@Obra.com", senha: "tijolo-e-cimento", confirmacao: "tijolo-e-cimento" };
   it("aceita e normaliza o e-mail", () => {
     const r = cadastroConviteSchema.safeParse(ok);
     expect(r.success && r.data.email).toBe("joao@obra.com");
   });
   it("exige senha mínima e confirmação igual", () => {
     expect(cadastroConviteSchema.safeParse({ ...ok, senha: "curta", confirmacao: "curta" }).success).toBe(false);
-    const r = cadastroConviteSchema.safeParse({ ...ok, confirmacao: "outra123" });
+    const r = cadastroConviteSchema.safeParse({ ...ok, confirmacao: "tijolo-e-areia" });
     expect(r.success).toBe(false);
     expect(!r.success && r.error.issues[0].path).toEqual(["confirmacao"]);
   });
@@ -103,6 +103,7 @@ describe("calcularExpiracao e mensagemConvite", () => {
     expect(m).toContain("Olá, Maria!");
     expect(m).toContain("como Campo");
     expect(m).toContain("21/10/2026");
+    expect(m).toContain("senha de pelo menos 10 caracteres");
     expect(m.endsWith("https://app/convite/x")).toBe(true);
   });
 });

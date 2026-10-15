@@ -3,6 +3,7 @@ locals {
     "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
     "cloudresourcemanager.googleapis.com",
+    "essentialcontacts.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "logging.googleapis.com",
@@ -19,6 +20,8 @@ locals {
     local.apis_base,
     var.motor_ocr == "vision" ? ["vision.googleapis.com"] : [],
     var.gemini_habilitado ? ["aiplatform.googleapis.com"] : [], # Gemini (análise com IA)
+    # varredura automática de vulnerabilidades das imagens a cada push no Artifact Registry
+    var.varredura_imagens ? ["containerscanning.googleapis.com"] : [],
   )
 }
 

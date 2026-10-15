@@ -5,10 +5,10 @@ import { variantesDocumento } from "./nfe-xml";
 import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
 
 export const fornecedorSchema = z.object({
-  nome: z.string().trim().min(1, "Nome é obrigatório"),
-  cnpj: z.string().optional(),
-  fone: z.string().optional(),
-  obs: z.string().optional(),
+  nome: z.string().trim().min(1, "Nome é obrigatório").max(200, "O nome pode ter no máximo 200 caracteres"),
+  cnpj: z.string().max(30).optional(),
+  fone: z.string().max(40).optional(),
+  obs: z.string().max(2000, "A observação pode ter no máximo 2000 caracteres").optional(),
 });
 
 export type FornecedorInput = z.infer<typeof fornecedorSchema>;

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { signIn } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { hashToken } from "@/lib/token";
+import { CUSTO_BCRYPT } from "@/services/senha";
 import { ROLE_LABELS } from "@/services/acesso";
 import { cadastroConviteSchema, obrasValidasDoConvite, tokenComFormatoValido } from "@/services/convite";
 
@@ -45,7 +46,7 @@ export async function aceitarConvite(
   }
   const d = parsed.data;
 
-  const senhaHash = await hash(d.senha, 10);
+  const senhaHash = await hash(d.senha, CUSTO_BCRYPT);
   const agora = new Date();
   let usuario: { id: string; role: keyof typeof ROLE_LABELS };
   try {

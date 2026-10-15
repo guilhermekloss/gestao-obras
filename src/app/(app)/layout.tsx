@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOut, usuarioAtual } from "@/lib/auth";
 import { ROLE_LABELS } from "@/services/acesso";
 import { Sidebar, BottomNav } from "@/components/nav";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
-import { LogOut } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 
 export default async function AppLayout({
   children,
@@ -29,12 +30,18 @@ export default async function AppLayout({
           <span className="hidden text-sm text-muted-foreground md:block">
             {user.nome} · {ROLE_LABELS[user.role]}
           </span>
-          <form action={sair}>
-            <Button variant="ghost" size="sm" type="submit">
-              <LogOut className="size-4" />
-              <span className="hidden md:inline">Sair</span>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" render={<Link href="/conta" />}>
+              <UserRound className="size-4" />
+              <span className="hidden md:inline">Minha conta</span>
             </Button>
-          </form>
+            <form action={sair}>
+              <Button variant="ghost" size="sm" type="submit">
+                <LogOut className="size-4" />
+                <span className="hidden md:inline">Sair</span>
+              </Button>
+            </form>
+          </div>
         </header>
         <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
       </div>

@@ -10,6 +10,8 @@ import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { exigirAcessoObra } from "@/lib/auth";
 import { anotarAtividade } from "@/lib/atividade";
 import { formatarData } from "@/lib/format";
+import { dataIso, id, texto } from "@/schemas/comum";
+import { nomeDaUrlArquivo } from "@/services/arquivos";
 import {
   CLIMAS,
   dataDoRdo,
@@ -23,22 +25,24 @@ import {
 const climaSchema = z.enum(CLIMAS).optional();
 
 const rdoSchema = z.object({
-  obraId: z.string().min(1, "Selecione a obra"),
-  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data é obrigatória"),
+  obraId: id("Selecione a obra"),
+  data: dataIso(),
   climaManha: climaSchema,
   climaTarde: climaSchema,
   condicao: z.enum(CondicaoTrabalho).optional(),
   // quantidades são validadas em detalhe por `validarEfetivo`/`validarEquipamentos`
-  efetivo: z.array(z.object({ funcao: z.string(), qtd: z.number() })),
-  equipamentos: z.array(z.object({ nome: z.string(), qtd: z.number() })),
-  atividades: z.string().trim().min(1, "Descreva as atividades do dia"),
-  ocorrencias: z.string().optional(),
-  fotos: z.array(
-    z.object({
-      url: z.string().refine(urlFotoValida, "Foto com endereço inválido"),
-      legenda: z.string().optional(),
-    }),
-  ),
+  efetivo: z.array(z.object({ funcao: z.string().max(100), qtd: z.number() })).max(100),
+  equipamentos: z.array(z.object({ nome: z.string().max(100), qtd: z.number() })).max(100),
+  atividades: texto(10_000, "O texto das atividades").trim().min(1, "Descreva as atividades do dia"),
+  ocorrencias: texto(10_000, "O texto das ocorrências").optional(),
+  fotos: z
+    .array(
+      z.object({
+        url: z.string().refine(urlFotoValida, "Foto com endereço inválido"),
+        legenda: texto(300, "A legenda").optional(),
+      }),
+    )
+    .max(60, "No máximo 60 fotos por RDO"),
 });
 
 export type RdoInput = z.infer<typeof rdoSchema>;
@@ -84,6 +88,20 @@ async function anotarRdo(verbo: string, rdo: { id: string; obraId: string; data:
   });
 }
 
+/**
+ * Foto nova num RDO precisa ter sido enviada pelo próprio usuário: ligar ao
+ * RDO um arquivo de outra pessoa (ex.: anexo de um lançamento) daria acesso a
+ * ele a quem vê o RDO (ver `api/fotos`).
+ */
+async function fotosSaoDoUsuario(usuarioId: string, urls: string[]): Promise<boolean> {
+  const nomes = [...new Set(urls.map((u) => nomeDaUrlArquivo(u)).filter((n) => n !== null))];
+  if (nomes.length === 0) return true;
+  const proprios = await prisma.arquivo.count({ where: { nome: { in: nomes }, enviadoPorId: usuarioId } });
+  return proprios === nomes.length;
+}
+
+const MSG_FOTO_ALHEIA = "Foto inválida: envie as fotos de novo por este formulário.";
+
 /** Violação do @@unique([obraId, data]) — corrida entre a checagem e a gravação. */
 function ehDuplicado(erro: unknown): boolean {
   return erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002";
@@ -96,6 +114,7 @@ export const criarRdo = acaoDeEscrita(
     const p = prepararRdo(input);
     if (!p.ok) return p;
     exigirAcessoObra(user, p.dados.obraId);
+    if (!(await fotosSaoDoUsuario(user.id, p.fotos.map((f) => f.url)))) return { ok: false, erro: MSG_FOTO_ALHEIA };
 
     const existente = await prisma.diarioObra.findUnique({
       where: { obraId_data: { obraId: p.dados.obraId, data: p.dados.data } },
@@ -136,7 +155,7 @@ export const atualizarRdo = acaoDeEscrita(
       select: { id: true, obraId: true, autorId: true, createdAt: true, fotos: { select: { id: true, url: true } } },
     });
     if (!rdo) return { ok: false, erro: "RDO não encontrado" };
-    exigirAcessoObra(user, rdo.obraId);
+    exigirAcessoObra(user, rdo.obraId, "RDO não encontrado");
 
     const permissao = permissaoRdo(user, rdo);
     if (!permissao.ok) return permissao;
@@ -153,6 +172,7 @@ export const atualizarRdo = acaoDeEscrita(
     if (conflito) return { ok: false, erro: MSG_DUPLICADO };
 
     const { removerIds, criar } = diffFotos(rdo.fotos, p.fotos);
+    if (!(await fotosSaoDoUsuario(user.id, criar.map((f) => f.url)))) return { ok: false, erro: MSG_FOTO_ALHEIA };
     try {
       await prisma.diarioObra.update({
         where: { id },
@@ -189,7 +209,7 @@ export const excluirRdo = acaoDeEscrita(
       select: { obraId: true, data: true, autorId: true, createdAt: true },
     });
     if (!rdo) return { ok: false, erro: "RDO não encontrado" };
-    exigirAcessoObra(user, rdo.obraId);
+    exigirAcessoObra(user, rdo.obraId, "RDO não encontrado");
 
     const permissao = permissaoRdo(user, rdo);
     if (!permissao.ok) return permissao;
@@ -198,8 +218,8 @@ export const excluirRdo = acaoDeEscrita(
     await anotarRdo("Excluiu", { id, obraId: rdo.obraId, data: rdo.data });
     revalidatePath("/diario");
     revalidatePath(`/obras/${rdo.obraId}`);
-    // só caminhos internos: evita usar a action como redirecionador aberto
-    if (destino?.startsWith("/") && !destino.startsWith("//")) redirect(destino);
+    // só páginas do diário: evita usar a action como redirecionador aberto (`//host`, `/\\host`)
+    if (destino && /^\/diario(\/[\w-]*)*(\?[\w=&-]*)?$/.test(destino)) redirect(destino);
     return { ok: true };
   },
 );

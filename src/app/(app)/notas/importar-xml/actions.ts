@@ -15,6 +15,7 @@ import { validarParcelas } from "@/services/parcelas";
 import { validarRateio } from "@/services/rateio";
 import { buscarFornecedorPorDocumento, criarFornecedorValidado, fornecedorSchema } from "@/services/fornecedores";
 import { formatarDocumento, parseNfeXml } from "@/services/nfe-xml";
+import { erroEtapasDoRateio } from "@/services/obras";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -84,6 +85,8 @@ export const importarNfe = acaoDeEscrita(
     if (!rateio.ok) {
       return { ok: false, erro: `Rateio deve somar 100% (atual: ${formatarPercentBp(rateio.somaBp)})` };
     }
+    const erroEtapa = await erroEtapasDoRateio(d.rateios);
+    if (erroEtapa) return { ok: false, erro: erroEtapa };
     const parcelas = validarParcelas(d.parcelas, nfe.totalCents);
     if (!parcelas.ok) {
       return {
