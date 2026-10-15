@@ -1,0 +1,35 @@
+{
+  "tipo": "NFSE",
+  "legibilidade": "BOA",
+  "emitente": {
+    "nome": "LOCADORA FICTICIA DE EQUIPAMENTOS LTDA",
+    "documento": "11222333000181",
+    "telefone": null
+  },
+  "destinatario": {
+    "nome": "CONSTRUTORA EXEMPLO LTDA",
+    "documento": "98765432000198"
+  },
+  "numero": "00004567",
+  "serie": null,
+  "chaveAcesso": null,
+  "dataEmissao": "2026-10-08",
+  "valorTotal": 1800,
+  "valorFrete": null,
+  "valorOutrasDespesas": null,
+  "descontoGeral": null,
+  "formaPagamento": "NAO_INFORMADA",
+  "itens": [
+    {
+      "descricao": "LOCACAO DE BETONEIRA 400L COM OPERADOR - PERIODO 15/09/2026 A 30/09/2026 - OBRA RESIDENCIAL JARDIM",
+      "quantidade": null,
+      "unidade": null,
+      "valorUnitario": null,
+      "desconto": null,
+      "valorTotal": 1800,
+      "tipo": "SERVICO"
+    }
+  ],
+  "parcelas": [],
+  "observacoes": null
+}
