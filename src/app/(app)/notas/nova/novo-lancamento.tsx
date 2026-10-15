@@ -11,9 +11,9 @@ import { NotaForm, type FornecedorOption, type ObraOption } from "../nota-form";
 import type { NotaFormValues } from "../nota-form-model";
 import { ImportarXmlForm } from "../importar-xml/importar-xml-form";
 import { AvisoNotaExistente } from "../importar-xml/previa-nfe";
-import { lerDocumento } from "./actions";
+import { lerDocumento, type LerDocumentoResult } from "./actions";
 import { ConferenciaDialog, type LeituraConferida } from "./conferencia-dialog";
-import { conferenciaInicial, type Conferencia } from "./conferencia-model";
+import { conferenciaDaReleitura, conferenciaInicial, type Conferencia } from "./conferencia-model";
 import { ArrowLeft, Camera, ClipboardCheck, Loader2, Paperclip, ScanLine, Upload } from "lucide-react";
 
 /** Mesmo limite do /api/upload. */
@@ -49,10 +49,13 @@ export function NovoLancamento({
   fornecedores,
   obras,
   leituraAutomatica,
+  analiseIa,
 }: {
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
   leituraAutomatica: boolean;
+  /** botão "Analisar com IA" na conferência (Gemini configurado no servidor) */
+  analiseIa: boolean;
 }) {
   const [estado, setEstado] = useState<Estado>({ etapa: "inicio" });
   const [conferencia, setConferencia] = useState<Conferencia | null>(null);
@@ -134,6 +137,22 @@ export function NovoLancamento({
     );
     setEstado({ etapa: "conferencia", dados, levadoAoFormulario: false });
     setDialogAberto(true);
+  }
+
+  /** A IA releu o documento: troca os dados lidos e a conferência (mantém obra e rateio). */
+  function aplicarReleitura(r: Extract<LerDocumentoResult, { ok: true }>) {
+    if (estado.etapa !== "conferencia") return;
+    const { arquivo } = estado.dados;
+    setConferencia((c) =>
+      c &&
+      conferenciaDaReleitura(c, r.leitura, r.correspondencia, {
+        anexoUrl: arquivo.url,
+        anexoNome: arquivo.nome,
+        hoje: dataParaInput(new Date()),
+        obraPadrao: obras[0]?.id ?? "",
+      }),
+    );
+    setEstado({ ...estado, dados: { ...r, arquivo, origem: "ia" } });
   }
 
   /** Saída do pop-up para o formulário completo (casos que o pop-up não cobre). */
@@ -271,6 +290,8 @@ export function NovoLancamento({
             fornecedores={fornecedores}
             obras={obras}
             onLevarParaFormulario={levarParaFormulario}
+            analiseIa={analiseIa}
+            onReleitura={aplicarReleitura}
           />
         </>
       )}

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { listarObrasParaRateio } from "@/services/obras";
 import { leituraAutomaticaDisponivel } from "@/services/leitor-nativo";
+import { analiseIaDisponivel } from "@/services/leitor-gemini";
 import { NovoLancamento } from "./novo-lancamento";
 
 export default async function NovaNotaPage() {
@@ -22,6 +23,7 @@ export default async function NovaNotaPage() {
         fornecedores={fornecedores}
         obras={obras}
         leituraAutomatica={leituraAutomaticaDisponivel()}
+        analiseIa={analiseIaDisponivel()}
       />
     </div>
   );

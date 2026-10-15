@@ -152,3 +152,58 @@ export function escolhaParaAction(f: EscolhaFornecedor) {
   if (f.modo === "novo") return { modo: "novo" as const, nome: f.nome, documento: f.documento || undefined };
   return null;
 }
+
+export type NivelAcerto = "alto" | "medio" | "baixo";
+
+export type IndiceAcerto = {
+  /** 0–100 */
+  percentual: number;
+  nivel: NivelAcerto;
+  /** o que a leitura não conseguiu (para o usuário entender o índice) */
+  faltas: string[];
+};
+
+const PENALIDADE_AVISO = 8;
+const PENALIDADE_AVISOS_MAX = 40;
+
+/**
+ * Índice de acerto da leitura automática: fração dos campos-chave que vieram
+ * lidos e coerentes (documento do emitente válido, número, data, total, itens
+ * que somam o total, chave nas NF-e/NFC-e), menos uma penalidade por aviso.
+ * Mede a LEITURA (não as edições do usuário) e decide quando sugerir a IA.
+ */
+export function indiceAcerto(leitura: LeituraNormalizada): IndiceAcerto {
+  const checagens: [ok: boolean, falta: string][] = [];
+  const ehNota = leitura.tipoDocumento === "NF";
+  const temChave = /NF-e|NFC-e/.test(leitura.descricaoDocumento);
+
+  checagens.push([!!leitura.fornecedor.nome, "nome do emitente"]);
+  if (ehNota) checagens.push([!!leitura.fornecedor.documento, "CNPJ/CPF do emitente válido"]);
+  if (ehNota) checagens.push([!!leitura.numero, "número da nota"]);
+  if (temChave) checagens.push([!!leitura.chaveNfe, "chave de acesso válida"]);
+  checagens.push([!!leitura.dataEmissao, "data de emissão"]);
+  checagens.push([leitura.totalCents > 0, "valor total"]);
+  const somaItens = leitura.itens.reduce((a, it) => a + it.totalCents, 0);
+  checagens.push([leitura.itens.length > 0 && somaItens === leitura.totalCents, "itens que somam o total"]);
+
+  const acertos = checagens.filter(([ok]) => ok).length;
+  const base = (acertos / checagens.length) * 100;
+  const penalidade = Math.min(PENALIDADE_AVISOS_MAX, leitura.avisos.length * PENALIDADE_AVISO);
+  const percentual = Math.max(0, Math.round(base - penalidade));
+  const nivel: NivelAcerto = percentual >= 85 ? "alto" : percentual >= 60 ? "medio" : "baixo";
+  return { percentual, nivel, faltas: checagens.filter(([ok]) => !ok).map(([, falta]) => falta) };
+}
+
+/**
+ * Conferência montada a partir de uma nova leitura (análise com IA), mantendo
+ * o que é decisão do usuário e não está no documento: obra/etapa do rateio.
+ */
+export function conferenciaDaReleitura(
+  anterior: Conferencia,
+  leitura: LeituraNormalizada,
+  correspondencia: CorrespondenciaFornecedor,
+  opts: { anexoUrl: string; anexoNome: string; hoje: string; obraPadrao: string },
+): Conferencia {
+  const nova = conferenciaInicial(leitura, correspondencia, opts);
+  return { ...nova, valores: { ...nova.valores, rateios: anterior.valores.rateios } };
+}

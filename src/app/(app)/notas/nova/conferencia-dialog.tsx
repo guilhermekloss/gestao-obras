@@ -20,10 +20,11 @@ import type { LeituraNormalizada } from "@/services/leitura-documento";
 import { salvarNota } from "../actions";
 import type { FornecedorOption, ObraOption } from "../nota-form";
 import { montarPayload, somaItensForm, somaParcelasForm, somaRateioForm, totalItemForm } from "../nota-form-model";
-import { resolverFornecedor, type LerDocumentoResult } from "./actions";
+import { analisarDocumentoComIa, resolverFornecedor, type LerDocumentoResult } from "./actions";
 import {
   errosConferencia,
   escolhaParaAction,
+  indiceAcerto,
   situacaoDocumento,
   type Conferencia,
   type EscolhaFornecedor,
@@ -34,14 +35,21 @@ import {
   CheckCircle2,
   ExternalLink,
   FileText,
+  Gauge,
+  Loader2,
   PencilLine,
   Plus,
   Search,
+  Sparkles,
   Trash2,
   XCircle,
 } from "lucide-react";
 
-export type LeituraConferida = Extract<LerDocumentoResult, { ok: true }> & { arquivo: { nome: string; url: string } };
+export type LeituraConferida = Extract<LerDocumentoResult, { ok: true }> & {
+  arquivo: { nome: string; url: string };
+  /** quem leu: o leitor nativo (padrão) ou a análise com IA pedida pelo usuário */
+  origem?: "nativa" | "ia";
+};
 
 const TIPOS_ITEM: { value: TipoItem; label: string }[] = [
   { value: "MATERIAL", label: "Material" },
@@ -64,6 +72,8 @@ export function ConferenciaDialog({
   fornecedores,
   obras,
   onLevarParaFormulario,
+  analiseIa,
+  onReleitura,
 }: {
   aberto: boolean;
   onAbertoChange: (aberto: boolean) => void;
@@ -73,12 +83,17 @@ export function ConferenciaDialog({
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
   onLevarParaFormulario: () => void;
+  /** a análise com IA (Gemini) está configurada no servidor */
+  analiseIa: boolean;
+  /** nova leitura do mesmo documento (análise com IA): o pai troca os dados e a conferência */
+  onReleitura: (r: Extract<LerDocumentoResult, { ok: true }>) => void;
 }) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [erros, setErros] = useState<string[]>([]);
   // fornecedor já resolvido no servidor (criado/completado) — não refaz numa nova tentativa
   const [fornecedorResolvido, setFornecedorResolvido] = useState<string | null>(null);
+  const [analisando, startAnalise] = useTransition();
 
   const { leitura, correspondencia, notaExistente, arquivo } = dados;
   const v = conferencia.valores;
@@ -141,7 +156,29 @@ export function ConferenciaDialog({
     });
   }
 
+  function analisarComIa() {
+    const ok = confirm(
+      "A IA (Gemini) vai reler o documento e substituir os dados desta tela. A obra e o rateio são mantidos. Continuar?",
+    );
+    if (!ok) return;
+    startAnalise(async () => {
+      const r = await analisarDocumentoComIa(arquivo.url).catch((e: unknown) => ({
+        ok: false as const,
+        erro: e instanceof Error ? e.message : "Erro na análise com IA",
+      }));
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+      setFornecedorResolvido(null);
+      setErros([]);
+      onReleitura(r);
+      toast.success("Dados preenchidos pela IA — confira com o documento.");
+    });
+  }
+
   const ehPdf = /\.pdf$/i.test(arquivo.url);
+  const indice = indiceAcerto(leitura);
 
   return (
     <Dialog open={aberto} onOpenChange={onAbertoChange}>
@@ -182,6 +219,14 @@ export function ConferenciaDialog({
                 </Link>
               </Alerta>
             )}
+            <IndiceLeitura
+              indice={indice}
+              origem={dados.origem ?? "nativa"}
+              analiseIa={analiseIa}
+              analisando={analisando}
+              bloqueado={pendente}
+              onAnalisar={analisarComIa}
+            />
             {leitura.avisos.length > 0 && (
               <ul className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
                 {leitura.avisos.map((a, i) => (
@@ -760,6 +805,65 @@ function Opcao({
         </span>
       </button>
       {children}
+    </div>
+  );
+}
+
+const NIVEL_ESTILO = {
+  alto: "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200",
+  medio: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200",
+  baixo: "border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200",
+} as const;
+
+const NIVEL_LABEL = { alto: "alto", medio: "médio", baixo: "baixo" } as const;
+
+/**
+ * Índice de acerto da leitura e o botão de análise com IA — em destaque
+ * quando o índice não é alto. Depois da análise, informa que a IA preencheu.
+ */
+function IndiceLeitura({
+  indice,
+  origem,
+  analiseIa,
+  analisando,
+  bloqueado,
+  onAnalisar,
+}: {
+  indice: ReturnType<typeof indiceAcerto>;
+  origem: "nativa" | "ia";
+  analiseIa: boolean;
+  analisando: boolean;
+  bloqueado: boolean;
+  onAnalisar: () => void;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-2 rounded-md border p-3 text-sm sm:flex-row sm:items-center", NIVEL_ESTILO[indice.nivel])}>
+      <div className="flex min-w-0 flex-1 gap-2">
+        {origem === "ia" ? <Sparkles className="mt-0.5 size-4 shrink-0" /> : <Gauge className="mt-0.5 size-4 shrink-0" />}
+        <div className="min-w-0">
+          <p className="font-medium">
+            {origem === "ia" ? "Dados preenchidos pela IA (Gemini)" : "Leitura automática"} · índice de acerto{" "}
+            {indice.percentual}% ({NIVEL_LABEL[indice.nivel]})
+          </p>
+          {indice.faltas.length > 0 && <p className="text-xs opacity-90">Não lido: {indice.faltas.join(", ")}.</p>}
+          {origem === "nativa" && indice.nivel !== "alto" && analiseIa && (
+            <p className="text-xs opacity-90">A análise com IA costuma acertar mais em fotos difíceis e tabelas de itens.</p>
+          )}
+        </div>
+      </div>
+      {analiseIa && origem === "nativa" && (
+        <Button
+          type="button"
+          size="sm"
+          variant={indice.nivel === "alto" ? "outline" : "default"}
+          onClick={onAnalisar}
+          disabled={analisando || bloqueado}
+          className="shrink-0"
+        >
+          {analisando ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+          {analisando ? "Analisando com IA..." : "Analisar com IA"}
+        </Button>
+      )}
     </div>
   );
 }

@@ -12,5 +12,8 @@ email_alertas = ""
 # Leitura de foto/PDF de nota: local (padrão, sem serviço externo), vision ou desligado
 # motor_ocr = "vision"
 
+# Botão "Analisar com IA" (Gemini na Vertex AI) na conferência da nota
+# gemini_habilitado = true
+
 # cnpjs_empresa = "12.345.678/0001-90"
 # min_instancias = 1   # elimina o "cold start" (custo fixo maior)

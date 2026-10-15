@@ -18,8 +18,9 @@ import {
   lerCnpjsEmpresa,
   type CorrespondenciaFornecedor,
 } from "@/services/correspondencia-fornecedor";
-import { normalizarLeitura, type LeituraNormalizada } from "@/services/leitura-documento";
+import { normalizarLeitura, type DocumentoLido, type LeituraNormalizada } from "@/services/leitura-documento";
 import { leituraAutomaticaDisponivel, lerDocumentoNativo, type MidiaDocumento } from "@/services/leitor-nativo";
+import { analiseIaDisponivel, analisarComGemini } from "@/services/leitor-gemini";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -43,25 +44,30 @@ export type LerDocumentoResult =
     }
   | { ok: false; erro: string };
 
-/**
- * Lê um documento já enviado por `/api/upload` (foto ou PDF) e devolve os
- * dados para a conferência do usuário. Não grava nada: o lançamento só é
- * criado quando o usuário confirma a conferência.
- */
-export async function lerDocumento(anexoUrl: string): Promise<LerDocumentoResult> {
-  await exigirPapel(...PAPEIS);
-  if (!leituraAutomaticaDisponivel()) {
-    return { ok: false, erro: "A leitura automática não está configurada neste servidor." };
-  }
-
-  // Só arquivos do próprio storage (URL gerada pelo /api/upload).
+/** Arquivo do próprio storage (URL gerada pelo /api/upload) → nome e tipo; null se não for foto/PDF nosso. */
+function arquivoDoStorage(anexoUrl: string): { nome: string; midia: MidiaDocumento } | null {
   const nome = /^\/api\/fotos\/([\w-]+\.(\w+))$/.exec(anexoUrl);
   const midia = nome ? MIDIA[nome[2].toLowerCase()] : undefined;
-  if (!nome || !midia) return { ok: false, erro: "Envie uma foto (JPG, PNG, WEBP) ou um PDF." };
+  return nome && midia ? { nome: path.basename(nome[1]), midia } : null;
+}
+
+const MSG_FORMATO = "Envie uma foto (JPG, PNG, WEBP) ou um PDF.";
+
+/**
+ * Lê o arquivo com o leitor indicado e prepara a conferência: normaliza,
+ * cruza o emitente com o cadastro, procura duplicata e confere o destinatário.
+ */
+async function lerEConferir(
+  anexoUrl: string,
+  ler: (arquivo: Buffer, midia: MidiaDocumento) => Promise<DocumentoLido>,
+  erroPadrao: string,
+): Promise<LerDocumentoResult> {
+  const doStorage = arquivoDoStorage(anexoUrl);
+  if (!doStorage) return { ok: false, erro: MSG_FORMATO };
 
   try {
-    const arquivo = await storage.ler(path.basename(nome[1]));
-    const lido = await lerDocumentoNativo(arquivo, midia);
+    const arquivo = await storage.ler(doStorage.nome);
+    const lido = await ler(arquivo, doStorage.midia);
     const r = normalizarLeitura(lido, dataParaInput(new Date()));
     if (!r.ok) return r;
     const { leitura } = r;
@@ -90,8 +96,34 @@ export async function lerDocumento(anexoUrl: string): Promise<LerDocumentoResult
       notaExistente,
     };
   } catch (e) {
-    return { ok: false, erro: e instanceof Error ? e.message : "Erro ao ler o documento" };
+    return { ok: false, erro: e instanceof Error ? e.message : erroPadrao };
   }
+}
+
+/**
+ * Lê um documento já enviado por `/api/upload` (foto ou PDF) com o leitor
+ * nativo e devolve os dados para a conferência do usuário. Não grava nada: o
+ * lançamento só é criado quando o usuário confirma a conferência.
+ */
+export async function lerDocumento(anexoUrl: string): Promise<LerDocumentoResult> {
+  await exigirPapel(...PAPEIS);
+  if (!leituraAutomaticaDisponivel()) {
+    return { ok: false, erro: "A leitura automática não está configurada neste servidor." };
+  }
+  return lerEConferir(anexoUrl, lerDocumentoNativo, "Erro ao ler o documento");
+}
+
+/**
+ * Reanálise do mesmo documento com o Gemini, a pedido do usuário na
+ * conferência (leitura nativa com muitos campos em dúvida). Mesmo retorno e
+ * mesmas conferências de `lerDocumento`; também não grava nada.
+ */
+export async function analisarDocumentoComIa(anexoUrl: string): Promise<LerDocumentoResult> {
+  await exigirPapel(...PAPEIS);
+  if (!analiseIaDisponivel()) return { ok: false, erro: "A análise com IA não está configurada neste servidor." };
+  const r = await lerEConferir(anexoUrl, analisarComGemini, "Erro na análise com IA");
+  console.info(JSON.stringify({ evento: "analise_ia_documento", ok: r.ok }));
+  return r;
 }
 
 export type FornecedorConferido =

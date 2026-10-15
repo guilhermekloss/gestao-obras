@@ -22,6 +22,14 @@ resource "google_secret_manager_secret_iam_member" "run_secrets" {
   member    = google_service_account.run.member
 }
 
+# Gemini na Vertex AI (botão "Analisar com IA"), só quando habilitado
+resource "google_project_iam_member" "run_gemini" {
+  count   = var.gemini_habilitado ? 1 : 0
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = google_service_account.run.member
+}
+
 # grava e lê; não apaga (o app não precisa)
 resource "google_storage_bucket_iam_member" "run_uploads" {
   for_each = toset(["roles/storage.objectCreator", "roles/storage.objectViewer"])

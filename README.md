@@ -16,7 +16,7 @@ npm run db:seed             # admin + 6 lotes com etapas padrão
 npm run dev                 # http://localhost:3000
 ```
 
-Leitura automática de foto/PDF de nota: nativa, sem serviço de IA externo — camada de texto do PDF, código de barras/QR e OCR local (Tesseract). `OCR_MOTOR=vision` usa o Google Cloud Vision (mais preciso em foto); `OCR_MOTOR=desligado` deixa foto/PDF só anexados. Após a leitura, um pop-up de conferência mostra todos os dados ao lado do documento e só grava após a confirmação do usuário; `CNPJS_EMPRESA` (opcional) confere o destinatário da nota. Detalhes em [`docs/leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md).
+Leitura automática de foto/PDF de nota: nativa, sem serviço de IA externo — camada de texto do PDF, código de barras/QR e OCR local (Tesseract). `OCR_MOTOR=vision` usa o Google Cloud Vision (mais preciso em foto); `OCR_MOTOR=desligado` deixa foto/PDF só anexados. Na conferência, o botão **Analisar com IA** (Gemini, opcional: `GEMINI_PROJETO` ou `GEMINI_API_KEY`) relê o documento quando o índice de acerto é baixo. Após a leitura, um pop-up de conferência mostra todos os dados ao lado do documento e só grava após a confirmação do usuário; `CNPJS_EMPRESA` (opcional) confere o destinatário da nota. Detalhes em [`docs/leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md).
 
 Login inicial: `admin@obras.local` / `admin123` (troque na tela Usuários).
 

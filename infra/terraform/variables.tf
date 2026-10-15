@@ -73,6 +73,18 @@ variable "motor_ocr" {
   }
 }
 
+variable "gemini_habilitado" {
+  description = "Botão \"Analisar com IA\" na conferência da nota: o Gemini (Vertex AI) relê o documento a pedido do usuário. Autentica com a service account do app, sem chave."
+  type        = bool
+  default     = false
+}
+
+variable "gemini_modelo" {
+  description = "Modelo do Gemini usado na análise com IA."
+  type        = string
+  default     = "gemini-3.5-flash"
+}
+
 variable "cnpjs_empresa" {
   description = "Opcional: CNPJs da empresa (separados por vírgula) para conferir o destinatário da nota lida."
   type        = string
