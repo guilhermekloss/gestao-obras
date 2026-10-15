@@ -14,9 +14,8 @@ resource "google_project_iam_member" "run_sql_client" {
 
 resource "google_secret_manager_secret_iam_member" "run_secrets" {
   for_each = {
-    database_url      = google_secret_manager_secret.database_url.id
-    auth_secret       = google_secret_manager_secret.auth_secret.id
-    anthropic_api_key = google_secret_manager_secret.anthropic_api_key.id
+    database_url = google_secret_manager_secret.database_url.id
+    auth_secret  = google_secret_manager_secret.auth_secret.id
   }
   secret_id = each.value
   role      = "roles/secretmanager.secretAccessor"

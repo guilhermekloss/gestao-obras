@@ -9,8 +9,8 @@ moeda_orcamento    = "BRL"
 # Recebe alertas de app fora do ar / erros 5xx
 email_alertas = ""
 
-# Depois de cadastrar a chave no Secret Manager (ver docs/deploy-gcp.md)
-leitura_ia_habilitada = false
+# Leitura de foto/PDF de nota: local (padrão, sem serviço externo), vision ou desligado
+# motor_ocr = "vision"
 
 # cnpjs_empresa = "12.345.678/0001-90"
 # min_instancias = 1   # elimina o "cold start" (custo fixo maior)
