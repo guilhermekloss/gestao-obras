@@ -1,0 +1,85 @@
+{
+  "tipo": "GUIA",
+  "legibilidade": "BOA",
+  "emitente": {
+    "nome": "Simples Nacional",
+    "documento": null,
+    "telefone": null
+  },
+  "destinatario": {
+    "nome": "ENGENHARIA FICTICIA SERVICOS LTDA",
+    "documento": "11222333000181"
+  },
+  "numero": "07.20.26291.2345678-9",
+  "serie": null,
+  "chaveAcesso": null,
+  "dataEmissao": null,
+  "valorTotal": 456.78,
+  "valorFrete": null,
+  "valorOutrasDespesas": null,
+  "descontoGeral": null,
+  "formaPagamento": "NAO_INFORMADA",
+  "itens": [
+    {
+      "descricao": "IRPJ - SIMPLES NACIONAL",
+      "quantidade": null,
+      "unidade": null,
+      "valorUnitario": null,
+      "desconto": null,
+      "valorTotal": 25.12,
+      "tipo": "ENCARGO"
+    },
+    {
+      "descricao": "CSLL - SIMPLES NACIONAL",
+      "quantidade": null,
+      "unidade": null,
+      "valorUnitario": null,
+      "desconto": null,
+      "valorTotal": 15.99,
+      "tipo": "ENCARGO"
+    },
+    {
+      "descricao": "COFINS - SIMPLES NACIONAL",
+      "quantidade": null,
+      "unidade": null,
+      "valorUnitario": null,
+      "desconto": null,
+      "valorTotal": 58.47,
+      "tipo": "ENCARGO"
+    },
+    {
+      "descricao": "PIS - SIMPLES NACIONAL",
+      "quantidade": null,
+      "unidade": null,
+      "valorUnitario": null,
+      "desconto": null,
+      "valorTotal": 12.67,
+      "tipo": "ENCARGO"
+    },
+    {
+      "descricao": "INSS - SIMPLES NACIONAL",
+      "quantidade": null,
+      "unidade": null,
+      "valorUnitario": null,
+      "desconto": null,
+      "valorTotal": 194.13,
+      "tipo": "ENCARGO"
+    },
+    {
+      "descricao": "ISS - SIMPLES NACIONAL",
+      "quantidade": null,
+      "unidade": null,
+      "valorUnitario": null,
+      "desconto": null,
+      "valorTotal": 150.4,
+      "tipo": "ENCARGO"
+    }
+  ],
+  "parcelas": [
+    {
+      "vencimento": "2026-10-20",
+      "valor": 456.78
+    }
+  ],
+  "observacoes": null
+}

@@ -1,0 +1,98 @@
+{
+  "tipo": "NFE",
+  "legibilidade": "BOA",
+  "emitente": {
+    "nome": "DEPOSITO DE MATERIAIS FICTICIOS LTDA",
+    "documento": "11222333000181",
+    "telefone": "(11) 3333-4444"
+  },
+  "destinatario": {
+    "nome": "CONSTRUTORA EXEMPLO LTDA",
+    "documento": "98765432000198"
+  },
+  "numero": "000.012.345",
+  "serie": "001",
+  "chaveAcesso": "35260911222333000181550010000123451876543218",
+  "dataEmissao": "2026-09-15",
+  "valorTotal": 3355.32,
+  "valorFrete": 120,
+  "valorOutrasDespesas": 19.47,
+  "descontoGeral": null,
+  "formaPagamento": "BOLETO",
+  "itens": [
+    {
+      "descricao": "CIMENTO CP II-F-32 50KG",
+      "quantidade": 20,
+      "unidade": "SC",
+      "valorUnitario": 32.9,
+      "desconto": null,
+      "valorTotal": 658,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "VERGALHAO CA-50 10,0MM BARRA 12M NERVURADO - FEIXE COM 10 BARRAS",
+      "quantidade": 15,
+      "unidade": "BR",
+      "valorUnitario": 38.5,
+      "desconto": null,
+      "valorTotal": 577.5,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "AREIA MEDIA LAVADA",
+      "quantidade": 3.5,
+      "unidade": "M3",
+      "valorUnitario": 120,
+      "desconto": null,
+      "valorTotal": 420,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "BLOCO CONCRETO ESTRUTURAL 14X19X39CM",
+      "quantidade": 200,
+      "unidade": "UN",
+      "valorUnitario": 3.85,
+      "desconto": null,
+      "valorTotal": 770,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "TUBO PVC ESGOTO SERIE NORMAL 100MM 6M",
+      "quantidade": 6,
+      "unidade": "BR",
+      "valorUnitario": 64.9,
+      "desconto": null,
+      "valorTotal": 389.4,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "ARGAMASSA AC-II CINZA 20KG",
+      "quantidade": 12,
+      "unidade": "SC",
+      "valorUnitario": 24.75,
+      "desconto": null,
+      "valorTotal": 297,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "PREGO 17X21 COM CABECA",
+      "quantidade": 5.5,
+      "unidade": "KG",
+      "valorUnitario": 18.9,
+      "desconto": null,
+      "valorTotal": 103.95,
+      "tipo": "MATERIAL"
+    }
+  ],
+  "parcelas": [
+    {
+      "vencimento": "2026-10-15",
+      "valor": 1677.66
+    },
+    {
+      "vencimento": "2026-11-14",
+      "valor": 1677.66
+    }
+  ],
+  "observacoes": null
+}

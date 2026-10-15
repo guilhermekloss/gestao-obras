@@ -23,7 +23,38 @@ const nextConfig: NextConfig = {
   /** Proteção contra version skew durante o rollout de uma nova revisão (SHA do commit, vindo do build). */
   deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
   poweredByHeader: false,
-  serverExternalPackages: ["@google-cloud/storage"],
+  /**
+   * Pacotes que carregam WASM, workers ou arquivos de dados em tempo de
+   * execução: ficam fora do bundle e são lidos de node_modules.
+   */
+  serverExternalPackages: [
+    "@google-cloud/storage",
+    "google-auth-library",
+    "sharp",
+    "tesseract.js",
+    "tesseract.js-core",
+    "unpdf",
+    "zxing-wasm",
+  ],
+  /**
+   * Leitor nativo de nota (`services/leitor-nativo/extracao`): o worker do
+   * Tesseract é aberto por caminho de arquivo e o modelo de português e o
+   * WASM do zxing são lidos do disco — o tracing não enxerga nada disso.
+   * Todas as variantes do core: no Node o tesseract.js 7 escolhe a variante
+   * sem `-lstm` mesmo com `OEM.LSTM_ONLY` (passa um booleano no lugar do OEM).
+   */
+  outputFileTracingIncludes: {
+    "/notas/nova": [
+      "./node_modules/tesseract.js/package.json",
+      "./node_modules/tesseract.js/src/**/*",
+      "./node_modules/tesseract.js-core/package.json",
+      "./node_modules/tesseract.js-core/tesseract-core*",
+      "./node_modules/@tesseract.js-data/por/package.json",
+      "./node_modules/@tesseract.js-data/por/4.0.0_best_int/*",
+      "./node_modules/{bmp-js,idb-keyval,is-url,node-fetch,regenerator-runtime,wasm-feature-detect,zlibjs}/**/*",
+      "./node_modules/zxing-wasm/dist/reader/zxing_reader.wasm",
+    ],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

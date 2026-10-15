@@ -17,7 +17,7 @@ resource "google_cloud_run_v2_service" "app" {
   template {
     service_account                  = google_service_account.run.email
     execution_environment            = "EXECUTION_ENVIRONMENT_GEN2"
-    timeout                          = "300s" # leitura de nota pela IA pode levar dezenas de segundos
+    timeout                          = "300s" # leitura de nota por OCR pode levar dezenas de segundos na fila
     max_instance_request_concurrency = 40
 
     scaling {
@@ -83,17 +83,9 @@ resource "google_cloud_run_v2_service" "app" {
           }
         }
       }
-      dynamic "env" {
-        for_each = var.leitura_ia_habilitada ? [1] : []
-        content {
-          name = "ANTHROPIC_API_KEY"
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.anthropic_api_key.secret_id
-              version = "latest"
-            }
-          }
-        }
+      env {
+        name  = "OCR_MOTOR"
+        value = var.motor_ocr
       }
       dynamic "env" {
         for_each = var.cnpjs_empresa == "" ? [] : [1]

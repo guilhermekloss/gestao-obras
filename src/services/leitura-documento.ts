@@ -2,7 +2,7 @@
  * Leitura automática de documentos de custo (foto ou PDF de NF-e/DANFE,
  * NFC-e, NFS-e, recibo, boleto, guia) para pré-preencher um lançamento.
  *
- * O modelo de visão (ver `leitor-ia.ts`) só transcreve o documento no formato
+ * O leitor nativo (ver `leitor-nativo/`) só transcreve o documento no formato
  * `DocumentoLido`. Tudo o que decide o que entra no sistema fica aqui, puro e
  * testado: conversão para centavos, conferência dos dígitos verificadores
  * (CNPJ/CPF e chave de acesso), cruzamento da chave com o CNPJ e o número

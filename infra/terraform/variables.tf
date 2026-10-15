@@ -63,10 +63,14 @@ variable "max_instancias" {
   default     = 3
 }
 
-variable "leitura_ia_habilitada" {
-  description = "Monta o segredo ANTHROPIC_API_KEY no app. Antes de ativar, adicione uma versão ao segredo (ver docs/deploy-gcp.md)."
-  type        = bool
-  default     = false
+variable "motor_ocr" {
+  description = "OCR da leitura de foto/PDF escaneado: local (Tesseract no próprio app, sem serviço externo), vision (Google Cloud Vision: mais preciso em foto, 1.000 grátis/mês) ou desligado (foto/PDF só anexados)."
+  type        = string
+  default     = "local"
+  validation {
+    condition     = contains(["local", "vision", "desligado"], var.motor_ocr)
+    error_message = "motor_ocr deve ser local, vision ou desligado."
+  }
 }
 
 variable "cnpjs_empresa" {

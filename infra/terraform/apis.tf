@@ -1,5 +1,5 @@
 locals {
-  apis = [
+  apis_base = [
     "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
     "cloudresourcemanager.googleapis.com",
@@ -14,6 +14,8 @@ locals {
     "storage.googleapis.com",
     "sts.googleapis.com",
   ]
+  # Vision só quando é o motor de OCR escolhido
+  apis = concat(local.apis_base, var.motor_ocr == "vision" ? ["vision.googleapis.com"] : [])
 }
 
 resource "google_project_service" "apis" {

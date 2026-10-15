@@ -1,0 +1,71 @@
+{
+  "tipo": "NFCE",
+  "legibilidade": "BOA",
+  "emitente": {
+    "nome": "FERRAGENS FICTICIAS COMERCIO LTDA",
+    "documento": "11222333000181",
+    "telefone": "(11) 2222-3333"
+  },
+  "destinatario": {
+    "nome": null,
+    "documento": "12345678909"
+  },
+  "numero": "000000789",
+  "serie": "001",
+  "chaveAcesso": "35261011222333000181650010000007891135724688",
+  "dataEmissao": "2026-10-15",
+  "valorTotal": 98.5,
+  "valorFrete": null,
+  "valorOutrasDespesas": null,
+  "descontoGeral": 5,
+  "formaPagamento": "PIX",
+  "itens": [
+    {
+      "descricao": "FITA VEDA ROSCA 18MMX25M",
+      "quantidade": 2,
+      "unidade": "UN",
+      "valorUnitario": 6.9,
+      "desconto": null,
+      "valorTotal": 13.8,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "LUVA PVC SOLDAVEL 25MM",
+      "quantidade": 10,
+      "unidade": "UN",
+      "valorUnitario": 1.85,
+      "desconto": null,
+      "valorTotal": 18.5,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "REGISTRO ESFERA 3/4 BRUTO",
+      "quantidade": 1,
+      "unidade": "UN",
+      "valorUnitario": 42.7,
+      "desconto": null,
+      "valorTotal": 42.7,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "ADESIVO PVC 175G",
+      "quantidade": 1,
+      "unidade": "UN",
+      "valorUnitario": 19.9,
+      "desconto": null,
+      "valorTotal": 19.9,
+      "tipo": "MATERIAL"
+    },
+    {
+      "descricao": "JOELHO PVC 90 GRAUS 25MM",
+      "quantidade": 4,
+      "unidade": "UN",
+      "valorUnitario": 2.15,
+      "desconto": null,
+      "valorTotal": 8.6,
+      "tipo": "MATERIAL"
+    }
+  ],
+  "parcelas": [],
+  "observacoes": null
+}

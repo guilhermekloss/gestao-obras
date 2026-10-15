@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { listarObrasParaRateio } from "@/services/obras";
-import { leituraAutomaticaDisponivel } from "@/services/leitor-ia";
+import { leituraAutomaticaDisponivel } from "@/services/leitor-nativo";
 import { NovoLancamento } from "./novo-lancamento";
 
 export default async function NovaNotaPage() {
