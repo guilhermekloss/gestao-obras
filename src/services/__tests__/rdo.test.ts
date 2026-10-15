@@ -213,14 +213,16 @@ describe("dataDoRdo", () => {
 });
 
 describe("urlFotoValida", () => {
-  it("aceita caminho do app e https", () => {
-    expect(urlFotoValida("/api/fotos/123-abc.jpg")).toBe(true);
-    expect(urlFotoValida("https://cdn.exemplo.com/a.jpg")).toBe(true);
+  it("aceita só arquivo enviado pelo app", () => {
+    expect(urlFotoValida("/api/fotos/1760000000000-a1b2c3d4e5f6.jpg")).toBe(true);
   });
 
-  it("rejeita esquemas perigosos e URLs relativas a protocolo", () => {
+  it("rejeita endereço externo, esquemas perigosos e URLs relativas a protocolo", () => {
+    expect(urlFotoValida("https://cdn.exemplo.com/a.jpg")).toBe(false);
     expect(urlFotoValida("javascript:alert(1)")).toBe(false);
     expect(urlFotoValida("//evil.com/a.jpg")).toBe(false);
+    expect(urlFotoValida("/\\evil.com/a.jpg")).toBe(false);
+    expect(urlFotoValida("/api/fotos/../segredo.jpg")).toBe(false);
     expect(urlFotoValida("http://exemplo.com/a.jpg")).toBe(false);
     expect(urlFotoValida("")).toBe(false);
   });

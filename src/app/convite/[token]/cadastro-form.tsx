@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SENHA_MINIMA } from "@/services/convite";
+import { DICA_SENHA } from "@/services/senha";
 import { aceitarConvite, type EstadoCadastro } from "./actions";
 
 export function CadastroForm({ token, nome, email }: { token: string; nome: string; email: string | null }) {
@@ -42,10 +43,11 @@ export function CadastroForm({ token, nome, email }: { token: string; nome: stri
           type="password"
           required
           minLength={SENHA_MINIMA}
+          maxLength={72}
           autoComplete="new-password"
           aria-invalid={invalido("senha")}
         />
-        <p className="text-xs text-muted-foreground">Mínimo de {SENHA_MINIMA} caracteres.</p>
+        <p className="text-xs text-muted-foreground">{DICA_SENHA}</p>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="confirmacao">Repita a senha</Label>

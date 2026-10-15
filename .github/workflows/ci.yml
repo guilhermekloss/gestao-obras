@@ -44,6 +44,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Auditoria de dependências (bloqueia vulnerabilidade crítica em produção)
         run: npm audit --omit=dev --audit-level=critical
+      - name: Assinaturas do registro npm (pacote adulterado no caminho falha aqui)
+        run: npm audit signatures
       - run: npx prisma generate
       - name: Migrations aplicam num banco vazio
         run: npx prisma migrate deploy

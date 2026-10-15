@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { prisma } from "../src/lib/prisma";
 import { gerarToken, hashToken } from "../src/lib/token";
 

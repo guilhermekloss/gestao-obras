@@ -5,6 +5,9 @@
 locals {
   imagem_inicial_service = "us-docker.pkg.dev/cloudrun/container/hello"
   imagem_inicial_job     = "us-docker.pkg.dev/cloudrun/container/job"
+  # URL determinística do Cloud Run (https://SERVIÇO-NÚMERO_DO_PROJETO.REGIÃO.run.app):
+  # o link de convite não depende dos cabeçalhos Host/X-Forwarded-Host da requisição
+  app_url = var.app_url != "" ? var.app_url : "https://${var.app_name}-${data.google_project.this.number}.${var.region}.run.app"
 }
 
 resource "google_cloud_run_v2_service" "app" {
@@ -60,6 +63,16 @@ resource "google_cloud_run_v2_service" "app" {
       env {
         name  = "AUTH_TRUST_HOST"
         value = "true"
+      }
+      env {
+        name  = "APP_URL"
+        value = local.app_url
+      }
+      env {
+        # proxies à frente do app que acrescentam IP ao X-Forwarded-For (1 = só o Cloud Run;
+        # 2 com um Load Balancer na frente) — base do bloqueio de login por IP
+        name  = "PROXY_SALTOS"
+        value = tostring(var.proxy_saltos)
       }
       env {
         name  = "TZ"

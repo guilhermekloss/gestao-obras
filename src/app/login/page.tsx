@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
-import { signIn, usuarioAtual } from "@/lib/auth";
+import { LoginBloqueado, signIn, usuarioAtual } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +15,12 @@ import {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; cadastro?: string }>;
+  searchParams: Promise<{ erro?: string; cadastro?: string; senha?: string }>;
 }) {
   // conta desativada com cookie ainda válido cai aqui sem loop de redirecionamento
   if (await usuarioAtual()) redirect("/dashboard");
 
-  const { erro, cadastro } = await searchParams;
+  const { erro, cadastro, senha } = await searchParams;
 
   async function login(formData: FormData) {
     "use server";
@@ -31,6 +31,7 @@ export default async function LoginPage({
         redirectTo: "/dashboard",
       });
     } catch (e) {
+      if (e instanceof LoginBloqueado) redirect("/login?erro=bloqueado");
       if (e instanceof AuthError) redirect("/login?erro=1");
       throw e;
     }
@@ -63,17 +64,25 @@ export default async function LoginPage({
                 name="senha"
                 type="password"
                 required
+                maxLength={1024}
                 autoComplete="current-password"
               />
             </div>
             {cadastro && !erro && (
               <p className="text-sm text-muted-foreground">Conta criada! Entre com seu e-mail e senha.</p>
             )}
-            {erro && (
-              <p className="text-sm text-destructive">
+            {senha && !erro && (
+              <p className="text-sm text-muted-foreground">Senha alterada. Entre de novo com a senha nova.</p>
+            )}
+            {erro === "bloqueado" ? (
+              <p className="text-sm text-destructive" role="alert">
+                Muitas tentativas sem sucesso. Por segurança, aguarde 15 minutos e tente de novo.
+              </p>
+            ) : erro ? (
+              <p className="text-sm text-destructive" role="alert">
                 E-mail ou senha inválidos.
               </p>
-            )}
+            ) : null}
             <Button type="submit" className="w-full">
               Entrar
             </Button>

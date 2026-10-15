@@ -8,6 +8,9 @@ import { formatarMoeda } from "@/lib/format";
 export const pagarParcelas = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/contas", "/notas"], atividade: "parcela.pagar" },
   async (_user, ids: string[]): Promise<ActionResult> => {
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string" || id.length > 64) || ids.length > 1000) {
+      return { ok: false, erro: "Seleção inválida" };
+    }
     if (ids.length === 0) return { ok: false, erro: "Nenhuma parcela selecionada" };
 
     const abertas = await prisma.parcela.findMany({

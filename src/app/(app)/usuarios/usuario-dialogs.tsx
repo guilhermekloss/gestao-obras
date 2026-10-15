@@ -39,13 +39,13 @@ function CamposUsuario({ usuario, obras }: { usuario?: UsuarioSeguro; obras: Obr
           htmlFor="senha"
           ajuda={
             usuario
-              ? `Deixe em branco para manter a senha atual. Para trocar, digite a nova senha (mínimo de ${SENHA_MINIMA} caracteres).`
+              ? `Deixe em branco para manter a senha atual. Para trocar, digite a nova senha (mínimo de ${SENHA_MINIMA} caracteres) — a pessoa é desconectada de todos os aparelhos.`
               : `Mínimo de ${SENHA_MINIMA} caracteres. Prefere que a pessoa crie a própria senha? Use “Convidar por link”.`
           }
         >
           {usuario ? "Nova senha (deixe vazio para manter)" : "Senha *"}
         </LabelAjuda>
-        <Input id="senha" name="senha" type="password" required={!usuario} minLength={SENHA_MINIMA} autoComplete="new-password" />
+        <Input id="senha" name="senha" type="password" required={!usuario} minLength={SENHA_MINIMA} maxLength={72} autoComplete="new-password" />
       </div>
       <CamposAcesso
         obras={obras}

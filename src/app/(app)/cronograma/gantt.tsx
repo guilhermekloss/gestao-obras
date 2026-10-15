@@ -66,7 +66,7 @@ export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma
                   inputParaData(e.fimPrevisto!),
                 )} (${duracaoEmDias(e.inicioPrevisto!, e.fimPrevisto!)} dias) · realizado ${formatarPercentBp(
                   e.realizadoBp,
-                )} · ${ROTULO_SITUACAO[e.situacao]} · peso ${formatarPercentBp(e.pesoBp)} da obra`
+                )} · ${ROTULO_SITUACAO[e.situacao]}${e.pesoBp === null ? "" : ` · peso ${formatarPercentBp(e.pesoBp)} da obra`}`
               : `${e.nome}: sem datas previstas · realizado ${formatarPercentBp(e.realizadoBp)}`;
 
             return (

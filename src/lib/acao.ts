@@ -15,6 +15,21 @@ export type ActionResult = {
 
 type Usuario = Awaited<ReturnType<typeof exigirPapel>>;
 
+const MSG_ERRO_INTERNO = "Não foi possível concluir a operação. Tente de novo; se persistir, avise o administrador.";
+
+/**
+ * Texto de erro seguro para devolver ao navegador. Regras de negócio lançam
+ * `Error` simples com mensagem para o usuário; qualquer outro erro (Prisma,
+ * sistema de arquivos, rede, `TypeError`...) pode carregar SQL, caminhos ou
+ * dados internos — vai para o log do servidor e o usuário recebe uma mensagem genérica.
+ */
+export function mensagemDeErro(erro: unknown, padrao = MSG_ERRO_INTERNO): string {
+  const deNegocio = erro instanceof Error && erro.constructor === Error && !("code" in erro);
+  if (deNegocio && erro.message) return erro.message;
+  console.error("Erro inesperado em server action", erro);
+  return padrao;
+}
+
 /**
  * Absorve a ceremônia repetida em toda server action de escrita: checa o
  * papel do usuário, captura erros inesperados num `ActionResult` (sem
@@ -67,7 +82,7 @@ export function acaoDeEscrita<Args extends unknown[], R extends ActionResult>(
         }
       }
       unstable_rethrow(erro);
-      return { ok: false, erro: erro instanceof Error ? erro.message : "Erro inesperado" } as R;
+      return { ok: false, erro: mensagemDeErro(erro) } as R;
     }
 
     const { resultado } = execucao;

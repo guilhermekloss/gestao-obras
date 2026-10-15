@@ -97,6 +97,30 @@ variable "cnpjs_empresa" {
   default     = ""
 }
 
+variable "app_url" {
+  description = "Endereço público do app (ex.: https://obras.suaempresa.com.br). Vazio = URL padrão do Cloud Run."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.app_url == "" || can(regex("^https://[^/]+$", var.app_url))
+    error_message = "app_url deve começar com https:// e não ter caminho nem barra no fim."
+  }
+}
+
+variable "proxy_saltos" {
+  description = "Proxies confiáveis à frente do app no X-Forwarded-For: 1 = acesso direto ao Cloud Run; 2 = Load Balancer (Cloud Armor) na frente."
+  type        = number
+  default     = 1
+}
+
+# --- Segurança ---
+
+variable "varredura_imagens" {
+  description = "Varredura automática de vulnerabilidades (pacotes do sistema e do Node) em cada imagem enviada ao Artifact Registry. Cobrada por imagem (~US$ 0,26)."
+  type        = bool
+  default     = false
+}
+
 # --- Custos e alertas ---
 
 variable "billing_account_id" {
@@ -118,7 +142,7 @@ variable "moeda_orcamento" {
 }
 
 variable "email_alertas" {
-  description = "E-mail que recebe alertas de indisponibilidade. Vazio = sem alerta."
+  description = "E-mail que recebe alertas de indisponibilidade e de segurança e os avisos de segurança do Google. Vazio = sem alerta."
   type        = string
   default     = ""
 }

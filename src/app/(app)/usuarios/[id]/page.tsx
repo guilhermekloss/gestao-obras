@@ -11,10 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ConfirmButton } from "@/components/confirm-button";
 import { EditarUsuarioDialog } from "../usuario-dialogs";
+import { encerrarSessoesUsuario } from "../actions";
 import { FeedAtividades } from "../feed-atividades";
 import { carregarPerfilUsuario, paraEdicao } from "../dados";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, LogOut } from "lucide-react";
 
 const SEMANAS = 12;
 
@@ -76,7 +78,16 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
               : "ainda não entrou"}
           </p>
         </div>
-        <EditarUsuarioDialog usuario={paraEdicao(usuario)} obras={obras} comTexto />
+        <div className="flex flex-wrap gap-2">
+          <ConfirmButton
+            variant="outline"
+            action={encerrarSessoesUsuario.bind(null, usuario.id)}
+            mensagem={`Desconectar ${usuario.nome} de todos os aparelhos? A pessoa precisará entrar de novo com e-mail e senha.`}
+          >
+            <LogOut className="size-4" /> Encerrar sessões
+          </ConfirmButton>
+          <EditarUsuarioDialog usuario={paraEdicao(usuario)} obras={obras} comTexto />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

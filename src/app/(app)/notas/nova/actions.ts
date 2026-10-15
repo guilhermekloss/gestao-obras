@@ -4,7 +4,7 @@ import path from "path";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { storage } from "@/lib/storage";
-import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { acaoDeEscrita, mensagemDeErro, type ActionResult } from "@/lib/acao";
 import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
 import { dataParaInput } from "@/lib/format";
 import {
@@ -20,6 +20,7 @@ import {
 } from "@/services/correspondencia-fornecedor";
 import { normalizarLeitura, type DocumentoLido, type LeituraNormalizada } from "@/services/leitura-documento";
 import { leituraAutomaticaDisponivel, lerDocumentoNativo, type MidiaDocumento } from "@/services/leitor-nativo";
+import { ErroLeitura } from "@/services/leitor-nativo/extracao/semaforo";
 import { analiseIaDisponivel, analisarComGemini } from "@/services/leitor-gemini";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
@@ -96,7 +97,8 @@ async function lerEConferir(
       notaExistente,
     };
   } catch (e) {
-    return { ok: false, erro: e instanceof Error ? e.message : erroPadrao };
+    // ErroLeitura traz mensagem pensada para o usuário; o resto vai para o log
+    return { ok: false, erro: e instanceof ErroLeitura ? e.message : mensagemDeErro(e, erroPadrao) };
   }
 }
 

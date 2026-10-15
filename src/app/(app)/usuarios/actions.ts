@@ -9,8 +9,9 @@ import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
 import { gerarToken, hashToken } from "@/lib/token";
 import { ROLE_LABELS } from "@/services/acesso";
+import { CUSTO_BCRYPT, problemaSenha } from "@/services/senha";
+import { eventoSeguranca } from "@/lib/log-seguranca";
 import {
-  SENHA_MINIMA,
   VALIDADE_PADRAO_DIAS,
   calcularExpiracao,
   mensagemConvite,
@@ -21,13 +22,13 @@ import {
 } from "@/services/convite";
 
 const usuarioSchema = z.object({
-  nome: z.string().trim().min(1, "Nome é obrigatório"),
-  email: z.string().trim().transform(normalizarEmail).pipe(z.email("E-mail inválido")),
+  nome: z.string().trim().min(1, "Nome é obrigatório").max(120, "O nome pode ter no máximo 120 caracteres"),
+  email: z.string().trim().max(254).transform(normalizarEmail).pipe(z.email("E-mail inválido")),
   senha: z.string().optional(),
   role: z.enum(["ADMIN", "ESCRITORIO", "CAMPO"]),
   ativo: z.boolean(),
   todasObras: z.boolean(),
-  obraIds: z.array(z.string().min(1)),
+  obraIds: z.array(z.string().min(1).max(64)).max(500),
 });
 
 function parseUsuario(formData: FormData) {
@@ -43,7 +44,8 @@ function parseUsuario(formData: FormData) {
   });
 }
 
-const MSG_SENHA = `Senha deve ter no mínimo ${SENHA_MINIMA} caracteres`;
+/** Erro de regra dentro da transação (vira mensagem para o admin). */
+class ErroUsuario extends Error {}
 
 /** Acesso por obra só existe para CAMPO; nos outros papéis grava "todas". */
 async function acessoObras(role: Role, todasObras: boolean, obraIds: string[]) {
@@ -59,7 +61,8 @@ export const criarUsuario = acaoDeEscrita(
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
     const d = parsed.data;
 
-    if (!d.senha || d.senha.length < SENHA_MINIMA) return { ok: false, erro: MSG_SENHA };
+    const problema = problemaSenha(d.senha ?? "", { email: d.email, nome: d.nome });
+    if (problema) return { ok: false, erro: problema };
     const existente = await prisma.usuario.findFirst({
       where: { email: { equals: d.email, mode: "insensitive" } },
     });
@@ -73,7 +76,7 @@ export const criarUsuario = acaoDeEscrita(
       data: {
         nome: d.nome,
         email: d.email,
-        senhaHash: await hash(d.senha, 10),
+        senhaHash: await hash(d.senha!, CUSTO_BCRYPT),
         role: d.role,
         ativo: d.ativo,
         todasObras: acesso.todasObras,
@@ -102,7 +105,8 @@ export const atualizarUsuario = acaoDeEscrita(
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
     const d = parsed.data;
 
-    if (d.senha && d.senha.length < SENHA_MINIMA) return { ok: false, erro: MSG_SENHA };
+    const problema = d.senha ? problemaSenha(d.senha, { email: d.email, nome: d.nome }) : null;
+    if (problema) return { ok: false, erro: problema };
     if (atual.id === id && (!d.ativo || d.role !== "ADMIN")) {
       return { ok: false, erro: "Você não pode desativar ou rebaixar a si mesmo" };
     }
@@ -122,21 +126,39 @@ export const atualizarUsuario = acaoDeEscrita(
       return { ok: false, erro: "Escolha ao menos uma obra ou marque “Todas as obras”" };
     }
 
-    await prisma.$transaction([
-      prisma.usuario.update({
-        where: { id },
-        data: {
-          nome: d.nome,
-          email: d.email,
-          role: d.role,
-          ativo: d.ativo,
-          todasObras: acesso.todasObras,
-          ...(d.senha ? { senhaHash: await hash(d.senha, 10) } : {}),
+    const senhaHash = d.senha ? await hash(d.senha, CUSTO_BCRYPT) : undefined;
+    // senha redefinida ou acesso desativado: derruba as sessões abertas (um login roubado deixa de valer)
+    const revogarSessoes = !!senhaHash || (antes.ativo && !d.ativo);
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          // nunca deixa o sistema sem um administrador ativo (dois admins rebaixando um ao outro ao mesmo tempo)
+          if (antes.role === "ADMIN" && antes.ativo && (d.role !== "ADMIN" || !d.ativo)) {
+            const outrosAdmins = await tx.usuario.count({ where: { role: "ADMIN", ativo: true, NOT: { id } } });
+            if (outrosAdmins === 0) throw new ErroUsuario("É preciso manter ao menos um administrador ativo");
+          }
+          await tx.usuario.update({
+            where: { id },
+            data: {
+              nome: d.nome,
+              email: d.email,
+              role: d.role,
+              ativo: d.ativo,
+              todasObras: acesso.todasObras,
+              ...(senhaHash ? { senhaHash } : {}),
+              ...(revogarSessoes ? { sessaoVersao: { increment: 1 } } : {}),
+            },
+          });
+          await tx.usuarioObra.deleteMany({ where: { usuarioId: id } });
+          await tx.usuarioObra.createMany({ data: acesso.obraIds.map((obraId) => ({ usuarioId: id, obraId })) });
         },
-      }),
-      prisma.usuarioObra.deleteMany({ where: { usuarioId: id } }),
-      prisma.usuarioObra.createMany({ data: acesso.obraIds.map((obraId) => ({ usuarioId: id, obraId })) }),
-    ]);
+        { isolationLevel: "Serializable" },
+      );
+    } catch (erro) {
+      if (erro instanceof ErroUsuario) return { ok: false, erro: erro.message };
+      throw erro;
+    }
+    if (revogarSessoes) eventoSeguranca("sessao_revogada", { usuarioId: id, porAdmin: atual.id });
 
     const obrasAntes = antes.todasObras ? null : antes.obras.map((o) => o.obraId).sort().join();
     const obrasDepois = acesso.todasObras ? null : [...acesso.obraIds].sort().join();
@@ -153,6 +175,25 @@ export const atualizarUsuario = acaoDeEscrita(
       entidadeId: id,
       obraIds: acesso.obraIds,
     });
+    return { ok: true };
+  },
+);
+
+/** Desconecta o usuário de todos os aparelhos (celular perdido, saída da empresa, suspeita de senha vazada). */
+export const encerrarSessoesUsuario = acaoDeEscrita(
+  {
+    papeis: ["ADMIN"],
+    revalidar: (id: string) => [`/usuarios/${id}`],
+    atividade: "usuario.editar",
+  },
+  async (atual, id: string): Promise<ActionResult> => {
+    const usuario = await prisma.usuario.update({
+      where: { id },
+      data: { sessaoVersao: { increment: 1 } },
+      select: { nome: true },
+    });
+    eventoSeguranca("sessao_revogada", { usuarioId: id, porAdmin: atual.id });
+    anotarAtividade({ descricao: `Encerrou as sessões de ${usuario.nome} em todos os aparelhos`, entidade: "usuario", entidadeId: id });
     return { ok: true };
   },
 );

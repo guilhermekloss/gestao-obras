@@ -83,7 +83,7 @@ gcloud run jobs execute gestao-obras-migrate --region southamerica-east1 --wait 
   --update-env-vars="SEED_ADMIN_EMAIL=voce@suaempresa.com.br,SEED_ADMIN_SENHA=uma-senha-temporaria-longa"
 ```
 
-O seed cria o admin e os 6 lotes com etapas padrão. **Entre no app e troque a senha na tela Usuários** (os parâmetros de uma execução ficam visíveis no console para quem tem acesso ao projeto). Em produção o seed se recusa a usar a senha padrão `admin123`.
+O seed cria o admin e os 6 lotes com etapas padrão. **Entre no app e troque a senha em Minha conta** (os parâmetros de uma execução ficam visíveis no console para quem tem acesso ao projeto). Em produção o seed se recusa a usar a senha padrão `admin123`.
 
 ### 6. Leitura automática de nota
 
@@ -133,9 +133,14 @@ Backup automático diário (retenção de 14) + point-in-time recovery dos últi
 - **Segredos** no Secret Manager, replicados só no Brasil; nunca no repositório nem nas variáveis do GitHub.
 - **Arquivos** em bucket privado com bloqueio de acesso público, servidos só via `/api/fotos` com sessão.
 - **Container** sem root, imagem mínima (Next standalone), base fixada por digest; tags imutáveis no Artifact Registry.
-- **Cabeçalhos HTTP**: HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
-- **Cadeia de suprimentos**: GitHub Actions fixadas por SHA, Dependabot (npm, Actions, Docker, Terraform) e `npm audit` bloqueando vulnerabilidade crítica.
-- **Operação**: uptime check, alertas de indisponibilidade e de erros 5xx, orçamento mensal, logs de queries lentas (> 1 s).
+- **Cabeçalhos HTTP**: Content-Security-Policy com nonce (`src/proxy.ts`), HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`.
+- **Login**: bloqueio após 5 senhas erradas por e-mail (30 por IP) em 15 min, guardado no banco (vale com várias instâncias); o IP vem do `X-Forwarded-For` com `PROXY_SALTOS` (1 = Cloud Run direto). Sessão de 8 h ociosa / 7 dias no máximo, revogável.
+- **Cadeia de suprimentos**: GitHub Actions fixadas por SHA, Dependabot (npm, Actions, Docker, Terraform), `npm audit` bloqueando vulnerabilidade crítica e `npm audit signatures` conferindo as assinaturas do registro. Opcional: `varredura_imagens = true` (varredura de vulnerabilidades das imagens, cobrada por imagem).
+- **Operação**: uptime check, alertas de indisponibilidade e de erros 5xx, orçamento mensal, logs de queries lentas (> 1 s) e de conexões ao banco.
+- **Detecção** (`seguranca.tf`, com `email_alertas`): alertas de força bruta no login, contas bloqueadas, acessos negados a arquivos e qualquer mudança de IAM/chave de service account; auditoria de leitura de segredos; o e-mail vira o contato de segurança do projeto no Google. O alerta de IAM também dispara quando você mesmo roda o `bootstrap.sh` com mudança de permissão — esperado.
+- **Link de convite**: montado a partir de `APP_URL` (URL do Cloud Run, ou `app_url` no `terraform.tfvars` com domínio próprio).
+
+Camadas completas, riscos aceitos e roteiro de incidente: [`seguranca.md`](seguranca.md).
 - O estado do Terraform (que contém a senha do banco gerada) fica num bucket privado e versionado do próprio projeto.
 
 ## Próximos passos possíveis
@@ -144,4 +149,4 @@ Backup automático diário (retenção de 14) + point-in-time recovery dos últi
 - **Staging**: um segundo projeto com o mesmo Terraform (outro `terraform.tfvars` e `prefix` de estado) e deploy a partir de outra branch.
 - **Sem cold start**: `min_instancias = 1` deixa uma instância sempre quente (custo fixo maior).
 - **Alta disponibilidade do banco**: `db_alta_disponibilidade = true` (dobra o custo do banco).
-- **Rate limit no login**: hoje não há limite de tentativas; o Cloud Armor (com o Load Balancer acima) ou um limitador no app resolvem.
+- **WAF**: o Load Balancer acima permite o Cloud Armor (regras OWASP e limite por IP antes de chegar ao app). Com ele, ajuste `proxy_saltos = 2`.

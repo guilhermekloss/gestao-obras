@@ -39,7 +39,7 @@ export default async function CronogramaPage({
     );
   }
 
-  const cronograma = await carregarCronograma(obraId);
+  const cronograma = await carregarCronograma(obraId, { comPesos: user.role !== "CAMPO" });
   const atrasadas = cronograma.etapas.filter((e) => e.situacao === "ATRASADA").length;
 
   return (

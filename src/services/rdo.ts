@@ -1,4 +1,5 @@
 import type { CondicaoTrabalho, Role } from "@prisma/client";
+import { urlArquivoValida } from "./arquivos";
 
 /**
  * Regras do RDO (diário de obra). Funções puras: normalização dos campos Json
@@ -195,9 +196,13 @@ export function dataDoRdo(data: Date): Date {
   return new Date(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate(), 12);
 }
 
-/** URL de foto aceitável para gravar: caminho relativo do app ou https (bloqueia `javascript:` e afins). */
+/**
+ * URL de foto aceitável para gravar: só arquivo enviado pelo próprio app
+ * (`/api/fotos/<nome>`). Endereço externo viraria pixel de rastreio ou link de
+ * phishing no RDO aberto pelo escritório.
+ */
 export function urlFotoValida(url: string): boolean {
-  return (url.startsWith("/") && !url.startsWith("//")) || url.startsWith("https://");
+  return urlArquivoValida(url);
 }
 
 /**
