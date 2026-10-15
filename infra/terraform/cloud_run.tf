@@ -138,7 +138,9 @@ resource "google_cloud_run_v2_service" "app" {
   lifecycle {
     ignore_changes = [
       template[0].containers[0].image,
-      template[0].revision,
+      # `template[0].revision` NÃO entra aqui de propósito: ignorado, o Terraform reenviaria o nome da
+      # última revisão do deploy (gestao-obras-rN-...) com a configuração nova e o Cloud Run recusaria
+      # (409 "Revision named ... with different configuration already exists"). Sem ele, o nome é livre.
       traffic, # o deploy usa tag "candidata" e promove a revisão nova
       client,
       client_version,

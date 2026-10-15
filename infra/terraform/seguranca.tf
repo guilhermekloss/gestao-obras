@@ -61,26 +61,27 @@ locals {
     forca_bruta = {
       nome      = "${var.app_name}: muitas falhas de login"
       descricao = "Mais de 30 senhas erradas em 10 minutos — possível ataque de força bruta ou de senhas vazadas. Veja os IPs e e-mails em Logging (jsonPayload.evento=\"login_falhou\")."
-      filtro    = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.eventos_seguranca.name}\" AND metric.label.evento=\"login_falhou\""
+      filtro    = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.eventos_seguranca.name}\" AND metric.label.evento=\"login_falhou\" AND resource.type=\"cloud_run_revision\""
       limite    = 30
     }
     bloqueios = {
       nome      = "${var.app_name}: contas bloqueadas por tentativas"
       descricao = "Mais de 3 bloqueios de login em 10 minutos. Confira se é ataque (vários e-mails/IPs) ou alguém esquecendo a senha."
-      filtro    = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.eventos_seguranca.name}\" AND metric.label.evento=\"login_bloqueado\""
+      filtro    = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.eventos_seguranca.name}\" AND metric.label.evento=\"login_bloqueado\" AND resource.type=\"cloud_run_revision\""
       limite    = 3
     }
     arquivos = {
       nome      = "${var.app_name}: acessos negados a arquivos"
       descricao = "Mais de 10 tentativas de abrir fotos/anexos sem permissão em 10 minutos — possível varredura por outro usuário."
-      filtro    = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.eventos_seguranca.name}\" AND metric.label.evento=\"acesso_negado_arquivo\""
+      filtro    = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.eventos_seguranca.name}\" AND metric.label.evento=\"acesso_negado_arquivo\" AND resource.type=\"cloud_run_revision\""
       limite    = 10
     }
     iam = {
       nome      = "${var.app_name}: permissões do projeto alteradas"
       descricao = "Alguém mudou uma política IAM ou criou chave de service account. Esperado só ao rodar o bootstrap/Terraform; fora disso, investigue em Logging → cloudaudit activity."
-      filtro    = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.mudancas_iam.name}\""
-      limite    = 0
+      # entradas de auditoria (project, service_account...) não têm recurso monitorado próprio: viram "global"
+      filtro = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.mudancas_iam.name}\" AND resource.type=\"global\""
+      limite = 0
     }
   }
 }
