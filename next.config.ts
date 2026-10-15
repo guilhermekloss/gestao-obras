@@ -29,6 +29,7 @@ const nextConfig: NextConfig = {
    */
   serverExternalPackages: [
     "@google-cloud/storage",
+    "@google/genai",
     "google-auth-library",
     "sharp",
     "tesseract.js",

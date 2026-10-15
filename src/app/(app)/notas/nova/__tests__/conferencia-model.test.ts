@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { LeituraNormalizada } from "@/services/leitura-documento";
 import type { CorrespondenciaFornecedor } from "@/services/correspondencia-fornecedor";
 import {
+  conferenciaDaReleitura,
   conferenciaInicial,
   errosConferencia,
+  indiceAcerto,
   escolhaParaAction,
   situacaoDocumento,
   type Conferencia,
@@ -130,5 +132,64 @@ describe("auxiliares", () => {
       completarDocumento: undefined,
     });
     expect(escolhaParaAction({ modo: "novo", nome: "X", documento: "" })).toEqual({ modo: "novo", nome: "X", documento: undefined });
+  });
+});
+
+describe("indiceAcerto", () => {
+  it("leitura completa e coerente: 100% (alto)", () => {
+    // NF-e sem chave conta como falta; com a chave, tudo fecha
+    const r = indiceAcerto({ ...LEITURA, chaveNfe: "35260911222333000181550010000123451876543218" });
+    expect(r).toEqual({ percentual: 100, nivel: "alto", faltas: [] });
+  });
+
+  it("cada campo não lido baixa o índice e aparece nas faltas", () => {
+    const r = indiceAcerto(LEITURA); // sem chave
+    expect(r.faltas).toEqual(["chave de acesso válida"]);
+    expect(r.percentual).toBe(86); // 6 de 7
+    expect(r.nivel).toBe("alto");
+  });
+
+  it("avisos penalizam (8 pontos cada, até 40)", () => {
+    const base = { ...LEITURA, chaveNfe: "35260911222333000181550010000123451876543218" };
+    expect(indiceAcerto({ ...base, avisos: ["a", "b"] }).percentual).toBe(84);
+    expect(indiceAcerto({ ...base, avisos: Array(10).fill("x") }).percentual).toBe(60);
+  });
+
+  it("foto ruim: sem CNPJ válido, sem número e itens que não fecham → baixo", () => {
+    const r = indiceAcerto({
+      ...LEITURA,
+      fornecedor: { ...LEITURA.fornecedor, documento: null },
+      numero: "",
+      itens: [{ ...LEITURA.itens[0], totalCents: 9000 }],
+      avisos: ["A soma dos itens difere do total"],
+    });
+    expect(r.nivel).toBe("baixo");
+    expect(r.faltas).toEqual(["CNPJ/CPF do emitente válido", "número da nota", "chave de acesso válida", "itens que somam o total"]);
+  });
+
+  it("recibo não cobra CNPJ, número nem chave", () => {
+    const r = indiceAcerto({
+      ...LEITURA,
+      tipoDocumento: "RECIBO",
+      descricaoDocumento: "Recibo",
+      fornecedor: { ...LEITURA.fornecedor, documento: null },
+      numero: "",
+    });
+    expect(r).toEqual({ percentual: 100, nivel: "alto", faltas: [] });
+  });
+});
+
+describe("conferenciaDaReleitura", () => {
+  it("troca os dados pela nova leitura e mantém obra e rateio escolhidos", () => {
+    const anterior = valida();
+    anterior.valores.rateios = [
+      { obraId: "obra-2", etapaId: "et-1", percent: "60" },
+      { obraId: "obra-3", etapaId: "", percent: "40" },
+    ];
+    anterior.valores.numero = "editado";
+    const nova = conferenciaDaReleitura(anterior, { ...LEITURA, numero: "999" }, SEM_CORRESPONDENCIA, OPTS);
+    expect(nova.valores.numero).toBe("999");
+    expect(nova.valores.rateios).toEqual(anterior.valores.rateios);
+    expect(nova.conferido).toBe(false);
   });
 });

@@ -97,6 +97,11 @@ coloque no `terraform.tfvars` e rode `./infra/bootstrap.sh SEU_PROJECT_ID` de no
 
 PDF digital (com texto) é lido sem OCR, em qualquer opção.
 
+**Análise com IA (opcional):** `gemini_habilitado = true` liga o botão "Analisar com IA" na conferência da
+nota. O Terraform ativa a API da Vertex AI e dá à service account do app o papel `roles/aiplatform.user` —
+sem chave. Cobrança por uso, só quando o usuário clica: Flash-Lite primeiro (estimativa abaixo de R$ 0,05 por foto) e Flash só
+quando a leitura barata não fecha.
+
 ## Dia a dia
 
 - **Deploy**: merge na `main`. O CI roda de novo; se passar, as migrations são aplicadas, a nova revisão sobe **sem tráfego**, passa por um smoke test na URL própria dela e só então recebe 100% dos acessos. Se qualquer passo falhar, os usuários continuam na versão anterior.

@@ -15,7 +15,11 @@ locals {
     "sts.googleapis.com",
   ]
   # Vision só quando é o motor de OCR escolhido
-  apis = concat(local.apis_base, var.motor_ocr == "vision" ? ["vision.googleapis.com"] : [])
+  apis = concat(
+    local.apis_base,
+    var.motor_ocr == "vision" ? ["vision.googleapis.com"] : [],
+    var.gemini_habilitado ? ["aiplatform.googleapis.com"] : [], # Gemini (análise com IA)
+  )
 }
 
 resource "google_project_service" "apis" {

@@ -142,11 +142,41 @@ Na foto, o ponto fraco é a **tabela de itens do DANFE** (letra miúda em A4 int
 saem, os itens nem sempre. A conferência humana continua obrigatória, e o Vision ou o PDF/XML resolvem esse caso.
 `npm run leitor:corpus` regenera os documentos.
 
+## Análise com IA (Gemini), a pedido do usuário
+
+No topo do pop-up de conferência aparece o **índice de acerto da leitura** (`indiceAcerto`, em
+`conferencia-model.ts`, testado): a fração dos campos-chave que vieram lidos e coerentes — nome e CNPJ/CPF
+válido do emitente, número, chave de acesso (NF-e/NFC-e), data, total e itens que somam o total — menos 8
+pontos por aviso da leitura (até 40). **Alto** ≥ 85%, **médio** ≥ 60%, **baixo** abaixo disso; o painel
+lista o que não foi lido.
+
+Com o Gemini configurado, o painel mostra o botão **Analisar com IA** — em destaque quando o índice é médio
+ou baixo. Ao clicar (e confirmar), o mesmo arquivo é enviado ao Gemini, que devolve o `DocumentoLido` pela
+saída estruturada (`responseJsonSchema` gerado do schema Zod). A resposta passa pelas **mesmas conferências**
+da leitura nativa (`normalizarLeitura`, fornecedor, duplicata, destinatário) e substitui os dados da tela;
+**obra e rateio escolhidos pelo usuário são mantidos**. Nada é gravado sem o "Confirmar e lançar".
+
+- Só roda com a ação do usuário — a leitura nativa continua sendo a padrão (custo zero).
+- `src/services/leitor-gemini.ts` (SDK `@google/genai`): Vertex AI em produção, autenticado pela service
+  account do Cloud Run (papel `roles/aiplatform.user`, sem chave guardada); `GEMINI_API_KEY` só para
+  desenvolvimento local.
+- **Custo — barato primeiro**: lê com `gemini-3.5-flash-lite` (US$ 0,30 / 2,50 por milhão de tokens de
+  entrada / saída) e só repete com `gemini-3.5-flash` (US$ 1,50 / 9,00) quando a leitura não fecha — total
+  ausente, itens + frete + outras − desconto ≠ total, ou imagem quase ilegível (`leituraFecha`). Estimativa por foto
+  de nota (alguns milhares de tokens de entrada e de saída, incluindo o raciocínio do modelo): **abaixo de
+  US$ 0,01 (~R$ 0,05)** no Flash-Lite e ~US$ 0,04 quando o reforço entra — confira no faturamento após as
+  primeiras análises. Troque com
+  `GEMINI_MODELO` / `GEMINI_MODELO_REFORCO` (vazio desliga o reforço).
+- Privacidade: ao clicar, a imagem/PDF é enviada ao Google (Vertex AI, local `global`).
+
 ## Configuração
 
 ```bash
 # .env
 OCR_MOTOR=local                     # local (padrão) | vision | desligado (foto/PDF só anexados)
+GEMINI_PROJETO=meu-projeto-gcp      # opcional: botão "Analisar com IA" via Vertex AI (ou GEMINI_API_KEY=... no dev)
+GEMINI_MODELO=gemini-3.5-flash-lite # opcional (padrão): lê primeiro, o mais barato
+GEMINI_MODELO_REFORCO=gemini-3.5-flash  # opcional (padrão): só quando a leitura barata não fecha; vazio desliga
 CNPJS_EMPRESA=12.345.678/0001-95    # opcional: CNPJs da empresa (vírgula) para conferir o destinatário
 ```
 
@@ -161,6 +191,7 @@ CNPJS_EMPRESA=12.345.678/0001-95    # opcional: CNPJs da empresa (vírgula) para
 |---|---|
 | `src/services/leitura-documento.ts` | Puro: schema `DocumentoLido`, dígitos verificadores, `normalizarLeitura` |
 | `src/services/leitor-nativo/index.ts` | `lerDocumentoNativo`: extração → interpretação; `leituraAutomaticaDisponivel` |
+| `src/services/leitor-gemini.ts` | Análise com IA a pedido do usuário: Gemini (Vertex AI) → `DocumentoLido` |
 | `src/services/leitor-nativo/tipos.ts` | Contrato entre as etapas (`TextoExtraido`) |
 | `src/services/leitor-nativo/extracao/` | PDF (unpdf), imagem (sharp), códigos (zxing-wasm), OCR (Tesseract / Vision), fila do processo |
 | `src/services/leitor-nativo/interpretacao/` | Classificação, rótulos, normalização de valores/datas, intérpretes por tipo |
