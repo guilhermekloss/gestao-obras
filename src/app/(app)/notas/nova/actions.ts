@@ -19,7 +19,7 @@ import {
   type CorrespondenciaFornecedor,
 } from "@/services/correspondencia-fornecedor";
 import { normalizarLeitura, type LeituraNormalizada } from "@/services/leitura-documento";
-import { leituraAutomaticaDisponivel, lerDocumentoComIa, type MidiaDocumento } from "@/services/leitor-ia";
+import { leituraAutomaticaDisponivel, lerDocumentoNativo, type MidiaDocumento } from "@/services/leitor-nativo";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -61,7 +61,7 @@ export async function lerDocumento(anexoUrl: string): Promise<LerDocumentoResult
 
   try {
     const arquivo = await storage.ler(path.basename(nome[1]));
-    const lido = await lerDocumentoComIa(arquivo, midia);
+    const lido = await lerDocumentoNativo(arquivo, midia);
     const r = normalizarLeitura(lido, dataParaInput(new Date()));
     if (!r.ok) return r;
     const { leitura } = r;

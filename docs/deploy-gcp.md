@@ -13,7 +13,7 @@ GitHub (main) ──► GitHub Actions ──OIDC──► Workload Identity Fed
                                      │  socket Unix /cloudsql (Auth Proxy embutido, IAM)
                                      ├──► Cloud SQL PostgreSQL 17 (backups diários + PITR 7 dias)
                                      ├──► Cloud Storage (fotos/anexos, privado, versionado)
-                                     └──► Secret Manager (DATABASE_URL, AUTH_SECRET, ANTHROPIC_API_KEY)
+                                     └──► Secret Manager (DATABASE_URL, AUTH_SECRET)
             Cloud Run job "gestao-obras-migrate" ──► prisma migrate deploy
             Monitoring: uptime check em /api/health, alertas por e-mail, orçamento mensal
 ```
@@ -85,13 +85,17 @@ gcloud run jobs execute gestao-obras-migrate --region southamerica-east1 --wait 
 
 O seed cria o admin e os 6 lotes com etapas padrão. **Entre no app e troque a senha na tela Usuários** (os parâmetros de uma execução ficam visíveis no console para quem tem acesso ao projeto). Em produção o seed se recusa a usar a senha padrão `admin123`.
 
-### 6. Leitura automática de nota (opcional)
+### 6. Leitura automática de nota
 
-```bash
-printf '%s' 'sk-ant-SUA-CHAVE' | gcloud secrets versions add gestao-obras-anthropic-api-key --data-file=-
-```
+Já vem ligada, com OCR **local** (Tesseract dentro do próprio app, sem serviço externo nem chave). Para trocar,
+coloque no `terraform.tfvars` e rode `./infra/bootstrap.sh SEU_PROJECT_ID` de novo:
 
-Depois coloque `leitura_ia_habilitada = true` no `terraform.tfvars` e rode `./infra/bootstrap.sh SEU_PROJECT_ID` de novo.
+- `motor_ocr = "vision"` — Google Cloud Vision: mais preciso em foto, ~1–2 s, 1.000 leituras grátis/mês e
+  US$ 1,50 a cada 1.000 depois. A API é ativada pelo Terraform e a service account do app autentica sem chave.
+  A imagem é processada fora do Brasil (o Vision não tem região na América do Sul) — registre isso para a LGPD.
+- `motor_ocr = "desligado"` — foto/PDF só ficam anexados (o XML continua sendo lido).
+
+PDF digital (com texto) é lido sem OCR, em qualquer opção.
 
 ## Dia a dia
 

@@ -9,13 +9,14 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "leitor:corpus": "tsx scripts/leitor-nativo/gerar-corpus.ts",
+    "leitor:avaliar": "tsx scripts/leitor-nativo/avaliar.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
     "@base-ui/react": "^1.9.0",
     "@google-cloud/storage": "^7.22.0",
     "@hookform/resolvers": "^5.9.1",

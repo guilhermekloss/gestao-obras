@@ -5,8 +5,8 @@ Um só ponto de entrada em **Lançamentos → Nova NF** (`/notas/nova`):
 | Entrada | Como é lida | Precisão | Onde |
 |---|---|---|---|
 | **XML da NF-e** | Parser determinístico (fluxo já existente) | Exata — é o documento fiscal | `services/nfe-xml.ts` + `notas/importar-xml/` |
-| **Foto do celular** (DANFE, cupom NFC-e, recibo, boleto, guia) | Claude (visão) → JSON estruturado → conferência | Alta, com avisos do que conferir | `services/leitor-ia.ts` + `services/leitura-documento.ts` |
-| **PDF** (DANFE, NFS-e de prefeitura, recibo) | Claude (PDF nativo) → mesmo caminho da foto | Alta | idem |
+| **PDF digital** (DANFE, NFS-e, boleto, guia, recibo) | Camada de texto do PDF → regras por tipo de documento → conferência | Exata na prática (99% dos campos no corpus) | `services/leitor-nativo/` + `services/leitura-documento.ts` |
+| **Foto do celular** ou PDF escaneado | Código de barras/QR + OCR (Tesseract local ou Cloud Vision) → mesmas regras | Boa, com avisos do que conferir (81% dos campos no corpus; ver abaixo) | idem |
 | **Manual** | Formulário de sempre, logo abaixo da área de envio | — | `notas/nota-form.tsx` |
 
 Em todos os casos o resultado é o **mesmo lançamento** (`NotaFiscal` + `ItemNota` + `RateioNota`
@@ -17,7 +17,7 @@ alertas, dashboard e fornecedores — nada novo precisa ser consultado pelas out
 
 1. **Tirar foto** (abre a câmera traseira no celular) ou **Enviar arquivo** (ou arrastar para a área).
 2. XML → tela de importação exata (prévia, rateio, parcelas). Foto/PDF → "Lendo os dados da nota…"
-   (10–30 s) e abre o **pop-up "Conferir dados da nota"**.
+   (menos de 1 s para PDF, alguns segundos para foto) e abre o **pop-up "Conferir dados da nota"**.
 3. No pop-up, o documento fica ao lado (foto ou PDF) e **todos os dados que vão entrar no sistema**
    ficam editáveis: tipo, número, data, total, chave, fornecedor, destinatário, itens, pagamento e
    obra (rateio). Os avisos da leitura aparecem no topo; somas de itens, parcelas e rateio ficam
@@ -27,7 +27,7 @@ alertas, dashboard e fornecedores — nada novo precisa ser consultado pelas out
    dados** reabre com as edições preservadas).
 5. Casos fora do comum: **Editar no formulário completo** leva tudo para o formulário de sempre.
 
-Se a leitura falhar (foto ilegível, serviço fora do ar, sem chave da API), o arquivo continua
+Se a leitura falhar (foto ilegível, PDF escaneado sem texto, fila de leitura cheia), o arquivo continua
 anexado e o formulário fica aberto para preenchimento manual — o usuário nunca perde o envio.
 
 ## Conferência humana: o que bloqueia o "Confirmar"
@@ -72,7 +72,7 @@ ou o aviso de que foi emitida para outro CNPJ. Ele é exibido para conferência 
 
 ## Conferências automáticas (por que confiar no que foi lido)
 
-O modelo só **transcreve**; quem decide o que entra é código puro e testado
+O leitor só **transcreve**; quem decide o que entra é código puro e testado
 (`normalizarLeitura`, 27 testes):
 
 - **Chave de acesso** (44 dígitos) só é aceita com o dígito verificador (módulo 11) correto. Ela
@@ -92,65 +92,79 @@ O modelo só **transcreve**; quem decide o que entra é código puro e testado
 - **Duplicidade**: antes de salvar, a tela avisa se a chave ou fornecedor + número já existem
   (com link para a nota). Ao salvar, `salvarNota` grava a `chaveNfe` e recusa chave repetida.
 
-## Pesquisa: como o mercado resolve e o que foi escolhido
+## Como o leitor nativo funciona
 
-### O que outras soluções fazem
-- **ERPs de obra (Sienge, Obra Prima, Vobi)**: o padrão é importar o **XML** da NF-e; a Vobi, por
-  exemplo, só aceita XML de NF-e modelo 55 e orienta baixar o XML no portal da NF-e quando falta
-  ([Vobi](https://ajuda.vobi.com.br/pt-br/articles/9431811-importacao-manual-de-notas-fiscais-via-xml)).
-  Foto e NFS-e de prefeitura ficam de fora — é exatamente o que mais acontece no canteiro.
-- **Gestão de despesas (Expensify SmartScan, Ramp, Flash)**: foto → extração (fornecedor, data,
-  valor, itens) → **o usuário revisa e confirma**. A Flash destaca leitura de notas e cupons
-  amassados e identificação de CNPJ, itens, valor e número
-  ([Flash](https://flashapp.com.br/novidades-de-produto/leitura-automatica-ocr),
-  [Expensify SmartScan](https://www.mintlify.com/Expensify/App/features/expenses/smartscan),
-  [Ramp](https://ramp.com/blog/receipt-scanning-expense-management)).
-- **Plataformas fiscais (Qive/Arquivei, NSDocs)**: OCR para NFS-e de prefeituras sem padrão
-  (convertidas para XML Abrasf) e **busca automática na SEFAZ** das notas emitidas contra o CNPJ,
-  com certificado digital em nuvem ([Qive](https://qive.com.br/blog/ocr),
-  [NSDocs](https://nsdocs.com.br/blog/?p=9263)).
+Sem LLM e sem API de IA de terceiros. Duas etapas com um contrato entre elas
+(`services/leitor-nativo/tipos.ts`):
 
-### Tecnologias avaliadas
+```
+arquivo ──extração──► TextoExtraido (linhas com posição + códigos lidos) ──interpretação──► DocumentoLido ──► normalizarLeitura
+```
 
-| Opção | Prós | Contras | Decisão |
-|---|---|---|---|
-| **Tesseract.js / OCR puro** | Grátis, roda no navegador | Só devolve texto solto; ruim com foto torta e tabela de itens; ainda exigiria regras por layout | Descartado |
-| **AWS Textract AnalyzeExpense / Azure Document Intelligence / Google Document AI** | Modelos prontos de invoice/receipt | Treinados em notas americanas/europeias, não conhecem DANFE/NFS-e/chave de acesso; custo sobe no nível estruturado ([comparativo](https://invoicedataextraction.com/blog/aws-textract-vs-google-document-ai-vs-azure-document-intelligence)); exigem mapeamento manual de campos | Descartado |
-| **Mindee / Veryfi / Nanonets** | APIs de recibo prontas | Mesmos limites de layout brasileiro; mais um fornecedor/contrato | Descartado |
-| **LLM com visão (Claude)** | Lê foto e PDF nativamente, entende qualquer layout (DANFE, NFC-e, NFS-e de cada prefeitura, recibo escrito à mão), classifica itens e devolve JSON no schema pedido (saída estruturada) | Custo por leitura; pode errar dígito → **mitigado** pelas conferências acima | **Escolhido** |
-| **Leitura do QR Code / código de barras** | Chave exata sem OCR | A chave sozinha não traz itens: baixar o XML pela chave exige certificado digital do destinatário | Fica como evolução (ver abaixo) |
-| **SEFAZ — Distribuição DF-e** | O XML oficial de **toda** NF-e emitida contra o CNPJ chega sozinho (últimos 180 dias) | Exige certificado A1 da empresa e manifestação do destinatário; não cobre NFS-e nem recibos ([ACBr](https://www.projetoacbr.com.br/forum/topic/77002-c-consulta-de-notas-por-data/)) | Próximo passo recomendado |
+**Extração** (`leitor-nativo/extracao/`):
 
-Benchmarks públicos de extração de notas são de fornecedores e se contradizem
-([exemplo](https://hackernoon.com/can-your-llm-handle-an-invoice-i-tested-5heres-the-truth));
-por isso a decisão se apoia mais na cobertura de layouts brasileiros e na **conferência
-determinística** (dígitos verificadores, cruzamento com a chave, somas) do que em um número de
-acurácia.
+| Entrada | Como | Custo |
+|---|---|---|
+| PDF digital | `unpdf` (pdf.js) lê a camada de texto com coordenadas; as linhas preservam as colunas da tabela | ~0,1 s, só CPU |
+| Foto | `sharp` (rotação EXIF, tamanho, tons de cinza) → OCR | 1–6 s |
+| PDF escaneado | imagens embutidas → OCR (local) ou o próprio PDF → Vision `files:annotate` | idem |
+| Código de barras / QR | `zxing-wasm` (Code-128, ITF, QR) na foto e nas imagens do PDF | < 0,2 s |
+
+- **OCR local (padrão)**: `tesseract.js` 7 com o modelo `por` (best_int) lido do disco — nunca baixa de CDN. Um único
+  worker reaproveitado e reciclado (o heap WASM não encolhe), fila de **uma leitura por vez** e no máximo 5 esperando
+  (acima disso o usuário recebe "muitas leituras ao mesmo tempo"). Pico medido: ~480 MB — cabe no 1 GiB do Cloud Run.
+- **Cloud Vision** (`OCR_MOTOR=vision`): `DOCUMENT_TEXT_DETECTION` via REST, autenticado pela service account do
+  Cloud Run. Não usa memória da instância para o OCR.
+
+**Interpretação** (`leitor-nativo/interpretacao/`, pura e testada): classifica o documento (âncoras com dígito
+verificador primeiro — chave modelo 55/65, linha digitável de boleto ou de arrecadação — depois palavras-chave) e
+aplica o intérprete do tipo: DANFE, NFC-e, NFS-e (nacional e municipais), boleto, guia (DAS/DARF/GPS), recibo e um
+genérico. Os rótulos impressos ("VALOR TOTAL DA NOTA", "Valor do Documento"...) ancoram os valores; tudo que tem
+dígito verificador é árbitro: chave de acesso, CNPJ/CPF e linha digitável. Erros típicos de OCR (O↔0, l↔1, S↔5)
+só são corrigidos quando exatamente uma correção faz o dígito verificador fechar.
+
+Convenções: NFS-e usa o valor **bruto** do serviço como total, com o líquido e as retenções (ISS, INSS) nas
+observações; DAS entra com emitente "Simples Nacional" e o CNPJ impresso como destinatário (contribuinte); boleto e
+guia tiram valor e vencimento do código de barras quando ele fecha.
+
+### Qualidade medida (corpus sintético)
+
+`npm run leitor:avaliar` lê os 7 documentos de `src/services/leitor-nativo/__fixtures__/` (DANFE com 7 itens,
+NFC-e, NFS-e nacional e de São Paulo, boleto, DAS e recibo — cada um em PDF e em "foto" com rotação, sombra e blur)
+e compara com o gabarito campo a campo. Resultado com o OCR local:
+
+| | Campos corretos | Tempo médio |
+|---|---|---|
+| PDF | 139/140 (99%) | 0,1 s |
+| Foto | 114/140 (81%) | 3,9 s |
+
+Na foto, o ponto fraco é a **tabela de itens do DANFE** (letra miúda em A4 inteiro): o cabeçalho, a chave e o total
+saem, os itens nem sempre. A conferência humana continua obrigatória, e o Vision ou o PDF/XML resolvem esse caso.
+`npm run leitor:corpus` regenera os documentos.
 
 ## Configuração
 
 ```bash
 # .env
-ANTHROPIC_API_KEY=sk-ant-...        # sem ela: XML e manual funcionam; foto/PDF só ficam anexados
-LEITURA_NF_MODELO=claude-opus-5-5   # opcional (padrão). Alternativa mais barata: claude-haiku-5-5
+OCR_MOTOR=local                     # local (padrão) | vision | desligado (foto/PDF só anexados)
 CNPJS_EMPRESA=12.345.678/0001-95    # opcional: CNPJs da empresa (vírgula) para conferir o destinatário
 ```
 
-- Modelo padrão: `claude-opus-5-5`, esforço `medium`, saída estruturada (schema Zod
-  `documentoLidoSchema`) e **fallback automático no servidor** (`fallbacks: "default"`): se o modelo
-  principal recusar o pedido, a API repete a leitura num modelo de reserva na mesma chamada.
-- Custo estimado por documento (foto reduzida para 2400 px no navegador): alguns milhares de
-  tokens de entrada e de saída — na ordem de **US$ 0,05–0,10 por nota** com o Opus e de
-  **menos de US$ 0,01** com o Haiku (estimativa; confira no console da Anthropic após as primeiras leituras).
-- Privacidade: a imagem/PDF é enviada à API da Anthropic para a leitura. O arquivo continua guardado
-  só no storage do app (`./uploads`).
+- Privacidade: com `local`, o arquivo não sai do servidor. Com `vision`, a imagem vai para o Google Cloud Vision
+  (processada fora do Brasil).
+- Custo: `local` só usa a CPU da própria instância; `vision` tem 1.000 leituras grátis por mês e US$ 1,50 a cada
+  1.000 depois.
 
 ## Arquivos
 
 | Arquivo | Papel |
 |---|---|
-| `src/services/leitura-documento.ts` | Puro: schema do que o modelo devolve, dígitos verificadores, `normalizarLeitura` |
-| `src/services/leitor-ia.ts` | Chamada ao Claude (imagem/PDF base64, saída estruturada, mensagens de erro amigáveis) |
+| `src/services/leitura-documento.ts` | Puro: schema `DocumentoLido`, dígitos verificadores, `normalizarLeitura` |
+| `src/services/leitor-nativo/index.ts` | `lerDocumentoNativo`: extração → interpretação; `leituraAutomaticaDisponivel` |
+| `src/services/leitor-nativo/tipos.ts` | Contrato entre as etapas (`TextoExtraido`) |
+| `src/services/leitor-nativo/extracao/` | PDF (unpdf), imagem (sharp), códigos (zxing-wasm), OCR (Tesseract / Vision), fila do processo |
+| `src/services/leitor-nativo/interpretacao/` | Classificação, rótulos, normalização de valores/datas, intérpretes por tipo |
+| `scripts/leitor-nativo/` | Gerador do corpus sintético e avaliador de ponta a ponta |
 | `src/app/(app)/notas/nova/actions.ts` | `lerDocumento(url)`: lê, normaliza, faz a correspondência de fornecedor e acha duplicatas — não grava; `resolverFornecedor`: usa/completa/cria sem duplicar |
 | `src/app/(app)/notas/nova/novo-lancamento.tsx` | Tela única: câmera/arquivo/arrastar, progresso, abre a conferência |
 | `src/app/(app)/notas/nova/conferencia-dialog.tsx` | Pop-up de conferência: documento ao lado, campos editáveis, escolha do fornecedor, confirmar e lançar |
@@ -161,6 +175,9 @@ CNPJS_EMPRESA=12.345.678/0001-95    # opcional: CNPJs da empresa (vírgula) para
 
 ## Evoluções sugeridas (em ordem de valor)
 
+1. **CNPJ alfanumérico** (emitido desde julho de 2026): a interpretação já reconhece e valida
+   (`interpretacao/digitos.ts`), mas `leitura-documento.ts`, o cadastro de fornecedores e o XML ainda só aceitam
+   dígitos — ajustar os três juntos.
 1. **Busca automática na SEFAZ (Distribuição DF-e)** com o certificado A1 da empresa: as NF-e de
    material passam a chegar sozinhas, já com XML oficial; a foto fica para NFS-e, cupons e recibos.
 2. **Enriquecer pela chave**: quando a foto traz a chave válida e o XML chega depois (SEFAZ ou e-mail),
