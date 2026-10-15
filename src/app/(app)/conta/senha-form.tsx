@@ -4,10 +4,10 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DICA_SENHA, SENHA_MINIMA } from "@/services/senha";
+import { CampoSenhaNova } from "@/components/campo-senha-nova";
 import { alterarMinhaSenha, type EstadoSenha } from "./actions";
 
-export function SenhaForm() {
+export function SenhaForm({ nome, email }: { nome: string; email: string }) {
   const [estado, enviar, pendente] = useActionState<EstadoSenha, FormData>(alterarMinhaSenha, {});
   const invalido = (campo: EstadoSenha["campo"]) => estado.campo === campo || undefined;
 
@@ -19,17 +19,7 @@ export function SenhaForm() {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="nova">Senha nova</Label>
-        <Input
-          id="nova"
-          name="nova"
-          type="password"
-          required
-          minLength={SENHA_MINIMA}
-          maxLength={72}
-          autoComplete="new-password"
-          aria-invalid={invalido("nova")}
-        />
-        <p className="text-xs text-muted-foreground">{DICA_SENHA}</p>
+        <CampoSenhaNova id="nova" name="nova" invalido={invalido("nova")} nome={nome} email={email} />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="confirmacao">Repita a senha nova</Label>

@@ -12,7 +12,8 @@ export const SENHA_MAXIMA_BYTES = 72;
 /** Custo do bcrypt para hashes novos (~250 ms num vCPU do Cloud Run). */
 export const CUSTO_BCRYPT = 12;
 
-export const DICA_SENHA = `Mínimo de ${SENHA_MINIMA} caracteres. Prefira uma frase fácil de lembrar e difícil de adivinhar.`;
+export const DICA_SENHA =
+  "Dica: não precisa de símbolos nem maiúsculas — uma frase fácil de lembrar, como “tijolo azul na janela”, é mais forte que uma palavra curta cheia de símbolos.";
 
 /** As mais usadas em vazamentos (e variações do próprio sistema). Comparadas sem acento e minúsculas. */
 const SENHAS_COMUNS = new Set([
@@ -57,24 +58,67 @@ const SENHAS_COMUNS = new Set([
 function normalizar(texto: string): string {
   return texto
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 }
 
+type Contexto = { email?: string; nome?: string };
+
+function bytes(senha: string): number {
+  return new TextEncoder().encode(senha).length;
+}
+
+/** Senha óbvia: um caractere repetido ou da lista das mais usadas. */
+function ehComum(senha: string): boolean {
+  const n = normalizar(senha);
+  return new Set(n).size <= 2 || SENHAS_COMUNS.has(n) || SENHAS_COMUNS.has(n.replace(/[^a-z0-9]/g, ""));
+}
+
+function contemEmail(senha: string, contexto: Contexto): boolean {
+  const usuarioEmail = contexto.email ? normalizar(contexto.email.split("@")[0]) : "";
+  return usuarioEmail.length >= 4 && normalizar(senha).includes(usuarioEmail);
+}
+
+function ehNome(senha: string, contexto: Contexto): boolean {
+  const n = normalizar(senha);
+  const nomes = contexto.nome ? normalizar(contexto.nome).split(/\s+/).filter((p) => p.length >= 4) : [];
+  return nomes.some((p) => n === p || n.replace(/[^a-z]/g, "") === p);
+}
+
+export type RequisitoSenha = { chave: "tamanho" | "comum" | "pessoal"; rotulo: string; ok: boolean };
+
+/**
+ * Regras da senha como lista para mostrar ao usuário enquanto ele digita
+ * (componente `RequisitosSenha`). As mesmas checagens de `problemaSenha`.
+ */
+export function requisitosSenha(senha: string, contexto: Contexto = {}): RequisitoSenha[] {
+  return [
+    {
+      chave: "tamanho",
+      rotulo: `De ${SENHA_MINIMA} a ${SENHA_MAXIMA_BYTES} caracteres`,
+      ok: senha.length >= SENHA_MINIMA && bytes(senha) <= SENHA_MAXIMA_BYTES,
+    },
+    {
+      chave: "comum",
+      rotulo: "Não é uma senha óbvia (como 1234567890, senha123456 ou letras repetidas)",
+      ok: senha.length > 0 && !ehComum(senha),
+    },
+    {
+      chave: "pessoal",
+      rotulo: "Não contém o seu e-mail nem é o seu nome",
+      ok: senha.length > 0 && !contemEmail(senha, contexto) && !ehNome(senha, contexto),
+    },
+  ];
+}
+
 /** Mensagem do primeiro problema da senha nova, ou `null` se ela é aceitável. */
-export function problemaSenha(senha: string, contexto: { email?: string; nome?: string } = {}): string | null {
+export function problemaSenha(senha: string, contexto: Contexto = {}): string | null {
   if (senha.length < SENHA_MINIMA) return `A senha precisa ter no mínimo ${SENHA_MINIMA} caracteres`;
-  if (new TextEncoder().encode(senha).length > SENHA_MAXIMA_BYTES) {
-    return `A senha pode ter no máximo ${SENHA_MAXIMA_BYTES} caracteres`;
-  }
+  if (bytes(senha) > SENHA_MAXIMA_BYTES) return `A senha pode ter no máximo ${SENHA_MAXIMA_BYTES} caracteres`;
   const n = normalizar(senha);
   if (new Set(n).size <= 2) return "A senha não pode ser um caractere repetido";
-  if (SENHAS_COMUNS.has(n) || SENHAS_COMUNS.has(n.replace(/[^a-z0-9]/g, ""))) {
-    return "Esta senha é muito comum — escolha outra";
-  }
-  const usuarioEmail = contexto.email ? normalizar(contexto.email.split("@")[0]) : "";
-  if (usuarioEmail.length >= 4 && n.includes(usuarioEmail)) return "A senha não pode conter o seu e-mail";
-  const nomes = contexto.nome ? normalizar(contexto.nome).split(/\s+/).filter((p) => p.length >= 4) : [];
-  if (nomes.some((p) => n === p || n.replace(/[^a-z]/g, "") === p)) return "A senha não pode ser o seu nome";
+  if (ehComum(senha)) return "Esta senha é muito comum — escolha outra";
+  if (contemEmail(senha, contexto)) return "A senha não pode conter o seu e-mail";
+  if (ehNome(senha, contexto)) return "A senha não pode ser o seu nome";
   return null;
 }

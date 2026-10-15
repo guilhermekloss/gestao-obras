@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { problemaSenha } from "./senha";
+import { SENHA_MINIMA, problemaSenha } from "./senha";
 
 export { SENHA_MINIMA } from "./senha";
 
@@ -99,7 +99,7 @@ export function mensagemConvite(opcoes: {
   const validade = opcoes.expiraEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
   return [
     `${saudacao} Você foi convidado(a) para acessar a plataforma Gestão de Obras como ${opcoes.papel}.`,
-    `Faça seu cadastro por este link (válido até ${validade}):`,
+    `Faça seu cadastro por este link (válido até ${validade}). Você vai criar uma senha de pelo menos ${SENHA_MINIMA} caracteres — pode ser uma frase fácil de lembrar:`,
     opcoes.link,
   ].join("\n");
 }

@@ -40,7 +40,7 @@ export default async function ContaPage() {
           <CardDescription>Não reaproveite a senha de outro site e não compartilhe sua conta.</CardDescription>
         </CardHeader>
         <CardContent>
-          <SenhaForm />
+          <SenhaForm nome={usuario.nome} email={usuario.email} />
         </CardContent>
       </Card>
 

@@ -103,6 +103,7 @@ describe("calcularExpiracao e mensagemConvite", () => {
     expect(m).toContain("Olá, Maria!");
     expect(m).toContain("como Campo");
     expect(m).toContain("21/10/2026");
+    expect(m).toContain("senha de pelo menos 10 caracteres");
     expect(m.endsWith("https://app/convite/x")).toBe(true);
   });
 });

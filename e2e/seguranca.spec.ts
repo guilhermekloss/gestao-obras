@@ -108,7 +108,15 @@ test("trocar a senha encerra as sessões abertas", async ({ browser }) => {
   await page.waitForURL("**/dashboard");
   await page.goto("/conta");
   await page.fill("#atual", SENHA);
+
+  // o formato exigido fica à vista e se marca enquanto digita
+  const requisitos = page.locator("#nova-requisitos li");
+  await expect(page.getByText("A senha precisa ter:")).toBeVisible();
+  await page.fill("#nova", "1234567890");
+  await expect(requisitos.nth(0)).toContainText("atendido");
+  await expect(requisitos.nth(1)).toContainText("pendente");
   await page.fill("#nova", "tijolo-cimento-areia");
+  await expect(requisitos.filter({ hasText: "pendente" })).toHaveCount(0);
   await page.fill("#confirmacao", "tijolo-cimento-areia");
   await page.getByRole("button", { name: "Trocar senha" }).click();
   await page.waitForURL("**/login?senha=1");
