@@ -36,9 +36,6 @@ enum FormaPagto {
   DINHEIRO
 }
 
-/**
- * Documento que origina o custo — NF é o padrão; os demais cobrem custos sem nota (mão de obra, impostos, taxas).
- */
 enum TipoDocumento {
   NF
   RECIBO
@@ -47,9 +44,6 @@ enum TipoDocumento {
   OUTRO
 }
 
-/**
- * Condição de trabalho registrada no RDO.
- */
 enum CondicaoTrabalho {
   PRATICAVEL
   PARCIAL
@@ -68,18 +62,11 @@ model Usuario {
   senhaHash       String
   role            Role          @default(ESCRITORIO)
   ativo           Boolean       @default(true)
-  /**
-   * CAMPO: false limita o acesso às obras de `obras` (ADMIN e ESCRITORIO veem todas sempre).
-   */
+  /// CAMPO: false limita o acesso às obras de `obras` (ADMIN e ESCRITORIO veem todas sempre).
   todasObras      Boolean       @default(true)
   criadoEm        DateTime      @default(now())
-  /**
-   * Atualizado no login e a cada uso (no máximo a cada poucos minutos).
-   */
   ultimoAcessoEm  DateTime?
-  /**
-   * Incrementada ao trocar a senha ou encerrar as sessões: JWTs emitidos com outra versão deixam de valer.
-   */
+  /// Incrementada ao trocar a senha ou encerrar as sessões: JWTs emitidos com outra versão deixam de valer.
   sessaoVersao    Int           @default(0)
   obras           UsuarioObra[]
   diarios         DiarioObra[]
@@ -90,9 +77,6 @@ model Usuario {
   arquivos        Arquivo[]
 }
 
-/**
- * Obras liberadas para um usuário com `todasObras = false`.
- */
 model UsuarioObra {
   usuarioId String
   usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
@@ -103,16 +87,11 @@ model UsuarioObra {
   @@index([obraId])
 }
 
-/**
- * Link de cadastro: o admin gera, envia, e a pessoa cria a própria conta com o papel e as obras do convite.
- * O token só existe no link — aqui fica o hash (SHA-256). Uso único.
- */
+/// O token só existe no link; aqui fica o hash (SHA-256). Uso único.
 model Convite {
   id          String    @id @default(cuid())
   tokenHash   String    @unique
-  /**
-   * Quando preenchido, o cadastro fica preso a este e-mail.
-   */
+  /// Quando preenchido, o cadastro fica preso a este e-mail.
   email       String?
   nome        String?
   role        Role
@@ -130,20 +109,15 @@ model Convite {
   @@index([criadoEm])
 }
 
-/**
- * Log de auditoria: uma linha por ação de escrita bem-sucedida (gravada por `acaoDeEscrita`).
- */
 model Atividade {
   id         String   @id @default(cuid())
   usuarioId  String?
   usuario    Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
-  tipo       String // "nota.salvar", "rdo.criar"... (ver services/atividade.ts)
+  tipo       String
   descricao  String
-  entidade   String? // "nota" | "rdo" | "obra" | "fornecedor" | "usuario" | "convite" | "medicao"
+  entidade   String?
   entidadeId String?
-  /**
-   * Obras afetadas (uma nota rateada toca várias) — sem FK: o log sobrevive à exclusão da obra.
-   */
+  /// Sem FK: o log sobrevive à exclusão da obra.
   obraIds    String[] @default([])
   valorCents Int?
   criadoEm   DateTime @default(now())
@@ -155,9 +129,9 @@ model Atividade {
 
 model Obra {
   id       String        @id @default(cuid())
-  nome     String // "Lote 03"
+  nome     String
   codigo   String        @unique
-  cno      String? // Cadastro Nacional de Obras
+  cno      String?
   endereco String?
   status   StatusObra    @default(ANDAMENTO)
   inicioEm DateTime?
@@ -171,13 +145,13 @@ model Etapa {
   id             String       @id @default(cuid())
   obraId         String
   obra           Obra         @relation(fields: [obraId], references: [id], onDelete: Cascade)
-  nome           String // "Fundação", "Acabamento"...
+  nome           String
   ordem          Int
-  orcamentoCents Int          @default(0) // previsto
-  inicioPrevisto DateTime?    @db.Date // cronograma (linha de base)
+  orcamentoCents Int          @default(0)
+  inicioPrevisto DateTime?    @db.Date
   fimPrevisto    DateTime?    @db.Date
   medicoes       Medicao[]
-  rateios        RateioNota[] // realizado por etapa (opcional na nota)
+  rateios        RateioNota[]
 }
 
 model Fornecedor {
@@ -195,18 +169,15 @@ model NotaFiscal {
   fornecedor    Fornecedor    @relation(fields: [fornecedorId], references: [id])
   numero        String
   tipoDocumento TipoDocumento @default(NF)
-  /**
-   * Chave de acesso da NF-e (44 dígitos) quando importada do XML — evita importar a mesma nota duas vezes.
-   */
   chaveNfe      String?       @unique
   dataCompra    DateTime
-  totalCents    Int // valor da nota
+  totalCents    Int
   formaPagto    FormaPagto
   obs           String?
   anexoUrl      String?
-  anexoNome     String? // nome original do arquivo, para exibir no link
+  anexoNome     String?
   itens         ItemNota[]
-  rateios       RateioNota[] // rateio se aplica à nota inteira, não a itens individuais
+  rateios       RateioNota[]
   parcelas      Parcela[]
   createdBy     String?
   createdAt     DateTime      @default(now())
@@ -224,7 +195,7 @@ model ItemNota {
   descricao     String
   tipo          TipoItem   @default(MATERIAL)
   qtde          Decimal    @db.Decimal(12, 3)
-  unidade       String // PC, KG, M², MO...
+  unidade       String
   unitCents     Int
   descontoCents Int        @default(0)
   totalCents    Int
@@ -232,9 +203,7 @@ model ItemNota {
   @@index([notaId])
 }
 
-/**
- * Rateio entre obras: se aplica a todos os itens da nota (ver README §Pendências conscientes).
- */
+/// Vale para a nota inteira, não por item.
 model RateioNota {
   id       String     @id @default(cuid())
   notaId   String
@@ -243,7 +212,7 @@ model RateioNota {
   obra     Obra       @relation(fields: [obraId], references: [id])
   etapaId  String?
   etapa    Etapa?     @relation(fields: [etapaId], references: [id])
-  fracaoBp Int // basis points: 10000 = 100%
+  fracaoBp Int
 
   @@unique([notaId, obraId])
   @@index([obraId])
@@ -253,7 +222,7 @@ model Parcela {
   id         String        @id @default(cuid())
   notaId     String
   nota       NotaFiscal    @relation(fields: [notaId], references: [id], onDelete: Cascade)
-  numero     Int // 1..6
+  numero     Int
   valorCents Int
   vencimento DateTime
   pagaEm     DateTime?
@@ -269,7 +238,8 @@ model Medicao {
   etapaId   String
   etapa     Etapa    @relation(fields: [etapaId], references: [id], onDelete: Cascade)
   data      DateTime
-  percentBp Int // avanço acumulado da etapa
+  /// Avanço acumulado da etapa.
+  percentBp Int
   obs       String?
   autorId   String?
   autor     Usuario? @relation(fields: [autorId], references: [id])
@@ -282,12 +252,13 @@ model DiarioObra {
   obraId       String
   obra         Obra              @relation(fields: [obraId], references: [id], onDelete: Cascade)
   data         DateTime          @db.Date
-  clima        String? // legado, texto livre: "Sol / Chuva à tarde"
-  climaManha   String? // "SOL" | "NUBLADO" | "CHUVA"...
+  /// Legado (texto livre); o atual é climaManha/climaTarde.
+  clima        String?
+  climaManha   String?
   climaTarde   String?
   condicao     CondicaoTrabalho?
-  efetivo      Json? // [{funcao:"pedreiro", qtd:4}, ...]
-  equipamentos Json? // [{nome:"betoneira", qtd:1}, ...]
+  efetivo      Json?
+  equipamentos Json?
   atividades   String
   ocorrencias  String?
   fotos        Foto[]
@@ -310,11 +281,9 @@ model Foto {
   @@index([url])
 }
 
-/**
- * Arquivo enviado por /api/upload: quem enviou pode ler o próprio arquivo antes de ele ser ligado a um RDO ou lançamento.
- */
+/// Quem enviou pode ler o próprio arquivo antes de ele ser ligado a um RDO ou lançamento.
 model Arquivo {
-  nome         String   @id // nome no storage (`1760000000000-a1b2c3d4e5f6.jpg`)
+  nome         String   @id
   enviadoPorId String?
   enviadoPor   Usuario? @relation(fields: [enviadoPorId], references: [id], onDelete: SetNull)
   tamanhoBytes Int
@@ -323,9 +292,7 @@ model Arquivo {
   @@index([enviadoPorId])
 }
 
-/**
- * Tentativas de login (sucesso e falha) — base do bloqueio por excesso de tentativas. Linhas antigas são apagadas.
- */
+/// Base do bloqueio por excesso de tentativas; linhas antigas são apagadas.
 model TentativaLogin {
   id       String   @id @default(cuid())
   email    String

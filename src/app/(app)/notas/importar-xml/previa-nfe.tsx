@@ -34,7 +34,6 @@ const FORMA_LABELS: Record<string, string> = {
   DINHEIRO: "Dinheiro",
 };
 
-/** "3526 0998 7654 ..." — a chave em blocos de 4, como no DANFE. */
 function formatarChave(chave: string): string {
   return chave.replace(/(\d{4})(?=\d)/g, "$1 ");
 }
@@ -43,12 +42,11 @@ function formatarQtde(qtde: number): string {
   return qtde.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 }
 
-/** Data "aaaa-mm-dd" do XML exibida sem passar por fuso horário. */
+// sem passar por fuso horário
 export function formatarDataXml(data: string): string {
   return formatarData(`${data}T12:00:00`);
 }
 
-/** Aviso de NF-e já lançada, com link para a nota existente. */
 export function AvisoNotaExistente({ notaId, mensagem }: { notaId: string; mensagem: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
@@ -61,7 +59,6 @@ export function AvisoNotaExistente({ notaId, mensagem }: { notaId: string; mensa
   );
 }
 
-/** Cabeçalho da NF-e lida do XML: emitente, número, emissão, total. */
 export function PreviaCabecalho({ nfe, situacao }: { nfe: Nfe; situacao: SituacaoImportacao | null }) {
   return (
     <Card>
@@ -108,7 +105,6 @@ export function PreviaCabecalho({ nfe, situacao }: { nfe: Nfe; situacao: Situaca
   );
 }
 
-/** Itens lidos do XML, com o tipo de cada um editável. */
 export function PreviaItens({
   nfe,
   tipos,

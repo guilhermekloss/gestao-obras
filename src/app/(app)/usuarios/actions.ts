@@ -44,10 +44,8 @@ function parseUsuario(formData: FormData) {
   });
 }
 
-/** Erro de regra dentro da transação (vira mensagem para o admin). */
 class ErroUsuario extends Error {}
 
-/** Acesso por obra só existe para CAMPO; nos outros papéis grava "todas". */
 async function acessoObras(role: Role, todasObras: boolean, obraIds: string[]) {
   if (role !== "CAMPO" || todasObras) return { todasObras: true, obraIds: [] as string[] };
   const existentes = await prisma.obra.findMany({ where: { id: { in: obraIds } }, select: { id: true } });
@@ -127,12 +125,12 @@ export const atualizarUsuario = acaoDeEscrita(
     }
 
     const senhaHash = d.senha ? await hash(d.senha, CUSTO_BCRYPT) : undefined;
-    // senha redefinida ou acesso desativado: derruba as sessões abertas (um login roubado deixa de valer)
+    // senha redefinida ou acesso desativado derruba as sessões (login roubado deixa de valer)
     const revogarSessoes = !!senhaHash || (antes.ativo && !d.ativo);
     try {
       await prisma.$transaction(
         async (tx) => {
-          // nunca deixa o sistema sem um administrador ativo (dois admins rebaixando um ao outro ao mesmo tempo)
+          // nunca zero admins ativos (inclusive dois admins rebaixando um ao outro ao mesmo tempo)
           if (antes.role === "ADMIN" && antes.ativo && (d.role !== "ADMIN" || !d.ativo)) {
             const outrosAdmins = await tx.usuario.count({ where: { role: "ADMIN", ativo: true, NOT: { id } } });
             if (outrosAdmins === 0) throw new ErroUsuario("É preciso manter ao menos um administrador ativo");
@@ -179,7 +177,6 @@ export const atualizarUsuario = acaoDeEscrita(
   },
 );
 
-/** Desconecta o usuário de todos os aparelhos (celular perdido, saída da empresa, suspeita de senha vazada). */
 export const encerrarSessoesUsuario = acaoDeEscrita(
   {
     papeis: ["ADMIN"],
@@ -198,7 +195,6 @@ export const encerrarSessoesUsuario = acaoDeEscrita(
   },
 );
 
-/** Endereço público do app, para montar o link do convite. */
 async function urlBase(): Promise<string> {
   const configurada = process.env.APP_URL ?? process.env.AUTH_URL;
   if (configurada) return configurada.replace(/\/+$/, "");
@@ -272,11 +268,7 @@ export const criarConvite = acaoDeEscrita(
   },
 );
 
-/**
- * O link só existe no momento em que é gerado (o banco guarda o hash). Para
- * reenviar, gera-se um token novo — o link antigo deixa de funcionar — e o
- * prazo recomeça.
- */
+// o banco guarda só o hash: reenviar gera token novo (o link antigo deixa de valer)
 export const renovarConvite = acaoDeEscrita(
   { papeis: ["ADMIN"], revalidar: ["/usuarios"], atividade: "convite.renovar" },
   async (_user, id: string): Promise<ConviteGerado> => {

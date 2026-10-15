@@ -3,11 +3,6 @@
 import { useRef, useState } from "react";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 
-/**
- * Combobox com busca para usar em forms de filtro `method="get"`.
- * Alimenta um input oculto com o valor escolhido; com `autoSubmit`,
- * envia o form assim que o usuário seleciona (telas de filtro único).
- */
 export function ComboboxFiltro({
   name,
   options,

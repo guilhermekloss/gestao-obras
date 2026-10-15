@@ -1,9 +1,4 @@
-/**
- * Evento de segurança em JSON numa linha: o Cloud Logging lê `severity` e
- * guarda o resto em `jsonPayload` — as métricas e alertas do Terraform
- * (`infra/terraform/seguranca.tf`) filtram por `jsonPayload.evento`.
- * Nunca inclua senha, token ou conteúdo de documento.
- */
+// Alertas do Terraform filtram por jsonPayload.evento. Nunca inclua senha, token ou conteúdo de documento.
 type EventoSeguranca =
   | "login_falhou"
   | "login_bloqueado"

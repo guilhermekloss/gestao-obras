@@ -13,11 +13,6 @@ function mesmoNome(a: string, b: string) {
   return a.localeCompare(b, "pt-BR", { sensitivity: "base" }) === 0;
 }
 
-/**
- * Lista de contadores (+/−) com sugestões fixas e campo para incluir um item
- * fora da lista. Usada no efetivo (funções) e nos equipamentos do RDO.
- * Item extra que volta a zero some da lista.
- */
 export function ContadorLista({
   titulo,
   ajuda,
@@ -35,7 +30,6 @@ export function ContadorLista({
 }) {
   const [outro, setOutro] = useState("");
 
-  // sugestões primeiro (ordem fixa), depois os itens extras na ordem em que entraram
   const linhas = [
     ...sugestoes,
     ...itens.map((i) => i.nome).filter((n) => !sugestoes.some((s) => mesmoNome(s, n))),

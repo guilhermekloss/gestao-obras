@@ -1,11 +1,3 @@
-/**
- * Estado e regras da conferência humana de um documento lido (foto/PDF):
- * o que o pop-up mostra preenchido, o que impede confirmar e o fornecedor
- * escolhido. Puro — o componente só exibe e edita este estado.
- *
- * As regras de valores (rateio 100%, parcelas = total, itens = total) usam as
- * mesmas funções do formulário e do `salvarNota`.
- */
 import { moedaParaCents, formatarMoeda } from "@/lib/format";
 import type { CorrespondenciaFornecedor } from "@/services/correspondencia-fornecedor";
 import { normalizarDocumentoCadastro } from "@/services/correspondencia-fornecedor";
@@ -21,16 +13,14 @@ import {
 } from "../nota-form-model";
 
 export type EscolhaFornecedor =
-  /** há cadastros parecidos e o usuário ainda não decidiu */
   | { modo: "pendente" }
-  /** usar um cadastro; `completarCom` = CNPJ/CPF a gravar nele (só se ele não tiver) */
+  // completarCom: CNPJ/CPF a gravar no cadastro, só se ele não tiver
   | { modo: "existente"; id: string; completarCom: string | null }
   | { modo: "novo"; nome: string; documento: string };
 
 export type Conferencia = {
   valores: NotaFormValues;
   fornecedor: EscolhaFornecedor;
-  /** "Conferi os dados com o documento" */
   conferido: boolean;
 };
 
@@ -76,22 +66,16 @@ export function conferenciaInicial(
   return { valores, fornecedor, conferido: false };
 }
 
-/** Situação de um CNPJ/CPF digitado, para o selo ao lado do campo. */
 export function situacaoDocumento(valor: string): "vazio" | "valido" | "invalido" {
   if (!valor.trim()) return "vazio";
   return normalizarDocumentoCadastro(valor).ok ? "valido" : "invalido";
 }
 
-/**
- * O que impede confirmar. Lista vazia = pode lançar. As mensagens dizem o
- * campo e o que fazer, para o usuário corrigir sem adivinhar.
- */
 export function errosConferencia(c: Conferencia): string[] {
   const erros: string[] = [];
   const v = c.valores;
   const ehNF = v.tipoDocumento === "NF";
 
-  // Fornecedor
   const f = c.fornecedor;
   if (f.modo === "pendente") {
     erros.push("Fornecedor: escolha um dos cadastros parecidos ou cadastre um novo.");
@@ -107,13 +91,11 @@ export function errosConferencia(c: Conferencia): string[] {
     if (doc === "vazio" && ehNF) erros.push("Fornecedor: informe o CNPJ/CPF do emitente da nota.");
   }
 
-  // Documento
   if (ehNF && !v.numero.trim()) erros.push("Documento: informe o número da nota.");
   if (!normalizarData(v.dataCompra)) erros.push("Documento: data de emissão inválida.");
   const totalCents = moedaParaCents(v.total);
   if (totalCents <= 0) erros.push("Documento: informe o valor total.");
 
-  // Itens
   if (v.itens.length === 0) erros.push("Itens: a nota precisa de ao menos 1 item.");
   v.itens.forEach((it, i) => {
     if (!it.descricao.trim()) erros.push(`Itens: a linha ${i + 1} está sem descrição.`);
@@ -127,7 +109,6 @@ export function errosConferencia(c: Conferencia): string[] {
     );
   }
 
-  // Pagamento
   if (v.parcelas.length === 0) erros.push("Pagamento: informe ao menos 1 parcela.");
   v.parcelas.forEach((p, i) => {
     if (!normalizarData(p.vencimento)) erros.push(`Pagamento: a ${i + 1}ª parcela está sem vencimento.`);
@@ -138,7 +119,6 @@ export function errosConferencia(c: Conferencia): string[] {
     erros.push(`Pagamento: a soma das parcelas (${formatarMoeda(somaParcelas)}) difere do total.`);
   }
 
-  // Obra
   if (v.rateios.some((r) => !r.obraId)) erros.push("Obra: selecione a obra em todas as linhas.");
   if (somaRateioForm(v.rateios) !== BP_TOTAL) erros.push("Obra: os percentuais devem somar 100%.");
 
@@ -146,7 +126,6 @@ export function errosConferencia(c: Conferencia): string[] {
   return erros;
 }
 
-/** Escolha de fornecedor no formato da action `resolverFornecedor`. */
 export function escolhaParaAction(f: EscolhaFornecedor) {
   if (f.modo === "existente") return { modo: "existente" as const, id: f.id, completarDocumento: f.completarCom ?? undefined };
   if (f.modo === "novo") return { modo: "novo" as const, nome: f.nome, documento: f.documento || undefined };
@@ -156,22 +135,15 @@ export function escolhaParaAction(f: EscolhaFornecedor) {
 type NivelAcerto = "alto" | "medio" | "baixo";
 
 type IndiceAcerto = {
-  /** 0–100 */
   percentual: number;
   nivel: NivelAcerto;
-  /** o que a leitura não conseguiu (para o usuário entender o índice) */
   faltas: string[];
 };
 
 const PENALIDADE_AVISO = 8;
 const PENALIDADE_AVISOS_MAX = 40;
 
-/**
- * Índice de acerto da leitura automática: fração dos campos-chave que vieram
- * lidos e coerentes (documento do emitente válido, número, data, total, itens
- * que somam o total, chave nas NF-e/NFC-e), menos uma penalidade por aviso.
- * Mede a LEITURA (não as edições do usuário) e decide quando sugerir a IA.
- */
+// mede a leitura (não as edições do usuário) e decide quando sugerir a IA
 export function indiceAcerto(leitura: LeituraNormalizada): IndiceAcerto {
   const checagens: [ok: boolean, falta: string][] = [];
   const ehNota = leitura.tipoDocumento === "NF";
@@ -194,10 +166,6 @@ export function indiceAcerto(leitura: LeituraNormalizada): IndiceAcerto {
   return { percentual, nivel, faltas: checagens.filter(([ok]) => !ok).map(([, falta]) => falta) };
 }
 
-/**
- * Conferência montada a partir de uma nova leitura (análise com IA), mantendo
- * o que é decisão do usuário e não está no documento: obra/etapa do rateio.
- */
 export function conferenciaDaReleitura(
   anterior: Conferencia,
   leitura: LeituraNormalizada,

@@ -145,7 +145,6 @@ function UltimoAcesso({ u, agora }: { u: UsuarioDaLista; agora: Date }) {
   );
 }
 
-/** "3 RDOs · 2 lançamentos" — só o que tem valor, para a linha não virar uma tabela de zeros. */
 function ResumoProducao({ u }: { u: UsuarioDaLista }) {
   const partes = [
     u.ultimos30.lancamentos && `${u.ultimos30.lancamentos} lançamento${u.ultimos30.lancamentos === 1 ? "" : "s"}`,

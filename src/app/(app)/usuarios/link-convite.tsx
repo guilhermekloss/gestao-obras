@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, Copy, Mail, MessageCircle, Share2 } from "lucide-react";
 
-/** Link recém-gerado + formas de enviar. O link só aparece aqui: o banco guarda apenas o hash. */
 export function LinkConvite({
   link,
   mensagem,
@@ -17,7 +16,7 @@ export function LinkConvite({
   email?: string | null;
 }) {
   const [copiado, setCopiado] = useState(false);
-  // só renderiza depois que o link é gerado (nunca no servidor)
+  // só renderiza após gerar o link (nunca no servidor): sem risco de hidratação divergente
   const podeCompartilhar = typeof navigator !== "undefined" && "share" in navigator;
 
   async function copiar() {

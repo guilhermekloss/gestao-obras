@@ -13,7 +13,6 @@ import {
 } from "recharts";
 import { formatarMoeda } from "@/lib/format";
 
-/** Paleta categórica validada (dataviz): ordem fixa por obra, nunca ciclada. */
 const CORES_SERIES = [
   "#2a78d6",
   "#1baf7a",

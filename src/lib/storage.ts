@@ -3,15 +3,8 @@ import path from "path";
 import crypto from "crypto";
 import { Storage } from "@google-cloud/storage";
 
-/**
- * Driver de storage de fotos e anexos. Os arquivos são sempre servidos via
- * /api/fotos (com sessão), nunca por URL pública do bucket.
- * - Local: grava em ./uploads (desenvolvimento).
- * - GCS: grava no bucket de `STORAGE_BUCKET` (produção no Cloud Run, cujo disco
- *   é efêmero). Credenciais vêm da service account do serviço (ADC).
- */
 interface StorageDriver {
-  salvar(buffer: Buffer, extensao: string): Promise<string>; // retorna URL
+  salvar(buffer: Buffer, extensao: string): Promise<string>;
   ler(nomeArquivo: string): Promise<Buffer>;
 }
 

@@ -63,7 +63,6 @@ export default async function ContasPage({
   if (tipo) filtroNota.tipoDocumento = tipo;
   if (Object.keys(filtroNota).length > 0) where.nota = filtroNota;
 
-  // Filtros atuais (sem a visão), repassados nos links das visões.
   const filtrosQuery = new URLSearchParams({
     ...(obra ? { obra } : {}),
     ...(fornecedor ? { fornecedor } : {}),

@@ -30,8 +30,7 @@ export default async function EditarNotaPage({
 
   const [fornecedores, obras] = await Promise.all([
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, cnpj: true } }),
-    // além das obras ativas, inclui as já usadas nesta nota (podem ter sido
-    // concluídas/pausadas depois do lançamento original).
+    // inclui as obras já usadas nesta nota, mesmo concluídas/pausadas depois
     listarObrasParaRateio(nota.rateios.map((r) => r.obraId)),
   ]);
 
@@ -66,7 +65,7 @@ export default async function EditarNotaPage({
     })),
   };
 
-  // Mesmo formato que `salvarNota` compara (ver `parcelasExistentes` em actions.ts).
+  // mesmo formato que `salvarNota` compara (ver `parcelasExistentes` em actions.ts)
   const parcelasExistentes: ParcelaExistente[] = nota.parcelas.map((p) => ({
     numero: p.numero,
     valorCents: p.valorCents,

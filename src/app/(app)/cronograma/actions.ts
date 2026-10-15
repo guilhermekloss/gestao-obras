@@ -13,12 +13,10 @@ import { dataIso, id, texto } from "@/schemas/comum";
 
 const ROTAS = ["/cronograma", "/dashboard"];
 
-/** Revalida também a página da obra (aba Cronograma e avanço no Resumo). */
 function revalidarObra(obraId: string) {
   revalidatePath(`/obras/${obraId}`);
 }
 
-/** Salva as datas previstas de todas as etapas da obra de uma vez (campos inicio-<id> / fim-<id>). */
 export const salvarDatasEtapas = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS, atividade: "cronograma.datas" },
   async (_user, obraId: string, formData: FormData): Promise<ActionResult> => {
@@ -69,7 +67,7 @@ const medicaoSchema = z.object({
   obs: texto(1000, "A observação").optional(),
 });
 
-/** Lança o avanço físico acumulado de uma etapa — o campo pode lançar (qualquer papel). */
+// qualquer papel: o campo pode lançar
 export const criarMedicao = acaoDeEscrita(
   { revalidar: ROTAS, atividade: "medicao.criar" },
   async (user, formData: FormData): Promise<ActionResult> => {

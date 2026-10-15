@@ -12,8 +12,7 @@ terraform {
     }
   }
 
-  # Estado remoto num bucket GCS versionado (criado pelo infra/bootstrap.sh).
-  # O nome do bucket é passado no init: terraform init -backend-config="bucket=..."
+  # Bucket passado no init (ver infra/bootstrap.sh): terraform init -backend-config="bucket=..."
   backend "gcs" {
     prefix = "gestao-obras/prod"
   }
@@ -23,7 +22,7 @@ provider "google" {
   project = var.project_id
   region  = var.region
 
-  # Necessário para a API de orçamentos (billingbudgets) com credencial de usuário.
+  # Exigido pela API de orçamentos com credencial de usuário.
   user_project_override = true
   billing_project       = var.project_id
 

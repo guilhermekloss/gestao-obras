@@ -21,7 +21,7 @@ import Link from "next/link";
 
 export type ParcelaLinha = {
   id: string;
-  vencimento: string; // ISO
+  vencimento: string;
   valorCents: number;
   numero: number;
   totalParcelas: number;
@@ -32,7 +32,7 @@ export type ParcelaLinha = {
   notaId: string;
   notaNumero: string;
   tipoDocumento: TipoDocumento;
-  obras: string; // "Lote 03 (60%), Lote 19 (40%)"
+  obras: string;
 };
 
 export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {

@@ -21,7 +21,6 @@ import {
   type MedicaoPonto,
 } from "../cronograma";
 
-// Fundação (R$ 100k) em janeiro; Estrutura (R$ 300k) de fevereiro a março.
 const FUNDACAO: EtapaPlano = {
   id: "fund",
   orcamentoCents: 10_000_000,
@@ -87,7 +86,6 @@ describe("previsto", () => {
   });
 
   it("pondera a obra pelo orçamento", () => {
-    // fim de janeiro: Fundação 100% × 1/4 do peso
     expect(previstoNaData([FUNDACAO, ESTRUTURA], "2026-01-31")).toBe(2500);
     expect(previstoNaData([FUNDACAO, ESTRUTURA], "2026-03-31")).toBe(10000);
   });
@@ -113,7 +111,6 @@ describe("realizado", () => {
 
   it("usa a última medição até a data", () => {
     expect(realizadoNaData([FUNDACAO, ESTRUTURA], medicoes, "2026-01-31")).toBe(1500);
-    // fev: fund 100% (peso 1/4) + estr 20% (peso 3/4) = 25% + 15%
     expect(realizadoNaData([FUNDACAO, ESTRUTURA], medicoes, "2026-02-28")).toBe(4000);
   });
 
@@ -125,7 +122,7 @@ describe("realizado", () => {
     const curva = curvaS([FUNDACAO, ESTRUTURA], medicoes, "2026-02-25");
     expect(curva.map((p) => p.mes)).toEqual(["2026-01", "2026-02", "2026-03"]);
     expect(curva[0]).toEqual({ mes: "2026-01", previstoBp: 2500, realizadoBp: 1500 });
-    expect(curva[1].realizadoBp).toBe(4000); // mês corrente: até hoje
+    expect(curva[1].realizadoBp).toBe(4000);
     expect(curva[2]).toEqual({ mes: "2026-03", previstoBp: 10000, realizadoBp: null });
   });
 
@@ -196,7 +193,7 @@ describe("agregarCurvasS", () => {
 });
 
 describe("situacaoEtapa", () => {
-  const hoje = "2026-01-16"; // metade da Fundação (~52% previsto)
+  const hoje = "2026-01-16";
 
   it("concluída vence tudo, mesmo sem datas", () => {
     expect(situacaoEtapa({ inicioPrevisto: null, fimPrevisto: null }, 10000, hoje)).toBe("CONCLUIDA");

@@ -3,7 +3,6 @@ import { avancoPonderado, validarAvanco } from "../obra";
 
 describe("avancoPonderado", () => {
   it("pondera pelo orçamento da etapa", () => {
-    // Fundação (R$ 100k) 100% concluída, Acabamento (R$ 300k) 0% → 25%
     expect(
       avancoPonderado([
         { orcamentoCents: 10_000_000, percentBp: 10000 },

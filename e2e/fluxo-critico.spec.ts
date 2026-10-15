@@ -3,11 +3,6 @@ import { test, expect } from "./fixtures";
 import { hash } from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
 
-/**
- * Fluxo crítico do MVP: lançar NF → parcela aparece em contas →
- * marcar como paga → custo refletido na obra.
- */
-
 const NUMERO_NF = `E2E-${Date.now()}`;
 
 async function login(page: Page) {
@@ -18,8 +13,7 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard");
 }
 
-// Fornecedor e obra usam o componente Combobox (busca + lista em portal), não
-// um <select> nativo — abre o campo, digita e clica na opção da lista.
+// Combobox (busca + lista em portal), não <select>: abre, digita e clica na opção.
 async function selecionarCombobox(page: Page, placeholder: string, texto: string) {
   const campo = page.getByPlaceholder(placeholder);
   await campo.click();
@@ -27,9 +21,7 @@ async function selecionarCombobox(page: Page, placeholder: string, texto: string
   await page.locator("ul li button", { hasText: texto }).first().click();
 }
 
-// NFs de execuções anteriores desta spec ficam no banco (número único por run),
-// o que infla o custo acumulado do Lote 21 a cada corrida. Limpa antes e depois
-// para o teste ser idempotente independente de quantas vezes rodar.
+// Limpa antes e depois: NFs de execuções anteriores inflariam o custo acumulado do Lote 21.
 test.beforeEach(async () => {
   await prisma.notaFiscal.deleteMany({ where: { numero: { startsWith: "E2E-" } } });
 });
@@ -41,7 +33,6 @@ test.afterEach(async () => {
 test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
   await login(page);
 
-  // 1. Lançar a NF: R$ 1.200,00, 1 item, 100% no Lote 21, PIX à vista
   await page.goto("/notas/nova");
   await selecionarCombobox(page, "Buscar por nome ou CNPJ...", "Aço Forte Distribuidora");
   await page.fill("#numero", NUMERO_NF);
@@ -63,7 +54,6 @@ test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
   await page.waitForURL("**/notas");
   await expect(page.getByText(NUMERO_NF)).toBeVisible();
 
-  // 2. Contas a pagar: parcela aparece e é paga
   await page.goto("/contas?visao=todas");
   const linha = page.locator("tr", { hasText: NUMERO_NF });
   await expect(linha).toHaveCount(1);
@@ -74,7 +64,6 @@ test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
   await page.goto("/contas?visao=pagas");
   await expect(page.locator("tr", { hasText: NUMERO_NF })).toHaveCount(1);
 
-  // 3. Custo aparece na obra (Lote 21 só tem esta NF)
   await page.goto("/obras");
   await page.getByText("Lote 21").click();
   await expect(page.getByText("Custo acumulado")).toBeVisible();
@@ -97,10 +86,8 @@ test("papel campo não vê dados financeiros", async ({ page }) => {
     await page.fill("#email", emailCampo);
     await page.fill("#senha", "campo123");
     await page.click("button[type=submit]");
-    // dashboard redireciona CAMPO para /diario (não vê indicadores financeiros)
     await page.waitForURL("**/diario");
 
-    // rota financeira: o servidor bloqueia mesmo com acesso direto pela URL
     await page.goto("/contas");
     await expect(page.getByRole("heading", { name: "Contas a pagar" })).not.toBeVisible();
     await expect(page.getByRole("button", { name: "Marcar como pagas" })).not.toBeVisible();

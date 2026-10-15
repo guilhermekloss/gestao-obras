@@ -1,25 +1,5 @@
-/**
- * Avalia o leitor nativo de ponta a ponta sobre o corpus:
- *
- *   arquivo ──extrairTexto──► TextoExtraido ──interpretarDocumento──► DocumentoLido ──normalizarLeitura
- *
- * e compara o `DocumentoLido` com `<id>.esperado.json` campo a campo.
- *
- *   npx tsx scripts/leitor-nativo/avaliar.ts [opções]
- *
- *   --dir <dir>             corpus (padrão: src/services/leitor-nativo/__fixtures__)
- *   --motor local|vision    define OCR_MOTOR antes de importar a extração
- *   --json <arquivo>        grava os resultados detalhados
- *   --so <id1,id2>          só esses documentos
- *   --origem pdf|foto|imagem  só esse tipo de arquivo
- *   --timeout <ms>          limite por arquivo (padrão 180000)
- *   --extracao <módulo>     outro módulo de extração (padrão @/services/leitor-nativo/extracao)
- *   --interpretacao <mód.>  outro módulo de interpretação (padrão @/services/leitor-nativo/interpretacao)
- *   --stub                  autoteste do avaliador: extração/interpretação falsas que devolvem
- *                           o esperado (pdf) ou uma versão perturbada (imagens). NÃO mede o leitor.
- *
- * Sai sempre com código 0 (é uma medição, não um teste).
- */
+// Uso: npx tsx scripts/leitor-nativo/avaliar.ts [--dir <dir>] [--motor local|vision] [--json <arq>] [--so id1,id2]
+//   [--origem pdf|foto|imagem] [--timeout <ms>] [--extracao <mód>] [--interpretacao <mód>] [--stub (autoteste, não mede o leitor)]
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { documentoLidoSchema, normalizarLeitura, type DocumentoLido } from "@/services/leitura-documento";
@@ -49,7 +29,6 @@ type ResultadoArquivo = {
   msTotal: number | null;
   rssDepoisMb: number;
   erro: string | null;
-  /** erros de schema do DocumentoLido devolvido (null = válido) */
   schema: string | null;
   campos: ResultadoCampo[];
   acertos: number;
@@ -70,9 +49,6 @@ function comTimeout<T>(p: Promise<T>, ms: number, oque: string): Promise<T> {
   });
   return Promise.race([p, limite]).finally(() => clearTimeout(t));
 }
-
-// ---------------------------------------------------------------------------
-// Stub (autoteste do avaliador)
 
 function criarStub(): { ext: ModuloExtracao; interp: ModuloInterpretacao; definir: (e: DocumentoLido) => void } {
   let atual: DocumentoLido | null = null;
@@ -95,7 +71,6 @@ function criarStub(): { ext: ModuloExtracao; interp: ModuloInterpretacao; defini
       interpretarDocumento() {
         const e = structuredClone(atual!);
         if (midiaAtual === "application/pdf") return e;
-        // perturbações típicas de OCR, determinísticas
         if (e.valorTotal !== null) e.valorTotal = Math.round(e.valorTotal * 100 + 1) / 100;
         if (e.itens.length > 1) e.itens.pop();
         if (e.emitente.nome) e.emitente.nome = e.emitente.nome.replace(/O/g, "0");
@@ -105,9 +80,6 @@ function criarStub(): { ext: ModuloExtracao; interp: ModuloInterpretacao; defini
     },
   };
 }
-
-// ---------------------------------------------------------------------------
-// Saída em tabela
 
 function tabela(cab: string[], linhas: string[][], alinharDireita: number[] = []): string {
   const larg = cab.map((h, i) => Math.max(h.length, ...linhas.map((l) => (l[i] ?? "").length)));
@@ -128,8 +100,6 @@ function estat(xs: number[]) {
     max: ord[ord.length - 1],
   };
 }
-
-// ---------------------------------------------------------------------------
 
 async function main() {
   const dir = path.resolve(argumento("--dir") ?? DIR_FIXTURES);
@@ -267,7 +237,6 @@ async function main() {
   const duracao = Date.now() - inicio;
   const maxRssKb = process.resourceUsage().maxRSS;
 
-  // ---- por documento
   console.log("\nPor arquivo\n");
   console.log(
     tabela(
@@ -296,7 +265,6 @@ async function main() {
     ),
   );
 
-  // ---- por campo e origem
   const origens = (["pdf", "foto", "imagem"] as Origem[]).filter((o) => resultados.some((r) => r.origem === o));
   const porCampo: Record<string, Record<string, { acertos: number; total: number }>> = {};
   for (const campo of CAMPOS) {
@@ -337,7 +305,6 @@ async function main() {
     ),
   );
 
-  // ---- latência e memória
   const latencia: Record<string, unknown> = {};
   console.log("\nLatência por arquivo (ms)\n");
   const linhasLat: string[][] = [];
@@ -390,6 +357,6 @@ main()
     console.error("avaliar: falha geral:", e instanceof Error ? e.message : e);
   })
   .finally(() => {
-    // medição, não teste: sempre 0; sai explicitamente para não pendurar em workers de OCR
+    // Sai explicitamente (sempre 0, é medição) para não pendurar nos workers de OCR.
     process.exit(0);
   });

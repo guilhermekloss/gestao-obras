@@ -4,7 +4,6 @@ import { hash } from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Em produção a senha padrão é proibida: passe SEED_ADMIN_SENHA (ver docs/deploy-gcp.md).
   const senha = process.env.SEED_ADMIN_SENHA ?? (process.env.NODE_ENV === "production" ? "" : "admin123");
   if (senha.length < 12 && process.env.NODE_ENV === "production") {
     throw new Error("Defina SEED_ADMIN_SENHA com pelo menos 12 caracteres para rodar o seed em produção.");

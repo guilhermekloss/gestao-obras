@@ -16,7 +16,7 @@ export function NovaMedicaoDialog({
 }: {
   etapaId: string;
   etapaNome: string;
-  atualPercent: number; // em %
+  atualPercent: number;
 }) {
   return (
     <FormDialog

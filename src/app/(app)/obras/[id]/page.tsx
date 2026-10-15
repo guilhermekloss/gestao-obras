@@ -15,11 +15,6 @@ import { AbaDiario } from "./abas/diario";
 import { AbaEquipe } from "./abas/equipe";
 import type { Role } from "@prisma/client";
 
-/**
- * Casca da página da obra: cabeçalho + barra de abas. Cada aba vive em
- * `abas/<aba>.tsx` com o contrato `AbaObraProps`, para que módulos
- * diferentes evoluam sua aba sem tocar neste arquivo.
- */
 const TODOS: Role[] = ["ADMIN", "ESCRITORIO", "CAMPO"];
 const ABAS = [
   { key: "resumo", label: "Resumo", Componente: AbaResumo, papeis: TODOS },

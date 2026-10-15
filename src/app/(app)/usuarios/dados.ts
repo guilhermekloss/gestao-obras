@@ -9,10 +9,9 @@ import {
 } from "@/services/atividade";
 import { statusConvite } from "@/services/convite";
 
-/** Login, troca de senha e encerramento de sessão aparecem no histórico, mas não contam como produção. */
+// eventos de conta aparecem no histórico, mas não contam como produção
 const SEM_EVENTOS_DE_CONTA = { NOT: { tipo: { startsWith: "conta." } } } satisfies Prisma.AtividadeWhereInput;
 
-/** Mapa id → nome das obras citadas, para não fazer join em cada linha. */
 async function nomesDasObras(ids: Iterable<string>): Promise<Map<string, string>> {
   const unicos = [...new Set(ids)];
   if (unicos.length === 0) return new Map();
@@ -24,7 +23,6 @@ function contagemPor<T extends string | null>(linhas: { chave: T; n: number }[])
   return new Map(linhas.filter((l) => l.chave !== null).map((l) => [l.chave as string, l.n]));
 }
 
-/** Lista de usuários com o que cada um fez nos últimos 30 dias, a partir dos próprios registros. */
 export async function carregarListaUsuarios(agora: Date = new Date()) {
   const desde = subDays(agora, 30);
   const [usuarios, rdos, notas, medicoes, acoes, convitesPendentes] = await Promise.all([
@@ -108,7 +106,6 @@ type FiltroAtividades = {
 
 export const ATIVIDADES_POR_PAGINA = 50;
 
-/** Linhas do log de auditoria, mais recentes primeiro, já com nome do autor, obras e link. */
 export async function listarAtividades(filtro: FiltroAtividades, pagina = 1) {
   const where: Prisma.AtividadeWhereInput = {
     ...(filtro.usuarioId ? { usuarioId: filtro.usuarioId } : {}),
@@ -143,11 +140,7 @@ export async function listarAtividades(filtro: FiltroAtividades, pagina = 1) {
 
 export type AtividadeDoFeed = Awaited<ReturnType<typeof listarAtividades>>["atividades"][number];
 
-/**
- * Tudo o que o usuário produziu na plataforma: lançamentos, RDOs e avanços
- * (com histórico desde antes do log existir), atuação por obra e as últimas
- * ações do log.
- */
+// lê dos próprios registros (não só do log) para cobrir o que é anterior ao log
 export async function carregarPerfilUsuario(id: string) {
   const usuario = await prisma.usuario.findUnique({
     where: { id },
@@ -226,7 +219,6 @@ export async function carregarPerfilUsuario(id: string) {
   };
 }
 
-/** Quem tem acesso à obra e o que cada um produziu nela — aba Equipe da obra. */
 export async function carregarEquipeDaObra(obraId: string) {
   const [usuarios, rdos, medicoes, rateios] = await Promise.all([
     prisma.usuario.findMany({
@@ -258,7 +250,7 @@ export async function carregarEquipeDaObra(obraId: string) {
   }));
 }
 
-/** Só os campos do formulário vão para o client. */
+// só os campos do formulário vão para o client
 export function paraEdicao(u: {
   id: string;
   nome: string;

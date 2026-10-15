@@ -28,7 +28,6 @@ export default async function FornecedoresPage() {
     calcularDependencia(),
   ]);
 
-  // Ordena por dependência (mais dependente primeiro); sem métricas vai ao fim.
   const linhas = fornecedores
     .map((f) => ({ f, dep: dependencia.get(f.id) ?? null }))
     .sort((a, b) => (b.dep?.score ?? -1) - (a.dep?.score ?? -1));

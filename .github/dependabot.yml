@@ -9,8 +9,6 @@ updates:
     groups:
       dependencias:
         update-types: [minor, patch]
-    # Versões major quebram API (ex.: TypeScript 7, Vitest 5) e pedem migração
-    # planejada: fazemos à mão, num PR próprio (o npm audit do CI segue barrando falhas críticas).
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -27,7 +25,6 @@ updates:
     directory: /
     schedule:
       interval: monthly
-    # Só atualizações dentro do Node 22 (o digest); trocar de major é decisão manual.
     ignore:
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]

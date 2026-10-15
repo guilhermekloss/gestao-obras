@@ -1,5 +1,3 @@
-# Segredos ficam no Secret Manager, replicados só na região do app.
-# DATABASE_URL e AUTH_SECRET são gerados aqui.
 locals {
   database_url = "postgresql://${google_sql_user.app.name}:${random_password.db.result}@localhost/${google_sql_database.app.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}&connection_limit=5"
 }

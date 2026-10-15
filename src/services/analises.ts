@@ -5,25 +5,13 @@ import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { BP_TOTAL, custoRateado } from "./rateio";
 import { realizadoPorEtapaTodas } from "./custos";
 
-/**
- * Análises gerenciais: curva ABC de insumos e alertas da operação.
- * As funções puras ficam no topo (testadas em `__tests__/analises.test.ts`);
- * os carregadores do banco ficam no fim do arquivo e só montam a entrada.
- */
-
-// ---------------------------------------------------------------------------
-// Curva ABC de insumos
-// ---------------------------------------------------------------------------
-
 export type ClasseAbc = "A" | "B" | "C";
 
-/** Limites de classe sobre o custo acumulado (A até 80%, B até 95%, C o resto). */
 const LIMITE_A_BP = 8_000;
 const LIMITE_B_BP = 9_500;
 
 export type NotaParaAbc = {
   fornecedorId: string;
-  /** Fração da nota que entra na análise: o rateio da obra filtrada, ou 100% sem filtro. */
   fracaoBp: number;
   itens: {
     descricao: string;
@@ -35,18 +23,15 @@ export type NotaParaAbc = {
 };
 
 export type InsumoAbc = {
-  /** descrição normalizada + unidade — identifica o insumo. */
   chave: string;
   descricao: string;
   unidade: string;
   tipo: TipoItem;
   qtde: number;
   custoCents: number;
-  /** custo ÷ quantidade, em centavos por unidade (null se a quantidade for zero). */
   precoMedioCents: number | null;
   numFornecedores: number;
   participacaoBp: number;
-  /** participação acumulada até este insumo, inclusive. */
   acumuladoBp: number;
   classe: ClasseAbc;
 };
@@ -59,11 +44,7 @@ type CurvaAbc = {
   resumo: Record<ClasseAbc, ResumoClasse>;
 };
 
-/**
- * Normalização de descrição copiada de `services/dependencia.ts#normalizar`
- * (lá não é exportada e o arquivo é de outro módulo). Mantenha as duas iguais
- * para que "insumo" signifique a mesma coisa na dependência e na curva ABC.
- */
+// Manter igual a `normalizar` de dependencia.ts: "insumo" deve significar o mesmo nas duas análises.
 export function normalizarDescricao(descricao: string): string {
   return descricao.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -72,11 +53,7 @@ function normalizarUnidade(unidade: string): string {
   return unidade.trim().toUpperCase();
 }
 
-/**
- * Classe de um insumo pela participação acumulada *antes* dele: o insumo que
- * cruza a linha de 80% ainda é A (senão um único insumo com 90% do custo
- * ficaria B). Comparação em centavos, sem arredondar percentuais.
- */
+// Pelo acumulado ANTES do insumo: o que cruza 80% ainda é A (senão um insumo com 90% do custo seria B).
 export function classeAbc(acumuladoAntesCents: number, totalCents: number): ClasseAbc {
   if (acumuladoAntesCents * BP_TOTAL < totalCents * LIMITE_A_BP) return "A";
   if (acumuladoAntesCents * BP_TOTAL < totalCents * LIMITE_B_BP) return "B";
@@ -91,20 +68,13 @@ type AccInsumo = {
   descricao: string;
   unidade: string;
   tipo: TipoItem;
-  /** maior item visto — dá a grafia e o tipo exibidos. */
   maiorItemCents: number;
   qtde: number;
   custoCents: number;
   fornecedores: Set<string>;
 };
 
-/**
- * Curva ABC: agrupa os itens por descrição normalizada + unidade, soma o
- * custo (× fração do rateio quando há filtro por obra), ordena do maior para
- * o menor e classifica em A/B/C. A quantidade também é multiplicada pela
- * fração — assim o preço médio não muda com o filtro e a quantidade
- * representa a parte da compra que coube à obra.
- */
+// A quantidade também é multiplicada pela fração do rateio, para o preço médio não mudar com o filtro.
 export function curvaAbc(notas: NotaParaAbc[]): CurvaAbc {
   const grupos = new Map<string, AccInsumo>();
 
@@ -175,34 +145,20 @@ export function curvaAbc(notas: NotaParaAbc[]): CurvaAbc {
   return { insumos, totalCents, resumo };
 }
 
-// ---------------------------------------------------------------------------
-// Orçamento: faixa de consumo por etapa
-// ---------------------------------------------------------------------------
-
 export type FaixaConsumo = "SEM_ORCAMENTO" | "OK" | "ATENCAO" | "ESTOURO";
 
-/** A partir de quanto consumido do previsto a etapa entra em atenção. */
 const ATENCAO_BP = 9_000;
 
-/** Consumo do orçamento em basis points (null quando não há previsto). */
 export function consumoBp(previstoCents: number, realizadoCents: number): number | null {
   return previstoCents > 0 ? Math.round((realizadoCents * BP_TOTAL) / previstoCents) : null;
 }
 
-/**
- * Faixa do consumo: estouro quando o realizado passa do previsto, atenção a
- * partir de 90% consumido. Comparação em centavos (sem arredondar o %).
- */
 export function faixaConsumo(previstoCents: number, realizadoCents: number): FaixaConsumo {
   if (previstoCents <= 0) return "SEM_ORCAMENTO";
   if (realizadoCents > previstoCents) return "ESTOURO";
   if (realizadoCents * BP_TOTAL >= previstoCents * ATENCAO_BP) return "ATENCAO";
   return "OK";
 }
-
-// ---------------------------------------------------------------------------
-// Alertas da operação
-// ---------------------------------------------------------------------------
 
 export type Severidade = "CRITICA" | "ATENCAO";
 
@@ -213,7 +169,6 @@ type TipoAlerta =
   | "NOTA_DIVERGENTE";
 
 export type Alerta = {
-  /** chave estável, para `key` de listas. */
   id: string;
   tipo: TipoAlerta;
   severidade: Severidade;
@@ -230,14 +185,8 @@ export type EtapaParaAlerta = {
   realizadoCents: number;
 };
 
-/**
- * Etapas estouradas (realizado > previsto) e em atenção (≥ 90% consumido).
- * Etapas sem orçamento definido não geram alerta — seriam quase todas no
- * começo da obra e o alerta viraria ruído. Estouros vêm do maior excesso
- * para o menor; atenções, do mais consumido para o menos.
- */
+// Etapa sem orçamento não gera alerta: no começo da obra seriam quase todas, e viraria ruído.
 export function alertasOrcamento(etapas: EtapaParaAlerta[]): Alerta[] {
-  // [peso de ordenação, alerta]
   const estouros: [number, Alerta][] = [];
   const atencoes: [number, Alerta][] = [];
 
@@ -283,11 +232,7 @@ type ParcelaParaAlerta = {
   vencimento: Date;
 };
 
-/**
- * Parcelas em aberto vencidas antes de hoje, agrupadas por nota (uma nota com
- * três parcelas atrasadas vira um alerta só). A mais antiga vem primeiro.
- * Espera receber apenas parcelas ABERTAS.
- */
+// Espera receber só parcelas ABERTAS.
 export function alertasParcelasVencidas(
   parcelas: ParcelaParaAlerta[],
   hoje: Date = new Date(),
@@ -338,7 +283,6 @@ type NotaParaAlerta = {
   somaItensCents: number;
 };
 
-/** Notas cujo total difere da soma dos itens; a maior diferença vem primeiro. */
 export function alertasDivergencia(notas: NotaParaAlerta[]): Alerta[] {
   return notas
     .filter((n) => n.somaItensCents !== n.totalCents)
@@ -362,11 +306,6 @@ const ORDEM_TIPO: Record<TipoAlerta, number> = {
   NOTA_DIVERGENTE: 3,
 };
 
-/**
- * Junta todos os alertas: críticos primeiro (estouro, depois parcela
- * vencida), depois atenção (orçamento, depois divergência). Dentro de cada
- * tipo mantém a ordem de cada gerador (sort estável).
- */
 export function montarAlertas(entrada: {
   etapas: EtapaParaAlerta[];
   parcelas: ParcelaParaAlerta[];
@@ -380,24 +319,14 @@ export function montarAlertas(entrada: {
   ].sort((a, b) => ORDEM_TIPO[a.tipo] - ORDEM_TIPO[b.tipo]);
 }
 
-// ---------------------------------------------------------------------------
-// Carregadores (banco → entrada das funções puras)
-// ---------------------------------------------------------------------------
-
 type FiltroAbc = {
   obraId?: string;
-  /** início do período (dataCompra ≥ de). */
   de?: Date;
-  /** fim do período (dataCompra ≤ ate). */
   ate?: Date;
   tipo?: TipoItem;
 };
 
-/**
- * Curva ABC a partir das notas do banco. Sem filtro de obra, a nota entra
- * inteira (100%) — inclusive notas sem rateio, que são compras da empresa.
- * Com filtro, entra só a fração rateada para a obra.
- */
+// Sem filtro de obra a nota entra inteira, inclusive sem rateio (compra da empresa).
 export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc> {
   const where: Prisma.NotaFiscalWhereInput = {};
   if (filtro.obraId) where.rateios = { some: { obraId: filtro.obraId } };
@@ -412,7 +341,7 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
     where,
     select: {
       fornecedorId: true,
-      // sem filtro de obra a fração não é usada: "" não casa com nenhum rateio
+      // sem filtro de obra, "" não casa com nenhum rateio (a fração não é usada)
       rateios: { where: { obraId: filtro.obraId ?? "" }, select: { fracaoBp: true } },
       itens: {
         where: filtro.tipo ? { tipo: filtro.tipo } : undefined,
@@ -430,7 +359,6 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
   );
 }
 
-/** Todos os alertas da operação, já ordenados por severidade. */
 export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]> {
   const [etapas, realizado, parcelas, notas] = await Promise.all([
     prisma.etapa.findMany({
@@ -447,7 +375,6 @@ export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]
         nota: { select: { id: true, numero: true, fornecedor: { select: { nome: true } } } },
       },
     }),
-    // mesma checagem do antigo KPI de divergências: carrega os totais dos itens
     prisma.notaFiscal.findMany({
       select: {
         id: true,

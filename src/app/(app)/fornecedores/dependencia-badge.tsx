@@ -10,7 +10,6 @@ const CONFIG: Record<
   BAIXA: { label: "Baixa", variant: "secondary" },
 };
 
-/** Badge de nível de dependência com o score. Ex.: "Alta · 72". */
 export function DependenciaBadge({
   nivel,
   score,

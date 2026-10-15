@@ -103,7 +103,6 @@ export function NovoConviteDialog({ obras }: { obras: ObraOpcao[] }) {
   );
 }
 
-/** Ações de um convite pendente/expirado: gerar link novo e cancelar. */
 export function AcoesConvite({ id, podeCancelar }: { id: string; podeCancelar: boolean }) {
   const [gerado, setGerado] = useState<LinkGerado | null>(null);
   const [pendente, startTransition] = useTransition();

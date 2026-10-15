@@ -1,9 +1,6 @@
 name: Rollback
 
-# Volta o tráfego de produção para uma revisão anterior do Cloud Run, sem rebuild.
-# Rode sem informar a revisão para ver a lista; depois rode de novo com o nome escolhido.
-# O próximo deploy da main volta a mandar o tráfego para a revisão mais nova.
-# Atenção: não desfaz migrations do banco (ver docs/fluxo-de-trabalho.md).
+# Não desfaz migrations do banco (ver docs/fluxo-de-trabalho.md).
 on:
   workflow_dispatch:
     inputs:

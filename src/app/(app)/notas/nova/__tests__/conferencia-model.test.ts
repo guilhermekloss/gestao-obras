@@ -137,15 +137,14 @@ describe("auxiliares", () => {
 
 describe("indiceAcerto", () => {
   it("leitura completa e coerente: 100% (alto)", () => {
-    // NF-e sem chave conta como falta; com a chave, tudo fecha
     const r = indiceAcerto({ ...LEITURA, chaveNfe: "35260911222333000181550010000123451876543218" });
     expect(r).toEqual({ percentual: 100, nivel: "alto", faltas: [] });
   });
 
   it("cada campo não lido baixa o índice e aparece nas faltas", () => {
-    const r = indiceAcerto(LEITURA); // sem chave
+    const r = indiceAcerto(LEITURA);
     expect(r.faltas).toEqual(["chave de acesso válida"]);
-    expect(r.percentual).toBe(86); // 6 de 7
+    expect(r.percentual).toBe(86);
     expect(r.nivel).toBe("alto");
   });
 

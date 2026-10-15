@@ -14,11 +14,7 @@ import {
 import { hojeDia, paraGrafico, paraPlano } from "@/app/(app)/cronograma/dados";
 import { CurvaSChart } from "@/app/(app)/cronograma/curva-s-chart";
 
-/**
- * Widget do dashboard: curva S previsto × realizado agregada das obras em
- * andamento que têm datas previstas (cada obra pesa pelo seu orçamento, mesma
- * regra de `avancoPonderado`). Retorna null quando nenhuma obra tem datas.
- */
+// cada obra pesa pelo seu orçamento (mesma regra de `avancoPonderado`)
 export async function CurvaSWidget() {
   const obras = await prisma.obra.findMany({
     where: { status: "ANDAMENTO", etapas: { some: { inicioPrevisto: { not: null }, fimPrevisto: { not: null } } } },

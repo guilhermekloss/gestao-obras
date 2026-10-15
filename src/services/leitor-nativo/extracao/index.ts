@@ -1,24 +1,3 @@
-/**
- * Etapa de EXTRAÇÃO do leitor nativo (sem LLM): arquivo → `TextoExtraido`.
- *
- *   PDF com camada de texto ─► unpdf (texto + posição), exato e barato
- *   PDF escaneado ──────────► "vision": Cloud Vision `files:annotate`
- *                             "local":  imagens embutidas + Tesseract
- *   Foto (jpeg/png/webp) ───► sharp (EXIF, tamanho) ─► "vision" ou Tesseract
- *   Códigos de barras/QR ───► zxing-wasm, sempre local (foto e imagens do PDF)
- *
- * Configuração (variáveis de ambiente, só no servidor):
- * - `OCR_MOTOR` — `local` (padrão: tesseract.js, 100 % na instância) ou
- *   `vision` (Cloud Vision; a instância só prepara a imagem e lê códigos);
- * - `OCR_VISION_ENDPOINT` — opcional, endpoint regional do Vision.
- *
- * A parte pesada (sharp, pdf.js, zxing, Tesseract) passa por uma fila do
- * processo com UMA execução por vez e no máximo `MAX_NA_FILA` esperando —
- * ver `semaforo.ts`. As chamadas ao Vision têm fila própria, mais larga,
- * porque só esperam a rede.
- *
- * Falhas viram `Error` com mensagem em português para o usuário.
- */
 import type { CodigoLido, MidiaDocumento, Pagina, TextoExtraido } from "../tipos";
 import { lerCodigos, descartarZxing, semRepetidos } from "./codigos";
 import { abrirImagem, imagemDeRaw, jpegParaVision, varianteParaOcr, type ImagemTrabalho } from "./imagem";
@@ -31,13 +10,11 @@ import { paginasDoVision, type AnotacaoVision } from "./vision-conversao";
 
 type MotorOcr = "local" | "vision";
 
-/** Motor de OCR configurado em `OCR_MOTOR` (padrão "local"). */
 export function motorOcr(): MotorOcr {
   return (process.env.OCR_MOTOR || "").trim().toLowerCase() === "vision" ? "vision" : "local";
 }
 
 const MAX_NA_FILA = 5;
-/** Quem espera na fila desiste depois disso (a leitura em si tem prazo próprio no Tesseract). */
 const ESPERA_MAXIMA_MS = 90_000;
 
 const filaPesada = unicoNoProcesso("fila-pesada", () => new Semaforo(1, MAX_NA_FILA));
@@ -50,10 +27,6 @@ const MSG_FALHA_GERAL =
 export const MSG_PDF_SEM_TEXTO =
   "Não foi possível ler este PDF (ele é uma imagem escaneada sem texto legível). Envie uma foto nítida do documento ou preencha manualmente.";
 
-/**
- * Extrai o texto (com posições) e os códigos de barras/QR do arquivo.
- * Lança `Error` com mensagem para o usuário quando não dá para ler.
- */
 export async function extrairTexto(arquivo: Buffer, midia: MidiaDocumento): Promise<TextoExtraido> {
   try {
     if (midia === "application/pdf") return await extrairDePdf(arquivo);
@@ -65,14 +38,10 @@ export async function extrairTexto(arquivo: Buffer, midia: MidiaDocumento): Prom
   }
 }
 
-/** Encerra o worker do Tesseract e descarta o WASM do zxing (testes e desligamento). */
 export async function encerrarMotores(): Promise<void> {
   await descartarTesseract();
   descartarZxing();
 }
-
-// ---------------------------------------------------------------------------
-// Foto
 
 async function ocrLocal(img: ImagemTrabalho, numero: number): Promise<Pagina> {
   const variante = await varianteParaOcr(img);
@@ -108,10 +77,6 @@ function resultadoVision(anotacoes: AnotacaoVision[], codigos: CodigoLido[]): Te
   return { origem: "ocr-vision", paginas, codigos: semRepetidos(codigos), confiancaMedia: confiancaMedia(paginas) };
 }
 
-// ---------------------------------------------------------------------------
-// PDF
-
-/** Imagens pequenas (QR embutido com 1 px por módulo) são ampliadas e ganham margem branca. */
 async function codigosDasImagens(imagens: ImagemPdf[], numero: number): Promise<CodigoLido[]> {
   const codigos: CodigoLido[] = [];
   for (const img of imagens.slice(0, 6)) {
@@ -144,7 +109,6 @@ async function extrairDePdf(arquivo: Buffer): Promise<TextoExtraido> {
           return [] as ImagemPdf[];
         });
         codigos.push(...(await codigosDasImagens(imagens, n)));
-        // para o OCR, só a maior imagem de cada página (no escaneado, é a página inteira)
         const maior = imagens[0];
         maiores.push(maior && Math.min(maior.width, maior.height) >= 200 ? maior : undefined);
       }
@@ -155,7 +119,6 @@ async function extrairDePdf(arquivo: Buffer): Promise<TextoExtraido> {
 
       if (motor === "vision") {
         if (arquivo.length <= MAX_BYTES_INLINE) return { plano: { tipo: "arquivo" }, codigos };
-        // PDF grande demais para ir inline: manda as imagens das páginas
         const jpegs: Buffer[] = [];
         for (const img of maiores) {
           if (img) jpegs.push(await jpegParaVision(await imagemDeRaw(img.data, img.width, img.height, img.channels)));
@@ -164,7 +127,6 @@ async function extrairDePdf(arquivo: Buffer): Promise<TextoExtraido> {
         return { plano: { tipo: "imagens", jpegs }, codigos };
       }
 
-      // local: OCR da maior imagem de cada página
       const paginas: Pagina[] = [];
       for (let n = 1; n <= total; n++) {
         const img = maiores[n - 1];
@@ -176,7 +138,7 @@ async function extrairDePdf(arquivo: Buffer): Promise<TextoExtraido> {
         pronto: { origem: "ocr-local", paginas, codigos: semRepetidos(codigos), confiancaMedia: confiancaMedia(paginas) },
       };
     } finally {
-      await pdf.loadingTask.destroy().catch(() => {}); // libera a memória do documento
+      await pdf.loadingTask.destroy().catch(() => {});
     }
   });
 

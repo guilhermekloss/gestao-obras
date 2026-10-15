@@ -1,14 +1,3 @@
-/**
- * Fila com limite para a parte pesada da leitura (sharp, zxing, Tesseract).
- *
- * No Cloud Run a instância tem 1 vCPU e 1 GiB e recebe até 40 requisições ao
- * mesmo tempo. Duas imagens processadas em paralelo não ficam mais rápidas
- * (a CPU é uma só) e dobram o pico de memória; por isso a etapa pesada roda
- * uma de cada vez, com poucas na espera. Acima disso a leitura é recusada na
- * hora com uma mensagem amigável — o usuário segue com o anexo e o
- * preenchimento manual, em vez de ficar esperando um minuto.
- */
-
 export class ErroLeitura extends Error {
   constructor(mensagem: string, options?: { cause?: unknown }) {
     super(mensagem, options);
@@ -36,11 +25,6 @@ export class Semaforo {
     return this.espera.length;
   }
 
-  /**
-   * Executa `tarefa` quando houver vaga. Recusa na hora (`ErroLeitura` com
-   * `MSG_OCUPADO`) se já houver `maxNaFila` tarefas esperando, ou se a
-   * espera passar de `esperaMaximaMs`.
-   */
   async executar<T>(tarefa: () => Promise<T>, opcoes: { esperaMaximaMs?: number } = {}): Promise<T> {
     await this.entrar(opcoes.esperaMaximaMs);
     try {
@@ -86,11 +70,6 @@ export class Semaforo {
   }
 }
 
-/**
- * Rejeita com `ErroLeitura(MSG_DEMOROU)` se a promessa não terminar em `ms`.
- * `aoEstourar` roda no estouro (ex.: encerrar o worker do Tesseract, que é
- * o único jeito de interromper um reconhecimento em andamento).
- */
 export function comPrazo<T>(promessa: Promise<T>, ms: number, aoEstourar?: () => void): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const estouro = new Promise<never>((_, reject) => {
@@ -106,11 +85,7 @@ export function comPrazo<T>(promessa: Promise<T>, ms: number, aoEstourar?: () =>
   return Promise.race([promessa, estouro]).finally(() => clearTimeout(timer));
 }
 
-/**
- * Singleton por processo. O Next pode carregar este módulo mais de uma vez
- * (chunks de rotas diferentes, HMR em dev); guardar em `globalThis` garante
- * uma fila e um worker de OCR só por processo.
- */
+// O Next pode carregar o módulo mais de uma vez (chunks, HMR): `globalThis` garante um por processo.
 export function unicoNoProcesso<T>(chave: string, criar: () => T): T {
   const g = globalThis as unknown as Record<symbol, T | undefined>;
   const simbolo = Symbol.for(`gestao-obras.leitor-nativo.${chave}`);

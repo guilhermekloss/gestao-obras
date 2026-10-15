@@ -6,17 +6,12 @@ import { Info } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-/**
- * Ícone "i" com explicação do campo. Abre ao passar o mouse (hover) e
- * também ao focar por teclado. No toque, um toque abre a dica.
- */
 export function CampoAjuda({
   children,
   titulo,
   className,
 }: {
   children: React.ReactNode;
-  /** Título opcional acima da explicação (ex.: nome do campo por extenso). */
   titulo?: string;
   className?: string;
 }) {
@@ -44,10 +39,6 @@ export function CampoAjuda({
   );
 }
 
-/**
- * Label com ícone de ajuda embutido. Uso:
- * <LabelAjuda htmlFor="cno" ajuda="..." titulo="Cadastro Nacional de Obras">CNO</LabelAjuda>
- */
 export function LabelAjuda({
   children,
   ajuda,

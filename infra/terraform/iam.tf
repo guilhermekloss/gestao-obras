@@ -1,6 +1,3 @@
-# Uma service account por função, cada uma só com o que precisa.
-
-# --- App (Cloud Run service) ---
 resource "google_service_account" "run" {
   account_id   = "${var.app_name}-run"
   display_name = "Gestão de Obras — app (Cloud Run)"
@@ -22,7 +19,6 @@ resource "google_secret_manager_secret_iam_member" "run_secrets" {
   member    = google_service_account.run.member
 }
 
-# Gemini na Vertex AI (botão "Analisar com IA"), só quando habilitado
 resource "google_project_iam_member" "run_gemini" {
   count   = var.gemini_habilitado ? 1 : 0
   project = var.project_id
@@ -30,7 +26,6 @@ resource "google_project_iam_member" "run_gemini" {
   member  = google_service_account.run.member
 }
 
-# grava e lê; não apaga (o app não precisa)
 resource "google_storage_bucket_iam_member" "run_uploads" {
   for_each = toset(["roles/storage.objectCreator", "roles/storage.objectViewer"])
   bucket   = google_storage_bucket.uploads.name
@@ -38,7 +33,6 @@ resource "google_storage_bucket_iam_member" "run_uploads" {
   member   = google_service_account.run.member
 }
 
-# --- Migrations (Cloud Run job) ---
 resource "google_service_account" "migrate" {
   account_id   = "${var.app_name}-migrate"
   display_name = "Gestão de Obras — migrations (Cloud Run job)"
@@ -56,13 +50,11 @@ resource "google_secret_manager_secret_iam_member" "migrate_database_url" {
   member    = google_service_account.migrate.member
 }
 
-# --- Deploy (GitHub Actions via Workload Identity Federation) ---
 resource "google_service_account" "deployer" {
   account_id   = "${var.app_name}-deployer"
   display_name = "Gestão de Obras — deploy (GitHub Actions)"
 }
 
-# publica imagens só neste repositório
 resource "google_artifact_registry_repository_iam_member" "deployer_push" {
   location   = google_artifact_registry_repository.app.location
   repository = google_artifact_registry_repository.app.name
@@ -70,14 +62,12 @@ resource "google_artifact_registry_repository_iam_member" "deployer_push" {
   member     = google_service_account.deployer.member
 }
 
-# atualiza a imagem do service/job e executa o job de migrations
 resource "google_project_iam_member" "deployer_run" {
   project = var.project_id
   role    = "roles/run.developer"
   member  = google_service_account.deployer.member
 }
 
-# pode "agir como" as SAs do app e do job (exigido para publicar revisões), e só elas
 resource "google_service_account_iam_member" "deployer_act_as" {
   for_each           = { run = google_service_account.run.name, migrate = google_service_account.migrate.name }
   service_account_id = each.value

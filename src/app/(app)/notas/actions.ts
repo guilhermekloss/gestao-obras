@@ -32,7 +32,6 @@ export const salvarNota = acaoDeEscrita(
     const d = parsed.data;
     const tipoDocumento = d.tipoDocumento ?? "NF";
 
-    // Regras de bloqueio
     if (exigeNumero(tipoDocumento) && !d.numero) {
       return { ok: false, erro: "Número da NF é obrigatório" };
     }
@@ -53,8 +52,7 @@ export const salvarNota = acaoDeEscrita(
       };
     }
 
-    // Número repetido no mesmo fornecedor é bloqueio, não aviso: o banco tem
-    // unicidade (fornecedorId, numero), então "salvar mesmo assim" falharia.
+    // bloqueio, não aviso: o @@unique(fornecedorId, numero) faria "salvar mesmo assim" falhar
     if (d.numero) {
       const repetida = await prisma.notaFiscal.findFirst({
         where: {
@@ -67,7 +65,6 @@ export const salvarNota = acaoDeEscrita(
       if (repetida) return { ok: false, erro: mensagemNumeroRepetido(tipoDocumento, d.numero) };
     }
 
-    // Chave lida do documento (só na criação): a mesma NF-e não entra duas vezes.
     const chaveNfe = d.id ? undefined : d.chaveNfe;
     if (chaveNfe) {
       if (!chaveAcessoValida(chaveNfe)) return { ok: false, erro: "Chave de acesso inválida" };
@@ -75,14 +72,12 @@ export const salvarNota = acaoDeEscrita(
       if (mesma) return { ok: false, erro: `Esta NF-e já foi lançada (NF ${mesma.numero}).` };
     }
 
-    // Edição: casa as parcelas pelo número para preservar os pagamentos.
     const reconciliacao = reconciliarParcelas(
       d.id ? await parcelasExistentes(d.id) : [],
       d.parcelas,
     );
 
-    // Avisos (contornáveis com confirmação) — todos juntos numa só pergunta,
-    // para a confirmação de um não pular os demais em silêncio.
+    // avisos todos numa só pergunta: confirmar um não pode pular os demais em silêncio
     if (!d.forcar) {
       const avisos: string[] = [];
       const somaItensCents = somaItens(d.itens);
@@ -110,8 +105,6 @@ export const salvarNota = acaoDeEscrita(
     };
 
     const id = await prisma.$transaction(async (tx) => {
-      // Documento sem número próprio (recibo, folha...): gera o próximo da
-      // sequência do fornecedor, dentro da transação.
       let numero = d.numero;
       if (!numero && !exigeNumero(tipoDocumento)) {
         const existentes = await tx.notaFiscal.findMany({
@@ -126,7 +119,6 @@ export const salvarNota = acaoDeEscrita(
 
       let notaId = d.id;
       if (notaId) {
-        // Edição: recria itens e rateios; parcelas seguem a reconciliação.
         await tx.itemNota.deleteMany({ where: { notaId } });
         await tx.rateioNota.deleteMany({ where: { notaId } });
         await tx.notaFiscal.update({ where: { id: notaId }, data: { ...dadosNota, numero } });
@@ -159,8 +151,7 @@ export const salvarNota = acaoDeEscrita(
         })),
       });
 
-      // Parcelas: `manter` não é tocada (status/pagaEm preservados); as
-      // alteradas voltam a ABERTA; as removidas somem; as novas são criadas.
+      // `manter` não é tocada (preserva status/pagaEm); alteradas voltam a ABERTA
       if (reconciliacao.removidas.length > 0) {
         await tx.parcela.deleteMany({
           where: { notaId, numero: { in: reconciliacao.removidas } },
@@ -191,7 +182,7 @@ export const salvarNota = acaoDeEscrita(
 
       return { notaId, numero };
     }).catch((erro: unknown) => {
-      // Corrida rara: outro lançamento pegou o mesmo número entre a checagem e a gravação.
+      // corrida: outro lançamento pegou o mesmo número entre a checagem e a gravação
       if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
         return null;
       }
@@ -212,14 +203,12 @@ export const salvarNota = acaoDeEscrita(
   },
 );
 
-/** Parcelas gravadas de uma nota, no formato que `reconciliarParcelas` compara. */
 async function parcelasExistentes(notaId: string): Promise<ParcelaExistente[]> {
   const parcelas = await prisma.parcela.findMany({
     where: { notaId },
     select: { numero: true, valorCents: true, vencimento: true, status: true, pagaEm: true },
   });
-  // Mesma conversão da tela de edição (`dataParaInput`): uma parcela que o
-  // usuário não mexeu volta idêntica e é mantida.
+  // mesma conversão da tela de edição: parcela não mexida volta idêntica e é mantida
   return parcelas.map((p) => ({ ...p, vencimento: dataParaInput(p.vencimento) }));
 }
 
@@ -272,7 +261,6 @@ type CriarFornecedorInlineResult = ActionResult & {
   fornecedor?: { id: string; nome: string; cnpj: string | null };
 };
 
-/** Criação rápida de fornecedor sem sair do formulário de NF. */
 export const criarFornecedorInline = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/fornecedores"], atividade: "fornecedor.criar" },
   async (_user, nome: string, cnpj?: string): Promise<CriarFornecedorInlineResult> => {

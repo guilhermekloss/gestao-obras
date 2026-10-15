@@ -41,12 +41,10 @@ describe("dividirIgualmente", () => {
 
 describe("calcularTotalItem", () => {
   it("qtde × unitário − desconto", () => {
-    // 10 × R$ 25,50 − R$ 5,00 = R$ 250,00
     expect(calcularTotalItem(10, 2550, 500)).toBe(25000);
   });
 
   it("qtde fracionada arredonda corretamente", () => {
-    // 2,5 kg × R$ 3,33 = R$ 8,325 → R$ 8,33 (arredondado)
     expect(calcularTotalItem(2.5, 333)).toBe(833);
   });
 });

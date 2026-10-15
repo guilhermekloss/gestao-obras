@@ -1,10 +1,3 @@
-/**
- * Guias de arrecadação (DAS, DARF, GPS, FGTS, DAE, tributos municipais) e
- * contas de consumo pagas por código de arrecadação (começa com 8).
- *
- * Emitente = órgão impresso (ex.: "Simples Nacional", "Receita Federal do
- * Brasil"), sem documento; destinatário = contribuinte.
- */
 import type { DocumentoLido } from "../../../leitura-documento";
 import { documentoVazio, juntarObservacoes, type Ancoras, type Item } from "../comum";
 import { acharLinha, type Doc } from "../documento";
@@ -12,7 +5,6 @@ import { formatarReais, lerValor, limparEspacos } from "../normalizacao";
 import { dataDe, documentoDe, numeroDe, textoDe, valorDe } from "../rotulos";
 import type { Resultado } from "./auxiliares";
 
-/** Órgão arrecadador como impresso, em forma legível. */
 function orgaoImpresso(doc: Doc): string | null {
   const n = doc.normCompleto;
   if (/ARRECADACAO\s*DO\s*SIMPLES\s*NACIONAL|\bDAS\b\s*(?:-\s*)?(?:DE\s*)?MEI\b/.test(n)) return "Simples Nacional";
@@ -26,7 +18,6 @@ function orgaoImpresso(doc: Doc): string | null {
   return null;
 }
 
-/** Linhas da composição (DAS/DARF): "1001 IRPJ - SIMPLES NACIONAL 25,12 - - 25,12". */
 function composicao(doc: Doc): Item[] {
   const i = acharLinha(doc, /COMPOSICAO\s*DO\s*DOCUMENTO|CODIGO\s*DENOMINACAO|CODIGO\s*DA\s*RECEITA\s*DENOMINACAO/);
   if (i === -1) return [];
@@ -40,7 +31,6 @@ function composicao(doc: Doc): Item[] {
       if (itens.length) break;
       continue;
     }
-    // cauda de valores (Principal, Multa, Juros, Total): só valores ou "-" até o fim da linha
     const ehValor = (t: string) => /^\d[\d.]*,\d{2}$/.test(t) || /^[-–]$/.test(t);
     let iNum = tokens.length;
     while (iNum > 1 && ehValor(tokens[iNum - 1])) iNum--;
@@ -102,7 +92,6 @@ export function interpretarGuia(doc: Doc, ancoras: Ancoras, tipo: "GUIA" | "OUTR
     lido.destinatario.nome = textoDe(doc, ["NOME_RAZAO", "CONTRIBUINTE", "NOME_TELEFONE", "NOME"]);
     lido.itens = composicao(doc);
   } else {
-    // conta de consumo: empresa no topo
     const primeira = doc.linhas.find((l) => (l.texto.match(/[A-Za-zÀ-ú]/g) ?? []).length >= 4);
     lido.emitente.nome = primeira ? limparEspacos(primeira.texto.split(/\s{2,}/)[0]) : null;
     lido.emitente.documento = ancoras.documentos.find((d) => d.valido)?.valor ?? null;

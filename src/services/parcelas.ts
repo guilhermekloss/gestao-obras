@@ -7,10 +7,7 @@ type ParcelaGerada = {
   vencimento: Date;
 };
 
-/**
- * Divide um total em N parcelas inteiras (centavos) sem perder centavos:
- * a diferença do arredondamento vai para a primeira parcela.
- */
+// A diferença do arredondamento vai para a primeira parcela.
 export function dividirValor(totalCents: number, n: number): number[] {
   if (n < 1) throw new Error("Número de parcelas deve ser ≥ 1");
   const base = Math.floor(totalCents / n);
@@ -18,27 +15,18 @@ export function dividirValor(totalCents: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => (i === 0 ? base + resto : base));
 }
 
-/** Dia 20 do mês seguinte à data (padrão de vencimento de cartão observado nas planilhas). */
 function dia20MesSeguinte(data: Date): Date {
   return setDate(addMonths(data, 1), 20);
 }
 
-/** Mesmo dia do mês seguinte, ajustando para o último dia quando o mês é mais curto. */
 function mesSeguinte(data: Date, meses: number): Date {
   const alvo = addMonths(data, meses);
   const ultimo = lastDayOfMonth(alvo).getDate();
   return alvo.getDate() > ultimo ? setDate(alvo, ultimo) : alvo;
 }
 
-/**
- * Gera parcelas com vencimento sugerido conforme a forma de pagamento:
- * - PIX / DÉBITO / DINHEIRO: 1 parcela vencendo na data da compra
- * - TRANSFERÊNCIA: parcela 1 na data da compra; demais a cada mês (o caso
- *   típico é pagar mão de obra em várias transferências)
- * - CARTÃO: parcela 1 no dia 20 do mês seguinte; demais a cada mês
- * - BOLETO: parcelas a cada 30 dias-mês a partir do mês seguinte
- * A soma das parcelas é sempre exatamente o total.
- */
+// PIX/débito/dinheiro: 1 parcela na compra. Transferência: 1ª na compra; cartão: 1ª no dia 20 do mês
+// seguinte; boleto: 1ª no mês seguinte — as demais, mês a mês.
 export function gerarParcelas(opts: {
   totalCents: number;
   numParcelas: number;
@@ -67,11 +55,6 @@ export function gerarParcelas(opts: {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Edição de nota: preservar pagamentos já registrados
-// ---------------------------------------------------------------------------
-
-/** Parcela já gravada. `vencimento` no formato do formulário ("aaaa-mm-dd"). */
 export type ParcelaExistente = {
   numero: number;
   valorCents: number;
@@ -80,19 +63,12 @@ export type ParcelaExistente = {
   pagaEm: Date | null;
 };
 
-/** Parcela enviada pelo formulário de edição. `vencimento` em "aaaa-mm-dd". */
 type ParcelaEditada = {
   numero: number;
   valorCents: number;
   vencimento: string;
 };
 
-/**
- * O que fazer com cada parcela ao salvar:
- * - `manter`: valor e vencimento iguais → não toca no registro (status/pagaEm preservados);
- * - `atualizar`: mesmo número, mas valor ou vencimento mudou → grava e volta a ABERTA;
- * - `criar`: número que não existia.
- */
 type AcaoParcela = "manter" | "atualizar" | "criar";
 
 type ParcelaReconciliada = ParcelaEditada & {
@@ -104,22 +80,12 @@ type ParcelaReconciliada = ParcelaEditada & {
 type ParcelaPagaAfetada = { numero: number; motivo: "alterada" | "removida" };
 
 type ReconciliacaoParcelas = {
-  /** Estado final de cada parcela editada, na ordem recebida. */
   parcelas: ParcelaReconciliada[];
-  /** Números das parcelas antigas que deixaram de existir. */
   removidas: number[];
-  /** Parcelas PAGAS que perdem o registro de pagamento — só elas justificam avisar o usuário. */
   pagasAfetadas: ParcelaPagaAfetada[];
 };
 
-/**
- * Casa as parcelas antigas com as editadas pelo `numero` e decide o destino
- * de cada uma, preservando status e data de pagamento sempre que valor e
- * vencimento não mudaram. Parcela alterada volta a ABERTA (o pagamento
- * registrado era de outro valor/data); parcela removida some.
- *
- * Mudanças em parcelas ABERTAS não geram aviso: nada se perde.
- */
+// Casa por `numero`; parcela com valor ou vencimento alterado volta a ABERTA (o pagamento era de outro valor/data).
 export function reconciliarParcelas(
   antigas: ParcelaExistente[],
   novas: ParcelaEditada[],
@@ -161,10 +127,6 @@ function listarNumeros(numeros: number[]): string {
   return `${ordinais.slice(0, -1).join(", ")} e ${ordinais[ordinais.length - 1]}`;
 }
 
-/**
- * Texto do aviso de confirmação quando a edição afeta parcelas pagas;
- * `null` quando nenhum pagamento se perde.
- */
 export function avisoParcelasPagas(afetadas: ParcelaPagaAfetada[]): string | null {
   if (afetadas.length === 0) return null;
   const alteradas = afetadas.filter((a) => a.motivo === "alterada").map((a) => a.numero);
@@ -190,7 +152,6 @@ export function avisoParcelasPagas(afetadas: ParcelaPagaAfetada[]): string | nul
   return `${frase.charAt(0).toUpperCase()}${frase.slice(1)}. O registro ${registro} será perdido.`;
 }
 
-/** Valida que a soma das parcelas bate com o total da nota (regra de bloqueio). */
 export function validarParcelas(
   parcelas: { valorCents: number }[],
   totalCents: number,

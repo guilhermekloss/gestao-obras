@@ -49,11 +49,10 @@ describe("pontuar", () => {
 
   it("distribui os pontos conforme os pesos", () => {
     const p = pontuar({ shareGasto: 0.2, exclusividade: 0.5, recencia: 1, alcance: 0.5 });
-    // concentração: 40 * (0.2/0.4)=20; exclusividade: 30*0.5=15; recência: 15; alcance: 15*0.5=7.5
     expect(p.componentes.concentracao).toBeCloseTo(20, 5);
     expect(p.componentes.exclusividade).toBeCloseTo(15, 5);
     expect(p.componentes.recencia).toBeCloseTo(15, 5);
     expect(p.componentes.alcance).toBeCloseTo(7.5, 5);
-    expect(p.score).toBe(58); // round(57.5)
+    expect(p.score).toBe(58);
   });
 });

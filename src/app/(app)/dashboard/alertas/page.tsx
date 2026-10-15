@@ -5,7 +5,6 @@ import { carregarAlertas } from "@/services/analises";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertasLista } from "../alertas-lista";
 
-/** Todos os alertas da operação (o card do dashboard mostra só os primeiros). */
 export default async function AlertasPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");
   const alertas = await carregarAlertas();

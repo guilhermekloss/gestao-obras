@@ -1,67 +1,31 @@
-/**
- * Montagem das linhas visuais a partir de palavras soltas com posição.
- *
- * As três origens (camada de texto do PDF, Tesseract e Cloud Vision) passam
- * por aqui, para que a interpretação veja sempre o mesmo formato:
- *
- * - palavras na mesma altura viram uma linha, da esquerda para a direita;
- * - foto torta: a inclinação da página (informada pela origem ou estimada
- *   pelos pares de palavras vizinhas) é descontada antes de agrupar. Sem
- *   isso, numa foto a 3° o valor alinhado à direita de um item "sobe" para
- *   a linha de cima (2400 px × tan 3° ≈ 125 px, umas 4 linhas);
- * - o agrupamento é por **sobreposição vertical** com a última palavra da
- *   linha (encadeado), o que ainda absorve o resto de inclinação;
- * - pedaços colados (vão quase zero, comum no PDF quando a fonte muda no
- *   meio do número, ex.: "1.396" + ",00") viram uma palavra só;
- * - vão normal entre palavras = um espaço; vão grande (coluna de tabela,
- *   rótulo à esquerda e valor à direita) = dois espaços. A interpretação
- *   separa colunas com `/\s{2,}/`.
- *
- * "Vão grande" é relativo ao espaço típico da própria página, medido em
- * alturas de palavra: no PDF o espaço é ~0,3 da altura da fonte, mas no OCR
- * as caixas variam com a fonte e a foto (medido: mediana de 0,5 a 1,0 da
- * altura nas imagens de teste). Um limiar fixo ou junta colunas no PDF ou
- * separa palavras comuns na foto.
- *
- * As caixas devolvidas são as originais (sem a correção de inclinação),
- * normalizadas 0..1. Tudo puro e testado (`__tests__/linhas.test.ts`).
- */
 import type { Caixa, Linha, Pagina, Palavra } from "../tipos";
 
-/** Palavra em coordenadas absolutas da página (pixels ou pontos), origem no canto superior esquerdo. */
 export type PalavraBruta = {
   texto: string;
   x0: number;
   y0: number;
   x1: number;
   y1: number;
-  /** 0..1; null quando a origem não informa */
   confianca: number | null;
 };
 
-/** Sobreposição vertical mínima (fração da menor altura) para duas palavras estarem na mesma linha. */
 const SOBREPOSICAO_MINIMA = 0.5;
-/** Vão (fração da altura mediana da linha) abaixo do qual dois pedaços são a mesma palavra. */
 const VAO_COLADO = 0.1;
-/** Limiar de coluna = `FATOR_COLUNA` × espaço típico da página, limitado a [mín, máx] (em alturas). */
+// Vão de coluna relativo ao espaço típico da página (em alturas): limiar fixo falha entre PDF e foto.
 const FATOR_COLUNA = 2.5;
 export const VAO_COLUNA_MIN = 0.8;
 export const VAO_COLUNA_MAX = 2.5;
-/** Sem vãos suficientes para medir o espaço típico, usa este limiar. */
 export const VAO_COLUNA_PADRAO = 1.2;
-/** Quanto uma palavra pode começar antes do fim da anterior (bbox de OCR se sobrepõe um pouco). */
+// bbox de OCR se sobrepõe um pouco à anterior.
 const RECUO_TOLERADO = 0.3;
-/** Inclinação máxima corrigida (tan 10°); acima disso a estimativa é tratada como ruído. */
+// Acima disso a estimativa é tratada como ruído.
 const INCLINACAO_MAXIMA = Math.tan((10 * Math.PI) / 180);
 
-/** Palavra durante a montagem: `y0/y1` já sem a inclinação; `orig` guarda a caixa original. */
 type PalavraInterna = { texto: string; x0: number; x1: number; y0: number; y1: number; orig: PalavraBruta };
 
 type LinhaEmMontagem = {
   palavras: PalavraInterna[];
-  /** palavra de referência para a altura (a última "alta", ignorando pontuação miúda) */
   ref: PalavraInterna;
-  /** maior altura vista na linha */
   alturaMax: number;
 };
 
@@ -86,7 +50,6 @@ function percentil(valores: number[], p: number): number {
   return v[Math.floor(p * (v.length - 1))];
 }
 
-/** Média da confiança ponderada pelo número de caracteres; null se ninguém informou. */
 function mediaPonderada(itens: { texto: string; confianca: number | null }[]): number | null {
   let soma = 0;
   let peso = 0;
@@ -99,13 +62,6 @@ function mediaPonderada(itens: { texto: string; confianca: number | null }[]): n
   return peso ? soma / peso : null;
 }
 
-/**
- * Inclinação da página (dy/dx, positiva quando o texto desce para a
- * direita) estimada pelos pares de palavras vizinhas na mesma linha: para
- * cada palavra, a vizinha mais próxima à direita, de altura parecida e com
- * boa sobreposição vertical. A mediana descarta os pares errados.
- * Devolve 0 com menos de 5 pares.
- */
 export function estimarInclinacao(palavras: PalavraBruta[]): number {
   const ps = palavras.filter((p) => p.texto.trim() && p.x1 > p.x0 && p.y1 > p.y0).sort((a, b) => a.x0 - b.x0);
   const inclinacoes: number[] = [];
@@ -115,7 +71,7 @@ export function estimarInclinacao(palavras: PalavraBruta[]): number {
     let melhor: PalavraBruta | null = null;
     for (let j = i + 1; j < ps.length; j++) {
       const q = ps[j];
-      if (q.x0 - p.x1 > 2 * hp) break; // ordenadas por x0: as próximas estão ainda mais longe
+      if (q.x0 - p.x1 > 2 * hp) break;
       if (q.x0 < p.x1 - RECUO_TOLERADO * hp) continue;
       const razao = altura(q) / hp;
       if (razao < 0.67 || razao > 1.5) continue;
@@ -131,7 +87,6 @@ export function estimarInclinacao(palavras: PalavraBruta[]): number {
   return mediana(inclinacoes);
 }
 
-/** Junta pedaços colados (vão quase zero) numa palavra só. */
 function juntarColadas(palavras: PalavraInterna[], alturaMed: number): PalavraInterna[] {
   const saida: PalavraInterna[] = [];
   for (const p of palavras) {
@@ -160,12 +115,7 @@ function juntarColadas(palavras: PalavraInterna[], alturaMed: number): PalavraIn
   return saida;
 }
 
-/**
- * Limiar de vão de coluna (em alturas de palavra) a partir dos vãos entre
- * palavras vizinhas da página, também em alturas. Usa o percentil 30 como
- * "espaço típico": mesmo numa tabela com muitas colunas, a maioria dos vãos
- * é espaço comum dentro de descrições e rótulos.
- */
+// Percentil 30: mesmo em tabelas, a maioria dos vãos é espaço comum.
 export function limiarColuna(vaos: number[]): number {
   if (vaos.length < 8) return VAO_COLUNA_PADRAO;
   const tipico = percentil(vaos, 0.3);
@@ -181,7 +131,6 @@ function normalizar(x0: number, y0: number, x1: number, y1: number, largura: num
   return { x: nx0, y: ny0, largura: lim(x1 / L) - nx0, altura: lim(y1 / A) - ny0 };
 }
 
-/** Desconta a inclinação `s` (dy/dx): sobe/desce a caixa conforme o x e tira a altura "extra" da rotação. */
 function endireitar(p: PalavraBruta, s: number): PalavraInterna {
   const deslocamento = s * centroX(p);
   const hCaixa = p.y1 - p.y0;
@@ -192,14 +141,9 @@ function endireitar(p: PalavraBruta, s: number): PalavraInterna {
 }
 
 type OpcoesLinhas = {
-  /** inclinação conhecida (dy/dx); sem ela, é estimada pelas palavras. PDF passa 0. */
   inclinacao?: number;
 };
 
-/**
- * Agrupa as palavras da página em linhas visuais (de cima para baixo), com
- * coordenadas normalizadas 0..1 pela largura/altura da página.
- */
 export function montarLinhas(
   palavrasEntrada: PalavraBruta[],
   largura: number,
@@ -221,7 +165,6 @@ export function montarLinhas(
     let melhorDist = Infinity;
     for (const l of linhas) {
       const ult = l.palavras[l.palavras.length - 1];
-      // a palavra precisa começar depois (ou quase) do fim da última da linha
       if (p.x0 < ult.x1 - RECUO_TOLERADO * Math.min(altura(p), altura(ult))) continue;
       if (sobreposicaoVertical(p, l.ref) < SOBREPOSICAO_MINIMA) continue;
       const dist = Math.abs(centroY(p) - centroY(l.ref));
@@ -233,7 +176,6 @@ export function montarLinhas(
     if (melhor) {
       melhor.palavras.push(p);
       melhor.alturaMax = Math.max(melhor.alturaMax, altura(p));
-      // pontuação miúda ("." "," "-") não serve de referência de altura
       if (altura(p) >= 0.5 * melhor.alturaMax) melhor.ref = p;
     } else {
       linhas.push({ palavras: [p], ref: p, alturaMax: altura(p) });
@@ -279,12 +221,10 @@ export function montarLinhas(
   return resultado.sort((a, b) => a.ordem - b.ordem || a.x0 - b.x0).map((r) => r.linha);
 }
 
-/** Média da confiança de todas as palavras (ponderada por caracteres); null para PDF com texto. */
 export function confiancaMedia(paginas: Pagina[]): number | null {
   return mediaPonderada(paginas.flatMap((p) => p.linhas.flatMap((l) => l.palavras)));
 }
 
-/** Quantidade de caracteres visíveis (sem espaços) — para decidir se há texto de verdade. */
 export function caracteresUteis(paginas: Pagina[]): number {
   return paginas.reduce(
     (s, p) => s + p.linhas.reduce((t, l) => t + l.texto.replace(/\s/g, "").length, 0),

@@ -59,7 +59,6 @@ export default async function FornecedorDetalhePage({
 
   const dep = dependencia.get(fornecedor.id) ?? null;
 
-  // Agregações para os quadros de detalhe.
   const gastoPorTipo = new Map<TipoItem, number>();
   const gastoPorObra = new Map<string, { nome: string; cents: number }>();
   const itensExclusivos = new Map<string, { descricao: string; cents: number; qtde: number }>();

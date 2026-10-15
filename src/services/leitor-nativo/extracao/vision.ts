@@ -1,19 +1,3 @@
-/**
- * OCR gerenciado: Cloud Vision `DOCUMENT_TEXT_DETECTION` via REST.
- *
- * Autenticação pelo ADC (`google-auth-library`): no Cloud Run é a conta de
- * serviço da revisão, pelo servidor de metadados, sem chave; em dev, o
- * `gcloud auth application-default login`. Basta a API
- * `vision.googleapis.com` ativa no projeto — o Vision não exige papel IAM
- * específico para anotar conteúdo enviado inline.
- *
- * - foto: `images:annotate` com o JPEG já girado pelo EXIF;
- * - PDF escaneado: `files:annotate` síncrono com o PDF inline (o Vision lê
- *   as 5 primeiras páginas; não precisa renderizar nada no servidor).
- *
- * Opcional: `OCR_VISION_ENDPOINT` troca o endpoint (ex.:
- * `https://eu-vision.googleapis.com` para processar na União Europeia).
- */
 import { GoogleAuth } from "google-auth-library";
 import { ErroLeitura, unicoNoProcesso } from "./semaforo";
 import {
@@ -28,7 +12,7 @@ import {
 const ESCOPO = "https://www.googleapis.com/auth/cloud-vision";
 const PRAZO_MS = 60_000;
 
-/** O JSON da requisição tem limite de 10 MB; em base64 o arquivo cresce ~37 %. */
+// Limite de 10 MB do JSON da requisição; em base64 o arquivo cresce ~37 %.
 export const MAX_BYTES_INLINE = 7 * 1024 * 1024;
 
 const auth = unicoNoProcesso("vision-auth", () => new GoogleAuth({ scopes: [ESCOPO] }));
@@ -67,7 +51,6 @@ async function postar<T>(caminho: string, corpo: unknown): Promise<T> {
   }
 }
 
-/** Converte o erro que veio no corpo da resposta (HTTP 200) em `ErroLeitura`. */
 export function tratarErroResposta(e: unknown): never {
   if (e instanceof ErroVisionResposta) {
     console.error("[leitor-nativo] Cloud Vision devolveu erro", e.status);
@@ -76,7 +59,6 @@ export function tratarErroResposta(e: unknown): never {
   throw e;
 }
 
-/** OCR de uma imagem (JPEG/PNG). */
 export async function anotarImagem(imagem: Buffer): Promise<AnotacaoVision[]> {
   if (imagem.length > MAX_BYTES_INLINE) {
     throw new ErroLeitura("A imagem é grande demais para a leitura automática. Envie uma foto menor.");
@@ -87,10 +69,6 @@ export async function anotarImagem(imagem: Buffer): Promise<AnotacaoVision[]> {
   return resposta.responses ?? [];
 }
 
-/**
- * OCR das imagens de várias páginas (página n = n-ésima imagem), agrupadas
- * em chamadas que respeitem o limite de tamanho da requisição.
- */
 export async function anotarImagens(imagens: Buffer[]): Promise<AnotacaoVision[]> {
   const grupos: Buffer[][] = [];
   let tamanho = Infinity;
@@ -121,7 +99,7 @@ export async function anotarImagens(imagens: Buffer[]): Promise<AnotacaoVision[]
   return anotacoes;
 }
 
-/** OCR de um PDF (até 5 páginas, síncrono). */
+// files:annotate síncrono: o Vision lê só as 5 primeiras páginas.
 export async function anotarPdf(pdf: Buffer): Promise<AnotacaoVision[]> {
   const resposta = await postar<RespostaArquivosVision>("/v1/files:annotate", {
     requests: [

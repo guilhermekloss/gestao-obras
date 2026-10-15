@@ -8,14 +8,12 @@ const ESTILO: Record<CondicaoTrabalho, string> = {
   IMPRATICAVEL: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
 };
 
-/** Selo da condição de trabalho do dia (praticável / parcial / impraticável). */
 export function CondicaoBadge({
   condicao,
   curto = false,
   className,
 }: {
   condicao: CondicaoTrabalho | null;
-  /** "Parcial" em vez de "Parcialmente praticável" — para tabelas. */
   curto?: boolean;
   className?: string;
 }) {

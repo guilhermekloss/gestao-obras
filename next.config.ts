@@ -1,41 +1,24 @@
 import type { NextConfig } from "next";
 
-/**
- * Cabeçalhos de segurança de todas as respostas. A Content-Security-Policy das
- * páginas sai do `src/proxy.ts` (precisa de um nonce novo por requisição).
- */
+// A Content-Security-Policy sai do src/proxy.ts (nonce novo por requisição).
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // janela aberta por outro site não controla a do app (e vice-versa)
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-  // fotos, anexos e scripts do app não podem ser embutidos por outros sites
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
-  // câmera liberada para a própria origem: o diário e os lançamentos tiram foto pelo celular
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), browsing-topics=()" },
 ];
 
 const nextConfig: NextConfig = {
-  /**
-   * Sem isso, o Next 16 bloqueia por segurança as requisições de dev (inclusive
-   * o WebSocket de hot-reload) vindas de qualquer origem que não seja localhost.
-   * Isso deixa a página carregada mas sem reagir a cliques — é o que acontecia
-   * ao testar pelo celular via IP da rede local. O padrão cobre qualquer IP
-   * 192.168.x.x, então continua funcionando mesmo se o roteador trocar o IP.
-   */
+  // Teste pelo celular via IP da LAN: sem isso o Next 16 bloqueia o HMR e a página não reage a cliques.
   allowedDevOrigins: ["192.168.*.*"],
-  /** Imagem Docker enxuta para o Cloud Run (ver Dockerfile). */
   output: "standalone",
-  /** Proteção contra version skew durante o rollout de uma nova revisão (SHA do commit, vindo do build). */
   deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
   poweredByHeader: false,
-  /**
-   * Pacotes que carregam WASM, workers ou arquivos de dados em tempo de
-   * execução: ficam fora do bundle e são lidos de node_modules.
-   */
+  // Carregam WASM, workers ou arquivos de dados em runtime: ficam fora do bundle.
   serverExternalPackages: [
     "@google-cloud/storage",
     "@google/genai",
@@ -46,13 +29,8 @@ const nextConfig: NextConfig = {
     "unpdf",
     "zxing-wasm",
   ],
-  /**
-   * Leitor nativo de nota (`services/leitor-nativo/extracao`): o worker do
-   * Tesseract é aberto por caminho de arquivo e o modelo de português e o
-   * WASM do zxing são lidos do disco — o tracing não enxerga nada disso.
-   * Todas as variantes do core: no Node o tesseract.js 7 escolhe a variante
-   * sem `-lstm` mesmo com `OEM.LSTM_ONLY` (passa um booleano no lugar do OEM).
-   */
+  // Worker do Tesseract, modelo de português e WASM do zxing são lidos do disco: o tracing não os enxerga.
+  // Todas as variantes do core: no Node o tesseract.js 7 escolhe a sem `-lstm` mesmo com OEM.LSTM_ONLY.
   outputFileTracingIncludes: {
     "/notas/nova": [
       "./node_modules/tesseract.js/package.json",

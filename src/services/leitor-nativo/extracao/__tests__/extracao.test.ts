@@ -1,7 +1,3 @@
-/**
- * Integração da extração no modo "local": OCR de verdade (tesseract.js),
- * códigos de verdade (zxing-wasm) e PDFs gerados na hora.
- */
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { encerrarMotores, extrairTexto, motorOcr, MSG_PDF_SEM_TEXTO } from "../index";
@@ -81,7 +77,7 @@ describe("foto (OCR local)", () => {
 
   it("aplica a orientação do EXIF (foto tirada de lado)", async () => {
     const texto = await imagemDocumento(900, LINHAS_DOC.slice(1, 3));
-    // pixels deitados + EXIF 6 ("girar 90° horário para exibir")
+    // EXIF 6 = girar 90° horário para exibir
     const deitada = await sharp(texto).rotate(-90).jpeg({ quality: 92 }).withMetadata({ orientation: 6 }).toBuffer();
     const r = await extrairTexto(deitada, "image/jpeg");
     const t = textos(r);
@@ -120,7 +116,7 @@ describe("PDF", () => {
     ]);
     const danfe = r.paginas[0].linhas[0];
     expect(danfe.caixa.x).toBeCloseTo(30 / 595, 3);
-    expect(danfe.caixa.y).toBeLessThan(0.1); // origem no topo
+    expect(danfe.caixa.y).toBeLessThan(0.1);
     expect(danfe.palavras[0].confianca).toBeNull();
   });
 

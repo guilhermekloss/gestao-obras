@@ -1,33 +1,22 @@
-/**
- * Visão do `TextoExtraido` usada pelos intérpretes: linhas de todas as
- * páginas em ordem de leitura, com texto normalizado (maiúsculas sem
- * acento, mesmos índices do original), tokens com posição horizontal e
- * células (trechos separados por um vão grande — 2+ espaços no texto).
- */
 import type { CodigoLido, OrigemTexto, TextoExtraido } from "../tipos";
 import { normalizarTexto } from "./normalizacao";
 
 export type Token = {
   texto: string;
-  /** posição (caracteres) no texto da linha */
   inicio: number;
   fim: number;
-  /** posição horizontal real na página (0..1), quando a origem informa */
   x0: number | null;
   x1: number | null;
-  /** índice da célula (trecho entre vãos grandes) */
   celula: number;
 };
 
 export type LinhaDoc = {
-  /** índice global (todas as páginas) */
   indice: number;
   pagina: number;
   texto: string;
-  /** maiúsculas sem acento, mesmo comprimento de `texto` */
+  // maiúsculas sem acento, mesmo comprimento de `texto`
   norm: string;
   tokens: Token[];
-  /** true quando os tokens têm posição real */
   comPosicao: boolean;
   y: number | null;
   confianca: number | null;
@@ -38,12 +27,9 @@ export type Doc = {
   codigos: CodigoLido[];
   origem: OrigemTexto;
   confiancaMedia: number | null;
-  /** maioria das linhas com posição real */
   comPosicoes: boolean;
-  /** todas as linhas unidas por "\n" (original e normalizado) */
   textoCompleto: string;
   normCompleto: string;
-  /** última página presente */
   paginas: number;
 };
 
@@ -70,7 +56,6 @@ export function construirDoc(entrada: TextoExtraido): Doc {
   const linhas: LinhaDoc[] = [];
   for (const pagina of entrada.paginas) {
     for (const linha of pagina.linhas) {
-      // tira espaços das pontas e caracteres de controle, preservando os vãos internos
       const texto = linha.texto
         .replace(/[\u0000-\u001f]/g, " ")
         .replace(/\s+$/, "")
@@ -113,7 +98,6 @@ export function construirDoc(entrada: TextoExtraido): Doc {
   };
 }
 
-/** Índice da primeira linha (a partir de `desde`) cujo texto normalizado casa o padrão; -1 se nenhuma. */
 export function acharLinha(doc: Doc, padrao: RegExp, desde = 0, ate = doc.linhas.length): number {
   for (let i = Math.max(0, desde); i < Math.min(ate, doc.linhas.length); i++) {
     if (padrao.test(doc.linhas[i].norm)) return i;
@@ -121,7 +105,6 @@ export function acharLinha(doc: Doc, padrao: RegExp, desde = 0, ate = doc.linhas
   return -1;
 }
 
-/** Texto das linhas [de, ate) unido por "\n". */
 export function textoDasLinhas(doc: Doc, de: number, ate: number): string {
   return doc.linhas
     .slice(Math.max(0, de), Math.max(0, ate))
@@ -129,5 +112,4 @@ export function textoDasLinhas(doc: Doc, de: number, ate: number): string {
     .join("\n");
 }
 
-/** Faixa de linhas [de, ate). */
 export type Faixa = { de: number; ate: number };

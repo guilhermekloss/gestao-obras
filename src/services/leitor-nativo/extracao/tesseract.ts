@@ -1,57 +1,16 @@
-/**
- * OCR local com tesseract.js 7 (WASM em `worker_threads`, sem binário nativo).
- *
- * - Idioma `por` do pacote `@tesseract.js-data/por` (4.0.0_best_int, só LSTM),
- *   lido do disco via `langPath` absoluto e `cacheMethod: "none"`: nunca
- *   baixa do CDN e nunca grava cache (no Cloud Run o /tmp ocupa RAM).
- * - UM worker por processo, criado na primeira leitura e reaproveitado. O
- *   heap do WASM cresce com a maior imagem e nunca encolhe, então o worker é
- *   encerrado depois de `OCIOSO_MS` parado ou de `MAX_JOBS` leituras.
- * - Quem chama segura a fila (`semaforo.ts`, concorrência 1); aqui fica o
- *   prazo por passada: estourou, o worker é encerrado (é o único jeito de
- *   parar um reconhecimento em andamento) e o próximo pedido cria outro.
- *
- * Como os parâmetros foram escolhidos (1 núcleo, linhas montadas por
- * `linhas.ts`):
- *
- * 1) Imagens sintéticas da pesquisa (DANFE, NFC-e, boleto; "limpa" e "foto"
- *    com 1,8°, desfoque, luz irregular e JPEG) — campos-chave achados:
- *      cinza+normalise, PSM 3 ............ 42/46 (DANFE foto perdeu a linha dos totais)
- *      cinza+normalise, PSM 6 ............ 41/46 (boleto foto: nada)
- *      cinza+normalise, PSM 11 ........... 43/46 (quebra "1.543,90" em "1 543,90")
- *      cinza+normalise, PSM 3, dpi 300 ... 45/46, instável (dpi 400: 40/46)
- *      cinza+CLAHE, PSM 3, dpi 200–400 ... 46/46, mas o CLAHE custa 0,5–1,7 s/imagem
- *      original, PSM 3, dpi 200–400 ...... 46/46
- *      threshold fixo .................... 39–40/46; ampliar 2× imagem pequena: 42/46
- * 2) Corpus realista (NF-e, NFC-e, NFS-e nacional e SP, boleto, DAS, recibo;
- *    PNG limpo, foto ≤ 2400 px e "foto forte" borrada e torta) — campos
- *    (total, CNPJs, chave, data) achados:
- *      PSM 3: limpo 28/28, foto 27/28, foto forte 7/28
- *      PSM 6: limpo 28/28, foto 28/28, foto forte 16/28 — mas a DANFE limpa
- *             perde itens (2/7 contra 6/7) e o boleto sintético foto some
- *      PSM 11/12: foto forte 10/28; ampliar 1,5–2× ou `sharpen`: sem ganho, 1,5–2× mais lento
- *
- * Escolha: imagem original reduzida a ≤ 2400 px (ver `imagem.ts`),
- * `user_defined_dpi` 300 (sem ele o Tesseract estima a resolução da foto e
- * às vezes descarta blocos inteiros) e PSM 3 (segmentação automática);
- * quando a passada sai fraca (menos de 90 % dos caracteres com confiança
- * ≥ 70, ou quase nada lido), roda também o PSM 6 (bloco único) e fica com
- * a passada que tiver mais caracteres confiáveis. Imagem boa paga uma
- * passada só; foto ruim paga duas.
- */
 import { createWorker, OEM, PSM, type Page, type Worker } from "tesseract.js";
 import type { Worker as WorkerThread } from "node:worker_threads";
 import { arquivoDoPacote } from "./caminhos";
 import type { PalavraBruta } from "./linhas";
 import { comPrazo, ErroLeitura, unicoNoProcesso } from "./semaforo";
 
+// Sem DPI fixo o Tesseract estima a resolução da foto e às vezes descarta blocos.
 const DPI = "300";
+// Worker reciclado (ocioso ou após MAX_JOBS): o heap WASM do tesseract não encolhe.
 const OCIOSO_MS = 90_000;
 const MAX_JOBS = 50;
 const PRAZO_OCR_MS = 90_000;
-/** Confiança (0..100) para um caractere contar como "confiável". */
 const CONFIANCA_BOA = 70;
-/** Passada fraca: fração de caracteres confiáveis abaixo disso, ou menos de `MIN_CARACTERES_BONS`. */
 const FRACAO_BOA = 0.9;
 const MIN_CARACTERES_BONS = 150;
 
@@ -71,12 +30,12 @@ async function criarWorker(): Promise<Worker> {
   const langPath = arquivoDoPacote("@tesseract.js-data/por", "4.0.0_best_int");
   const worker = await createWorker("por", OEM.LSTM_ONLY, {
     langPath,
-    cacheMethod: "none",
+    cacheMethod: "none", // no Cloud Run o /tmp ocupa RAM
     gzip: true,
     // Sem isto, um erro dentro do worker vira exceção não tratada e derruba o processo.
     errorHandler: (e: unknown) => console.error("[leitor-nativo] erro no worker do Tesseract", e),
   });
-  // Erro fatal na thread (ex.: falta de memória no WASM): descarta o worker para o próximo pedido criar outro.
+  // Erro fatal na thread (ex.: falta de memória no WASM): descarta o worker.
   const thread = (worker as unknown as { worker?: WorkerThread }).worker;
   thread?.on("error", (e) => {
     console.error("[leitor-nativo] worker do Tesseract caiu", e);
@@ -98,7 +57,6 @@ function obterWorker(): Promise<Worker> {
   return estado.worker;
 }
 
-/** Encerra o worker (ocioso, reciclagem, prazo estourado ou fim dos testes). */
 export async function descartarTesseract(): Promise<void> {
   if (estado.timer) clearTimeout(estado.timer);
   estado.timer = null;
@@ -109,7 +67,6 @@ export async function descartarTesseract(): Promise<void> {
   try {
     await (await atual).terminate();
   } catch {
-    // já tinha caído ou nem chegou a subir
   }
 }
 
@@ -124,7 +81,7 @@ async function passada(worker: Worker, imagem: Buffer, modo: PSM): Promise<Passa
   const resultado = await comPrazo(
     worker.recognize(imagem, {}, { blocks: true, text: false }),
     PRAZO_OCR_MS,
-    () => void descartarTesseract(),
+    () => void descartarTesseract(), // única forma de parar um reconhecimento em andamento
   );
   const blocos = resultado.data.blocks ?? [];
   let bons = 0;
@@ -142,10 +99,6 @@ async function passada(worker: Worker, imagem: Buffer, modo: PSM): Promise<Passa
 
 const fraca = (p: Passada) => p.bons < MIN_CARACTERES_BONS || p.bons < FRACAO_BOA * p.total;
 
-/**
- * Reconhece uma imagem (PNG/JPEG): palavras com caixa em pixels e confiança
- * 0..1, mais a inclinação da página medida pelas linhas de base.
- */
 export async function reconhecer(imagem: Buffer): Promise<ResultadoOcrLocal> {
   if (estado.timer) clearTimeout(estado.timer);
   estado.timer = null;
@@ -167,7 +120,6 @@ export async function reconhecer(imagem: Buffer): Promise<ResultadoOcrLocal> {
     return { palavras: palavrasDoTesseract(melhor.blocos), inclinacao: inclinacaoDoTesseract(melhor.blocos) };
   } catch (e) {
     if (e instanceof ErroLeitura) throw e;
-    // falha dentro do worker: recomeça do zero no próximo pedido
     console.error("[leitor-nativo] falha no reconhecimento do Tesseract", e);
     await descartarTesseract();
     throw new ErroLeitura(MSG_OCR_FALHOU, { cause: e });
@@ -183,11 +135,6 @@ export async function reconhecer(imagem: Buffer): Promise<ResultadoOcrLocal> {
   }
 }
 
-/**
- * Converte a saída em blocos do Tesseract em palavras soltas (a linha é
- * remontada em `linhas.ts`). Descarta o "lixo" típico de bordas de tabela:
- * palavras sem letra nem dígito e com confiança baixa ("|", "—", "_").
- */
 function palavrasDoTesseract(blocos: BlocoTesseract[]): PalavraBruta[] {
   const palavras: PalavraBruta[] = [];
   for (const bloco of blocos)
@@ -203,12 +150,7 @@ function palavrasDoTesseract(blocos: BlocoTesseract[]): PalavraBruta[] {
   return palavras;
 }
 
-/**
- * Inclinação da página (dy/dx) pela linha de base que o Tesseract mede em
- * cada linha — bem mais precisa que comparar caixas de palavras. Mediana
- * ponderada pelo comprimento, sem as linhas curtas (< 100 px), que medem mal.
- * `undefined` se não houver linhas suficientes (aí `linhas.ts` estima).
- */
+// Linhas de base curtas (< 100 px) medem mal a inclinação.
 function inclinacaoDoTesseract(blocos: BlocoTesseract[]): number | undefined {
   const medidas: { s: number; peso: number }[] = [];
   for (const bloco of blocos)

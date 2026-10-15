@@ -12,10 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ActionResult } from "@/lib/acao";
 
-/**
- * Dialog genérico para formulários de CRUD: submete a uma server action,
- * mostra toast de erro/sucesso e fecha ao salvar.
- */
 export function FormDialog({
   trigger,
   titulo,

@@ -1,8 +1,3 @@
-/**
- * DANFE NFC-e (modelo 65): cabeçalho do emitente, itens "Código Descrição
- * Qtde Un Vl Unit Vl Total" (em 1 ou 2 linhas), totais, forma de
- * pagamento, consumidor, identificação e QR Code.
- */
 import type { DocumentoLido } from "../../../leitura-documento";
 import {
   avisosDeMarca,
@@ -44,7 +39,6 @@ type CaudaItem = {
   total: number;
 };
 
-/** Cauda numérica de um item de NFC-e: "3 SC x 32,90 98,70", "10UN X 1,85 18,50", "2,000 KG 6,90 13,80 T1". */
 export function lerCaudaItem(tokens: string[]): CaudaItem | null {
   let j = tokens.length - 1;
   if (j >= 1 && /^[A-Z]{1,2}\d{0,2}$/.test(tokens[j]) && DINHEIRO_TOKEN.test(tokens[j - 1])) j--;
@@ -67,7 +61,6 @@ export function lerCaudaItem(tokens: string[]): CaudaItem | null {
     quantidade = lerDecimal(tokens[j - 1]);
     j -= 2;
   } else if (j >= 1 && QTDE_TOKEN.test(tokens[j]) && UNIDADE_TOKEN.test(tokens[j - 1]) && j >= 2) {
-    // "UN 10" (unidade antes da quantidade)
     quantidade = lerDecimal(tokens[j]);
     unidade = tokens[j - 1].toUpperCase();
     j -= 2;
@@ -77,7 +70,6 @@ export function lerCaudaItem(tokens: string[]): CaudaItem | null {
   return { inicio: j + 1, quantidade, unidade, unitario, total };
 }
 
-/** Separa "001 7891000100103 FITA VEDA ROSCA" em descrição (sem nº de ordem e código). */
 function descricaoSemCodigo(tokens: string[]): string {
   let i = 0;
   if (tokens.length > 1 && /^\d{1,4}$/.test(tokens[0])) i++;
@@ -109,9 +101,6 @@ function lerItens(doc: Doc, de: number, ate: number): Item[] {
     let cauda = lerCaudaItem(tokens);
     const prox = i + 1 < ate ? doc.linhas[i + 1] : null;
     if (!cauda && prox) {
-      // foto inclinada: a cauda numérica pode ter se partido entre esta linha e a
-      // de baixo ("2 UN x 6,90" / "13,80"), ou o total ter subido para a linha da
-      // descrição ("... 25MM 13,80" / "2 UN x 6,90")
       const seguinte = prox.texto.trim().split(/\s+/);
       if (!lerCaudaItem(seguinte)) {
         const candidatos = [[...tokens, ...seguinte]];
@@ -129,7 +118,6 @@ function lerItens(doc: Doc, de: number, ate: number): Item[] {
       }
     }
     if (!cauda) {
-      // descrição de item em duas linhas (ou continuação)
       pendente = pendente ? `${pendente} ${l.texto}` : l.texto;
       continue;
     }
@@ -155,7 +143,6 @@ function lerItens(doc: Doc, de: number, ate: number): Item[] {
   return itens;
 }
 
-/** Formas de pagamento listadas (linha com meio + valor); vence a de maior valor. */
 function formaDePagamento(doc: Doc): {
   forma: FormaPagamento;
   varias: boolean;
@@ -196,7 +183,6 @@ export function interpretarNfce(doc: Doc, ancoras: Ancoras): Resultado {
   const iFimItens = acharLinha(doc, FIM_ITENS, iCab === -1 ? 0 : iCab + 1);
   const fimTopo = iCab !== -1 ? iCab : Math.min(fim, 6);
 
-  // Emitente: nome nas primeiras linhas, antes do CNPJ
   for (let i = 0; i < fimTopo; i++) {
     const l = doc.linhas[i];
     if (/DANFE|DOCUMENTO\s*AUXILIAR|NFC-?E|CNPJ|^\s*IE\b|CONSUMIDOR\s*ELETRONICA/.test(l.norm)) {
@@ -217,11 +203,9 @@ export function interpretarNfce(doc: Doc, ancoras: Ancoras): Resultado {
   else lido.emitente.documento = docChave ?? rotulado?.valor ?? null;
   lido.emitente.telefone = telefoneDoTrecho(textoDasLinhas(doc, 0, fimTopo));
 
-  // Itens
   if (iCab !== -1) lido.itens = lerItens(doc, iCab + 1, iFimItens === -1 ? fim : iFimItens);
   if (lido.itens.length === 0) notas.push("Itens não identificados na leitura; confira a lista de produtos do cupom.");
 
-  // Totais (depois dos itens)
   const faixaTotais = {
     de: iFimItens !== -1 ? iFimItens : iCab !== -1 ? iCab : 0,
     ate: fim,
@@ -256,12 +240,10 @@ export function interpretarNfce(doc: Doc, ancoras: Ancoras): Resultado {
     notas.push(`O valor do QR Code (${formatarReais(qr.valor)}) difere do total impresso; confira.`);
   }
 
-  // Forma de pagamento
   const pagamento = formaDePagamento(doc);
   lido.formaPagamento = pagamento.forma;
   if (pagamento.varias) notas.push("Pagamento em mais de um meio; foi considerado o de maior valor.");
 
-  // Consumidor
   const iConsumidor = acharLinha(doc, /\bCONSUMIDOR\b(?!\s*ELETRONICA)/);
   if (iConsumidor !== -1 && !/NAO\s*IDENTIFICADO/.test(doc.linhas[iConsumidor].norm)) {
     const trecho = textoDasLinhas(doc, iConsumidor, iConsumidor + 2);
@@ -272,7 +254,6 @@ export function interpretarNfce(doc: Doc, ancoras: Ancoras): Resultado {
   }
   if (!lido.destinatario.documento && qr?.destinatario) lido.destinatario.documento = qr.destinatario;
 
-  // Identificação: número, série, emissão
   for (const l of doc.linhas) {
     const m =
       /NFC-?E\s*N?\s*[º°O.]?\s*:?\s*(\d{1,9})\s*S[EÉ]RIE\s*:?\s*(\d{1,3})/.exec(l.norm) ??

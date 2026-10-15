@@ -1,17 +1,10 @@
 import { z } from "zod";
 
-/**
- * Limites de entrada compartilhados. Sem eles, um valor fora da faixa estoura
- * a coluna Int do banco (a mensagem do erro iria para a tela) e textos enormes
- * incham o banco e as telas.
- */
-
-/** Maior valor em centavos aceito num campo (R$ 20 milhões) — abaixo do teto do Int do PostgreSQL. */
+// Abaixo do teto do Int do PostgreSQL: o estouro levaria o erro do banco para a tela.
 export const MAX_CENTS = 2_000_000_000;
 
 export const centavos = z.number().int().min(0).max(MAX_CENTS, "Valor acima do limite permitido");
 
-/** `yyyy-mm-dd` que existe no calendário, entre 1900 e 2200. */
 function dataIsoValida(texto: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
   if (!m) return false;
@@ -27,5 +20,4 @@ export const dataIso = (obrigatoria = "Data é obrigatória") =>
 export const texto = (max: number, rotulo = "Texto") =>
   z.string().max(max, `${rotulo} pode ter no máximo ${max} caracteres`);
 
-/** Ids gerados pelo banco (cuid) — barra lixo grande antes de ir à consulta. */
 export const id = (obrigatorio = "Campo obrigatório") => z.string().min(1, obrigatorio).max(64);

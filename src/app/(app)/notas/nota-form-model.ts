@@ -1,12 +1,4 @@
-/**
- * Lógica pura do formulário de NF: codec string↔centavos/bp, totais e
- * geração de parcelas/rateio. Extraído de `nota-form.tsx` para ser testável
- * sem renderizar React — o componente só monta esses dados e reage a eventos.
- *
- * As regras agregadas (rateio soma 100%, parcelas fecham com o total) sempre
- * delegam para `services/rateio` e `services/parcelas`: o formulário nunca
- * reimplementa a regra, só formata a mesma resposta que o servidor usa.
- */
+// regras de rateio/parcelas vêm de services/ (as mesmas do servidor): não reimplementar aqui
 import type { FormaPagto, TipoDocumento, TipoItem } from "@prisma/client";
 import {
   centsParaEditavel,
@@ -31,8 +23,8 @@ export type ItemForm = {
   tipo: TipoItem;
   qtde: string;
   unidade: string;
-  unit: string; // moeda BR
-  desconto: string; // moeda BR
+  unit: string;
+  desconto: string;
 };
 
 export type RateioForm = { obraId: string; etapaId: string; percent: string };
@@ -43,13 +35,12 @@ export type NotaFormValues = {
   tipoDocumento: TipoDocumento;
   numero: string;
   dataCompra: string;
-  total: string; // moeda BR
+  total: string;
   formaPagto: FormaPagto;
   numParcelas: string;
   obs: string;
   anexoUrl: string;
   anexoNome: string;
-  /** chave de acesso lida da foto/PDF da NF-e (só na criação) */
   chaveNfe?: string;
   itens: ItemForm[];
   rateios: RateioForm[];
@@ -60,7 +51,6 @@ export function parseQtde(s: string): number {
   return parseFloat(s.replace(",", ".")) || 0;
 }
 
-/** Percentual editável → bp, tolerando campo vazio/parcial durante a digitação. */
 function percentFormParaBp(s: string): number {
   return percentEditavelParaBp(s) ?? 0;
 }
@@ -69,7 +59,6 @@ export function totalItemForm(item: ItemForm): number {
   return calcularTotalItem(parseQtde(item.qtde), moedaParaCents(item.unit), moedaParaCents(item.desconto));
 }
 
-/** Soma dos itens do formulário — mesma fórmula que `salvarNota` usa para validar. */
 export function somaItensForm(itens: ItemForm[]): number {
   return somaItens(
     itens.map((i) => ({
@@ -80,12 +69,10 @@ export function somaItensForm(itens: ItemForm[]): number {
   );
 }
 
-/** Soma do rateio em bp, via `validarRateio` — mesma regra que bloqueia o salvamento. */
 export function somaRateioForm(rateios: RateioForm[]): number {
   return validarRateio(rateios.map((r) => ({ fracaoBp: percentFormParaBp(r.percent) }))).somaBp;
 }
 
-/** Soma das parcelas, via `validarParcelas` — mesma regra que bloqueia o salvamento. */
 export function somaParcelasForm(parcelas: ParcelaForm[], totalCents: number): number {
   const { diferencaCents } = validarParcelas(
     parcelas.map((p) => ({ valorCents: moedaParaCents(p.valor) })),
@@ -94,7 +81,6 @@ export function somaParcelasForm(parcelas: ParcelaForm[], totalCents: number): n
   return totalCents + diferencaCents;
 }
 
-/** null quando o total ainda não foi informado — o caller decide como avisar. */
 export function gerarParcelasForm(opts: {
   totalCents: number;
   numParcelas: string;
@@ -115,7 +101,6 @@ export function gerarParcelasForm(opts: {
   }));
 }
 
-/** null quando há menos de 2 obras no rateio — o caller decide como avisar. */
 export function dividirIgualmenteForm(rateios: RateioForm[]): RateioForm[] | null {
   if (rateios.length < 2) return null;
   const bps = dividirIgualmente(rateios.length);
@@ -161,11 +146,6 @@ export function montarPayload(
   };
 }
 
-/**
- * Tipo de item sugerido para as linhas em branco ao trocar o tipo de
- * documento: guia é imposto/taxa (encargo); recibo e folha costumam ser mão
- * de obra (serviço); NF e outro voltam ao padrão (material).
- */
 export function tipoItemSugerido(tipo: TipoDocumento): TipoItem {
   switch (tipo) {
     case "GUIA":
@@ -178,15 +158,7 @@ export function tipoItemSugerido(tipo: TipoDocumento): TipoItem {
   }
 }
 
-/**
- * Situação de cada parcela do formulário de edição em relação ao pagamento
- * já registrado, pela mesma regra que `salvarNota` aplica
- * (`reconciliarParcelas`):
- * - `paga`: continua paga ao salvar;
- * - `reabre`: estava paga, mas valor/vencimento mudou → volta a ficar em aberto.
- * Parcelas sem pagamento não aparecem no mapa. As pagas que o usuário
- * removeu vêm em `pagasRemovidas`.
- */
+// parcela paga com valor/vencimento alterado reabre ao salvar (mesma regra de salvarNota)
 export function situacaoParcelasPagas(
   existentes: ParcelaExistente[],
   parcelas: ParcelaForm[],
@@ -212,11 +184,6 @@ export function situacaoParcelasPagas(
   return { porNumero, pagasRemovidas };
 }
 
-/**
- * Valores do formulário a partir de um documento lido (foto/PDF). Parcelas:
- * as do documento quando vieram e fecham com o total; senão as geradas pela
- * forma de pagamento, como o botão "Gerar parcelas" faria.
- */
 export function valoresDaLeitura(
   leitura: LeituraNormalizada,
   opts: { fornecedorId: string; anexoUrl: string; anexoNome: string; hoje: string },

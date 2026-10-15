@@ -1,28 +1,12 @@
-/**
- * Leitura automática de documentos de custo (foto ou PDF de NF-e/DANFE,
- * NFC-e, NFS-e, recibo, boleto, guia) para pré-preencher um lançamento.
- *
- * O leitor nativo (ver `leitor-nativo/`) só transcreve o documento no formato
- * `DocumentoLido`. Tudo o que decide o que entra no sistema fica aqui, puro e
- * testado: conversão para centavos, conferência dos dígitos verificadores
- * (CNPJ/CPF e chave de acesso), cruzamento da chave com o CNPJ e o número
- * lidos, coerência de cada item (qtde × unitário − desconto = total do item)
- * e a soma dos itens contra o total. O que não fecha vira aviso para o
- * usuário conferir — nada é "consertado" em silêncio, porque numa foto uma
- * diferença costuma ser erro de leitura, não arredondamento.
- */
+// O que não fecha vira aviso, nada é consertado em silêncio: numa foto, diferença costuma ser erro de leitura.
 import { z } from "zod";
 import type { FormaPagto, TipoDocumento, TipoItem } from "@prisma/client";
 import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { unitarioCoerente } from "./nfe-xml";
 
-// ---------------------------------------------------------------------------
-// Formato que o modelo devolve (structured output)
-//
-// Só tipos simples, `nullable` e `describe`: o schema vira JSON Schema para a
-// API, e restrições como regex/min/max não são garantidas pelo decodificador.
-// A validação de verdade acontece em `normalizarLeitura`.
+// Só tipos simples, nullable e describe: no JSON Schema da API, regex/min/max não são garantidos.
+// A validação de verdade acontece em normalizarLeitura.
 
 const valor = (descricao: string) => z.number().nullable().describe(descricao);
 const texto = (descricao: string) => z.string().nullable().describe(descricao);
@@ -90,14 +74,11 @@ export const documentoLidoSchema = z.object({
 
 export type DocumentoLido = z.infer<typeof documentoLidoSchema>;
 
-// ---------------------------------------------------------------------------
-// Dígitos verificadores
-
 function digitos(s: string | null | undefined): string {
   return (s ?? "").replace(/\D/g, "");
 }
 
-/** Módulo 11 com pesos 2..9 da direita para a esquerda (CNPJ e chave de acesso). */
+// Módulo 11 com pesos 2..9 da direita para a esquerda (CNPJ e chave de acesso).
 function dvModulo11(base: string): number {
   let soma = 0;
   let peso = 2;
@@ -131,16 +112,12 @@ export function documentoValido(valor: string): boolean {
   return d.length === 14 ? cnpjValido(d) : d.length === 11 ? cpfValido(d) : false;
 }
 
-/** Chave de acesso NF-e/NFC-e: 44 dígitos com o último sendo o DV módulo 11 dos 43 anteriores. */
 export function chaveAcessoValida(chave: string): boolean {
   const d = digitos(chave);
   return d.length === 44 && dvModulo11(d.slice(0, 43)) === Number(d[43]);
 }
 
-/**
- * Campos embutidos na chave de acesso (leiaute NF-e): cUF(2) AAMM(4) CNPJ(14)
- * mod(2) série(3) nNF(9) tpEmis(1) cNF(8) DV(1).
- */
+// Leiaute da chave: cUF(2) AAMM(4) CNPJ(14) mod(2) série(3) nNF(9) tpEmis(1) cNF(8) DV(1).
 export function dadosDaChave(chave: string) {
   const d = digitos(chave);
   return {
@@ -151,9 +128,6 @@ export function dadosDaChave(chave: string) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Normalização
-
 type ItemLeitura = {
   descricao: string;
   tipo: TipoItem;
@@ -161,23 +135,18 @@ type ItemLeitura = {
   unidade: string;
   unitCents: number;
   descontoCents: number;
-  /** = calcularTotalItem(qtde, unitCents, descontoCents) */
   totalCents: number;
 };
 
 export type LeituraNormalizada = {
   tipoDocumento: TipoDocumento;
-  /** rótulo do que foi reconhecido, para a tela: "NF-e (DANFE)", "Recibo"... */
   descricaoDocumento: string;
   fornecedor: {
     nome: string | null;
-    /** só dígitos; null quando não lido ou com dígito verificador inválido */
     documento: string | null;
-    /** dígitos como foram lidos, mesmo inválidos — para o usuário corrigir na conferência */
     documentoLido: string | null;
     fone: string | null;
   };
-  /** quem comprou / tomou o serviço — conferido, não gravado */
   destinatario: {
     nome: string | null;
     documento: string | null;
@@ -185,16 +154,12 @@ export type LeituraNormalizada = {
   };
   numero: string;
   serie: string | null;
-  /** só quando os 44 dígitos conferem com o DV */
   chaveNfe: string | null;
-  /** aaaa-mm-dd ou null quando não lida/ inválida */
   dataEmissao: string | null;
   totalCents: number;
   formaPagto: FormaPagto;
   itens: ItemLeitura[];
-  /** vazio quando o documento não traz vencimentos (ou eles não fecham com o total) */
   parcelas: { numero: number; valorCents: number; vencimento: string }[];
-  /** pontos para o usuário conferir antes de salvar */
   avisos: string[];
 };
 
@@ -230,13 +195,11 @@ const TIPO_ITEM_PADRAO: Record<TipoDocumento, TipoItem> = {
   OUTRO: "MATERIAL",
 };
 
-/** Reais (número do modelo) → centavos; negativos e não-números viram null. */
 export function reaisParaCents(v: number | null | undefined): number | null {
   if (v === null || v === undefined || !Number.isFinite(v) || v < 0) return null;
   return Math.round(v * 100);
 }
 
-/** Data AAAA-MM-DD existente no calendário; aceita também DD/MM/AAAA. */
 export function normalizarData(s: string | null | undefined): string | null {
   if (!s) return null;
   const t = s.trim();
@@ -248,20 +211,12 @@ export function normalizarData(s: string | null | undefined): string | null {
   return d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]) ? iso : null;
 }
 
-/**
- * Número de NF como o XML grava (`nNF` sem zeros à esquerda): "000.012.345"
- * → "12345". Mantém o mesmo número entre nota lida da foto e importada do
- * XML, para o bloqueio de duplicata (fornecedor + número) funcionar.
- */
+// Sem zeros à esquerda, como o nNF do XML: o bloqueio de duplicata (fornecedor + número) depende disso.
 export function normalizarNumeroNf(numero: string): string {
   const d = numero.replace(/[\s.\-/]/g, "");
   return /^\d+$/.test(d) ? String(Number(d)) : numero.trim();
 }
 
-/**
- * Converte o que o modelo leu num lançamento conferido. `hoje` (aaaa-mm-dd)
- * entra como parâmetro para a função continuar pura.
- */
 export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoLeitura {
   if (lido.tipo === "NAO_E_DOCUMENTO") {
     return {
@@ -283,8 +238,6 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
   }
   if (lido.observacoes?.trim()) avisos.push(lido.observacoes.trim());
 
-  // Chave de acesso: só vale com o dígito verificador correto. Ela também
-  // carrega o CNPJ do emitente e o número da nota — servem de conferência.
   let chaveNfe: string | null = null;
   const chaveLida = digitos(lido.chaveAcesso);
   if (chaveLida) {
@@ -293,7 +246,6 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
   }
   const daChave = chaveNfe ? dadosDaChave(chaveNfe) : null;
 
-  // Fornecedor
   const documentoLido = digitos(lido.emitente.documento) || null;
   let documento: string | null = documentoLido;
   if (documento && !documentoValido(documento)) {
@@ -308,14 +260,12 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
     }
   }
 
-  // Destinatário / tomador
   const destinatarioLido = digitos(lido.destinatario.documento) || null;
   const destinatarioValido = destinatarioLido && documentoValido(destinatarioLido) ? destinatarioLido : null;
   if (destinatarioLido && !destinatarioValido) {
     avisos.push(`O CNPJ/CPF do destinatário lido (${destinatarioLido}) não confere com os dígitos verificadores.`);
   }
 
-  // Número
   let numero = (lido.numero ?? "").trim();
   if (ehNota && numero) numero = normalizarNumeroNf(numero);
   if (daChave) {
@@ -327,7 +277,6 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
   }
   if (ehNota && !numero) avisos.push("Número da nota não encontrado — preencha antes de salvar.");
 
-  // Data
   const dataEmissao = normalizarData(lido.dataEmissao);
   if (lido.dataEmissao && !dataEmissao) avisos.push("A data de emissão lida é inválida — confira.");
   if (!lido.dataEmissao) avisos.push("Data de emissão não encontrada — usada a data de hoje.");
@@ -335,8 +284,7 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
     avisos.push("A data de emissão lida está no futuro — confira.");
   }
 
-  // Itens: o total da linha manda; o unitário é ajustado para reproduzi-lo
-  // (mesma regra da importação do XML — o excedente vira desconto do item).
+  // o total da linha manda: o unitário é ajustado e o excedente vira desconto (como no XML)
   const tipoPadrao = TIPO_ITEM_PADRAO[tipoDocumento];
   const itens: ItemLeitura[] = [];
   for (const [i, it] of lido.itens.entries()) {
@@ -389,7 +337,6 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
   acessorio("Frete", reaisParaCents(lido.valorFrete), "FRETE");
   acessorio("Impostos e despesas acessórias (IPI, ST, seguro, outras)", reaisParaCents(lido.valorOutrasDespesas), "ENCARGO");
 
-  // Desconto no total que não está nos itens: entra no maior item, como no XML.
   const descontoGeral = reaisParaCents(lido.descontoGeral) ?? 0;
   if (descontoGeral > 0 && itens.length > 0) {
     const maior = itens.reduce((m, it) => (it.totalCents > m.totalCents ? it : m), itens[0]);
@@ -399,7 +346,6 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
     }
   }
 
-  // Total
   const somaItens = itens.reduce((a, it) => a + it.totalCents, 0);
   let totalCents = reaisParaCents(lido.valorTotal) ?? 0;
   if (totalCents <= 0) {
@@ -412,8 +358,6 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
   }
 
   if (itens.length === 0 && totalCents > 0) {
-    // Sem itens legíveis (recibo, guia, foto cortada): uma linha com o total,
-    // para o custo entrar na obra; o usuário detalha se quiser.
     const rotulo = numero ? `${DESCRICAO_TIPO[lido.tipo]} nº ${numero}` : DESCRICAO_TIPO[lido.tipo];
     itens.push({
       descricao: lido.emitente.nome ? `${rotulo} — ${lido.emitente.nome}` : rotulo,
@@ -431,7 +375,7 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
     );
   }
 
-  // Parcelas: as do documento, se fecham com o total; senão o formulário gera.
+  // parcelas que não fecham com o total são descartadas: o formulário gera as suas
   const parcelasLidas = lido.parcelas
     .map((p) => ({ vencimento: normalizarData(p.vencimento), valorCents: reaisParaCents(p.valor) }))
     .filter((p): p is { vencimento: string; valorCents: number } => !!p.vencimento && !!p.valorCents);

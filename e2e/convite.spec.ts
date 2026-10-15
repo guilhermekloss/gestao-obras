@@ -2,11 +2,6 @@ import { test, expect } from "./fixtures";
 import { prisma } from "../src/lib/prisma";
 import { gerarToken, hashToken } from "../src/lib/token";
 
-/**
- * Convite por link: a pessoa se cadastra sozinha, entra com o papel e as
- * obras do convite, e o link não serve para um segundo cadastro.
- */
-
 const EMAIL = `convite.e2e-${Date.now()}@obras.local`;
 
 test.afterEach(async () => {
@@ -45,18 +40,15 @@ test("cadastro pelo link com acesso limitado a uma obra", async ({ page, browser
   await page.click("button[type=submit]");
   await page.waitForURL("**/diario");
 
-  // só a obra liberada aparece; a outra não abre nem pela URL
   await page.goto("/obras");
   await expect(page.getByText("Lote 03")).toBeVisible();
   await expect(page.getByText("Lote 19")).not.toBeVisible();
   const resposta = await page.goto(`/obras/${lote19.id}`);
   expect(resposta?.status()).toBe(404);
 
-  // o cadastro ficou no log de auditoria
   const usuario = await prisma.usuario.findUniqueOrThrow({ where: { email: EMAIL } });
   expect(await prisma.atividade.count({ where: { usuarioId: usuario.id, tipo: "convite.aceito" } })).toBe(1);
 
-  // o mesmo link não cria uma segunda conta
   const outro = await browser.newPage();
   await outro.goto(`/convite/${token}`);
   await expect(outro.getByText("Convite indisponível")).toBeVisible();

@@ -21,12 +21,8 @@ import { CondicaoBadge } from "../condicao-badge";
 import { BotaoImprimir } from "./botao-imprimir";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 
-/**
- * Na impressão some tudo que é do app (menu lateral, cabeçalho, menu inferior,
- * toasts) e fica só o documento. Seletores amplos são seguros porque esta
- * página não usa <nav>/<header> no próprio conteúdo. Vai como string crua
- * (dangerouslySetInnerHTML) para o React não escapar o CSS.
- */
+// seletores amplos são seguros: esta página não usa <nav>/<header> no conteúdo.
+// String crua (dangerouslySetInnerHTML) para o React não escapar o CSS.
 const CSS_IMPRESSAO = `
 @media print {
   @page { size: A4; margin: 12mm 14mm; }
@@ -189,7 +185,7 @@ export default async function RdoDetalhePage({
   );
 }
 
-/** "segunda-feira" → "Segunda-feira" (o `capitalize` do CSS daria "Segunda-Feira"). */
+// não usa `capitalize` do CSS: daria "Segunda-Feira"
 function diaDaSemana(dia: Date): string {
   const nome = format(dia, "EEEE", { locale: ptBR });
   return nome.charAt(0).toUpperCase() + nome.slice(1);

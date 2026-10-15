@@ -43,7 +43,7 @@ describe("curvaAbc", () => {
         itens: [
           item("Cimento CP-II", 3_000, { qtde: 1, unidade: "sc" }),
           item("cimento  cp-ii", 6_000, { qtde: 2, unidade: "SC" }),
-          item("Cimento CP-II", 9_000, { qtde: 3, unidade: "KG" }), // outra unidade
+          item("Cimento CP-II", 9_000, { qtde: 3, unidade: "KG" }),
         ],
       },
       { fornecedorId: "f2", fracaoBp: 10_000, itens: [item("CIMENTO CP-II", 3_000, { qtde: 1, unidade: "SC" })] },
@@ -57,7 +57,6 @@ describe("curvaAbc", () => {
     expect(saco.custoCents).toBe(12_000);
     expect(saco.precoMedioCents).toBe(3_000);
     expect(saco.numFornecedores).toBe(2);
-    // grafia exibida = a do maior item
     expect(saco.descricao).toBe("cimento  cp-ii");
   });
 
@@ -77,10 +76,10 @@ describe("curvaAbc", () => {
     ];
     const { insumos, resumo } = curvaAbc(notas);
     expect(insumos.map((i) => [i.descricao, i.classe])).toEqual([
-      ["Aço", "A"], // 70% acumulado
-      ["Concreto", "A"], // começa em 70% → cruza 80%, ainda A
-      ["Areia", "B"], // começa em 85%
-      ["Prego", "C"], // começa em 95%
+      ["Aço", "A"],
+      ["Concreto", "A"],
+      ["Areia", "B"],
+      ["Prego", "C"],
       ["Arame", "C"],
     ]);
     expect(insumos[0].participacaoBp).toBe(7_000);
@@ -173,7 +172,7 @@ describe("alertasParcelasVencidas", () => {
   it("só conta as vencidas antes de hoje e agrupa por nota, mais antiga primeiro", () => {
     const alertas = alertasParcelasVencidas(
       [
-        parcela("a", 100, new Date(2026, 9, 14, 9, 0)), // vence hoje: não está vencida
+        parcela("a", 100, new Date(2026, 9, 14, 9, 0)),
         parcela("b", 200, new Date(2026, 9, 10)),
         parcela("b", 300, new Date(2026, 8, 10)),
         parcela("c", 400, new Date(2026, 9, 1)),

@@ -30,7 +30,6 @@ const rdoSchema = z.object({
   climaManha: climaSchema,
   climaTarde: climaSchema,
   condicao: z.enum(CondicaoTrabalho).optional(),
-  // quantidades são validadas em detalhe por `validarEfetivo`/`validarEquipamentos`
   efetivo: z.array(z.object({ funcao: z.string().max(100), qtd: z.number() })).max(100),
   equipamentos: z.array(z.object({ nome: z.string().max(100), qtd: z.number() })).max(100),
   atividades: texto(10_000, "O texto das atividades").trim().min(1, "Descreva as atividades do dia"),
@@ -49,7 +48,6 @@ type RdoInput = z.infer<typeof rdoSchema>;
 
 const MSG_DUPLICADO = "Já existe um RDO desta obra nesta data.";
 
-/** Valida o input e devolve os campos prontos para o Prisma (exceto fotos e autor). */
 function prepararRdo(input: RdoInput) {
   const parsed = rdoSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, erro: parsed.error.issues[0].message };
@@ -77,7 +75,6 @@ function prepararRdo(input: RdoInput) {
   };
 }
 
-/** "Registrou o RDO de 14/10/2026 — Lote 03" */
 async function anotarRdo(verbo: string, rdo: { id: string; obraId: string; data: Date }) {
   const obra = await prisma.obra.findUnique({ where: { id: rdo.obraId }, select: { nome: true } });
   anotarAtividade({
@@ -88,11 +85,8 @@ async function anotarRdo(verbo: string, rdo: { id: string; obraId: string; data:
   });
 }
 
-/**
- * Foto nova num RDO precisa ter sido enviada pelo próprio usuário: ligar ao
- * RDO um arquivo de outra pessoa (ex.: anexo de um lançamento) daria acesso a
- * ele a quem vê o RDO (ver `api/fotos`).
- */
+// só fotos do próprio usuário: ligar ao RDO um arquivo alheio (ex.: anexo de lançamento)
+// o exporia a quem vê o RDO (ver api/fotos)
 async function fotosSaoDoUsuario(usuarioId: string, urls: string[]): Promise<boolean> {
   const nomes = [...new Set(urls.map((u) => nomeDaUrlArquivo(u)).filter((n) => n !== null))];
   if (nomes.length === 0) return true;
@@ -102,7 +96,7 @@ async function fotosSaoDoUsuario(usuarioId: string, urls: string[]): Promise<boo
 
 const MSG_FOTO_ALHEIA = "Foto inválida: envie as fotos de novo por este formulário.";
 
-/** Violação do @@unique([obraId, data]) — corrida entre a checagem e a gravação. */
+// @@unique([obraId, data]): corrida entre a checagem e a gravação
 function ehDuplicado(erro: unknown): boolean {
   return erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002";
 }
@@ -164,7 +158,6 @@ export const atualizarRdo = acaoDeEscrita(
     if (!p.ok) return p;
     exigirAcessoObra(user, p.dados.obraId);
 
-    // mudar obra ou data não pode colidir com outro RDO da mesma obra+data
     const conflito = await prisma.diarioObra.findFirst({
       where: { obraId: p.dados.obraId, data: p.dados.data, id: { not: id } },
       select: { id: true },
@@ -190,17 +183,12 @@ export const atualizarRdo = acaoDeEscrita(
     }
 
     await anotarRdo("Editou", { id, obraId: p.dados.obraId, data: p.dados.data });
-    // o RDO mudou de obra: a página da obra antiga também lista o RDO
     if (rdo.obraId !== p.dados.obraId) revalidatePath(`/obras/${rdo.obraId}`);
     return { ok: true };
   },
 );
 
-/**
- * Exclui o RDO. Com `destino`, redireciona após excluir (usado na página de
- * detalhe, que deixa de existir) — por isso a revalidação é feita aqui dentro
- * e não pela opção `revalidar` do wrapper.
- */
+// revalida aqui, não pelo `revalidar` do wrapper: com `destino`, redireciona após excluir
 export const excluirRdo = acaoDeEscrita(
   { atividade: "rdo.excluir" },
   async (user, id: string, destino?: string): Promise<ActionResult> => {

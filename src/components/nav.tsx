@@ -22,7 +22,7 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   papeis: Role[];
-  mobile?: boolean; // aparece na bottom nav
+  mobile?: boolean;
 };
 
 const ITENS: NavItem[] = [

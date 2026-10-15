@@ -1,15 +1,3 @@
-/**
- * Normalização de números, valores em reais e datas como aparecem em
- * documentos brasileiros lidos por OCR ou pela camada de texto do PDF.
- *
- * Tudo puro: nada de `Date.now()`; datas são validadas no calendário com
- * `Date.UTC`.
- */
-
-// ---------------------------------------------------------------------------
-// Texto
-
-/** Maiúsculas sem acento, preservando o comprimento (índices batem com o original). */
 export function normalizarTexto(s: string): string {
   let r = "";
   for (const c of s) {
@@ -21,15 +9,10 @@ export function normalizarTexto(s: string): string {
   return r;
 }
 
-/** Espaços colapsados e pontas aparadas. */
 export function limparEspacos(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-// ---------------------------------------------------------------------------
-// Confusões de OCR em campos numéricos
-
-/** Letras que o OCR costuma trocar por dígitos (só para tokens "quase numéricos"). */
 export const CONFUSAO_OCR: Record<string, string> = {
   O: "0",
   o: "0",
@@ -54,17 +37,12 @@ export const CONFUSAO_OCR: Record<string, string> = {
   q: "9",
 };
 
-/** Proporção de dígitos entre os caracteres alfanuméricos. */
 function proporcaoDigitos(s: string): number {
   const alnum = s.replace(/[^0-9A-Za-z]/g, "");
   if (!alnum) return 0;
   return alnum.replace(/\D/g, "").length / alnum.length;
 }
 
-/**
- * Troca letras confundíveis por dígitos num token que já é quase numérico
- * (≥ 60% de dígitos) — ou sempre, com `forcar` (campo sabidamente numérico).
- */
 export function corrigirOcrNumerico(token: string, forcar = false): string {
   if (!forcar && proporcaoDigitos(token) < 0.6) return token;
   let r = "";
@@ -72,18 +50,10 @@ export function corrigirOcrNumerico(token: string, forcar = false): string {
   return r;
 }
 
-// ---------------------------------------------------------------------------
-// Valores em reais
-
-/** Classe de caractere "dígito ou letra confundível" usada nos padrões de valor. */
 const K = "[0-9OoDIl|SZB]";
 const PREFIXO_RS = "(?:R\\s?[$S5]\\.?\\s?)";
 
-/**
- * Valor monetário no formato brasileiro: "1.234,56", "R$ 1.234,56",
- * "R$1 234,56" (milhar com espaço só depois de R$), "-3,00". Não casa
- * quantidades com 3+ casas ("20,0000") nem percentuais ("5,00%").
- */
+// "R$1 234,56": milhar com espaço só depois de R$; não casa "20,0000" nem "5,00%".
 const PADRAO_DINHEIRO = new RegExp(
   `(?<![0-9A-Za-z.,])(?:${PREFIXO_RS}-?\\s?${K}{1,3}(?: ${K}{3})+,${K}{2}|${PREFIXO_RS}?-?\\s?(?:${K}{1,3}(?:\\.${K}{3})+|${K}+),${K}{2})(?![0-9A-Za-z,]|\\s?%)`,
   "g",
@@ -96,11 +66,6 @@ type Encontrado<T> = {
   texto: string;
 };
 
-/**
- * Converte um valor em reais escrito como no Brasil para número.
- * Aceita "1.234,56", "1 234,56", "R$1.234,56", "RS 12,50", "1234.56" (PDF),
- * "1.234" (milhar) e "150". Devolve null quando não é um número.
- */
 export function lerValor(s: string | null | undefined): number | null {
   if (!s) return null;
   let t = s.trim().replace(new RegExp(`^${PREFIXO_RS}`), "");
@@ -108,7 +73,6 @@ export function lerValor(s: string | null | undefined): number | null {
   const negativo = /^-/.test(t) || /^\(.*\)$/.test(t);
   t = t.replace(/[-()\s]/g, "");
   if (!t) return null;
-  // quem chama já sabe que é um valor: troca letras confundíveis se houver algum dígito
   t = corrigirOcrNumerico(t, /\d/.test(t));
   if (!/^[\d.,]+$/.test(t) || !/\d/.test(t)) return null;
   const ult = Math.max(t.lastIndexOf(","), t.lastIndexOf("."));
@@ -129,11 +93,7 @@ export function lerValor(s: string | null | undefined): number | null {
   return arredondar2(negativo ? -numero : numero);
 }
 
-/**
- * Número decimal brasileiro com qualquer número de casas (quantidades e
- * unitários: "20,0000", "32,9000", "1.234,5678"). Com só ponto e 3 dígitos
- * depois ("1.500") o ponto é milhar; com vírgula é sempre decimal.
- */
+// Só ponto e 3 dígitos depois ("1.500"): o ponto é milhar; com vírgula é sempre decimal.
 export function lerDecimal(s: string | null | undefined): number | null {
   if (!s) return null;
   let t = s.trim().replace(/\s/g, "");
@@ -160,14 +120,12 @@ export function arredondar2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Todos os valores em reais de um texto, na ordem. */
 export function encontrarValores(texto: string): Encontrado<number>[] {
   const r: Encontrado<number>[] = [];
   PADRAO_DINHEIRO.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = PADRAO_DINHEIRO.exec(texto))) {
     const bruto = m[0];
-    // exige ao menos um dígito de verdade (evita casar palavras)
     if (!/\d/.test(bruto)) continue;
     const valor = lerValor(bruto);
     if (valor === null) continue;
@@ -181,21 +139,17 @@ export function encontrarValores(texto: string): Encontrado<number>[] {
   return r;
 }
 
-/** "-", "–" ou "—" sozinhos: campo impresso vazio (vale zero). */
 export function ehTraco(s: string): boolean {
   return /^\s*[-–—]+\s*$/.test(s);
 }
 
-/** Formata em reais para mensagens: 1234.5 → "R$ 1.234,50" (sem Intl, determinístico). */
+// Sem Intl: saída determinística.
 export function formatarReais(v: number): string {
   const centavos = Math.round(Math.abs(v) * 100);
   const inteiro = String(Math.floor(centavos / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const dec = String(centavos % 100).padStart(2, "0");
   return `${v < 0 ? "-" : ""}R$ ${inteiro},${dec}`;
 }
-
-// ---------------------------------------------------------------------------
-// Datas
 
 const MESES: Record<string, number> = {
   JAN: 1,
@@ -215,7 +169,6 @@ const MESES: Record<string, number> = {
 const NOMES_MESES =
   "JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO|JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ";
 
-/** Data AAAA-MM-DD válida no calendário (ano entre 1990 e 2100), ou null. */
 export function montarData(ano: number, mes: number, dia: number): string | null {
   if (!Number.isInteger(ano) || !Number.isInteger(mes) || !Number.isInteger(dia)) return null;
   if (ano < 1990 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
@@ -224,10 +177,6 @@ export function montarData(ano: number, mes: number, dia: number): string | null
   return `${String(ano).padStart(4, "0")}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 }
 
-/**
- * Ano com 2 dígitos: 20aa quando não passa de `anoReferencia + 1`; senão
- * 19aa. Sem referência, 00–69 → 20aa.
- */
 export function anoCompleto(aa: number, anoReferencia?: number): number {
   if (aa >= 100) return aa;
   if (anoReferencia) return 2000 + aa <= anoReferencia + 1 ? 2000 + aa : 1900 + aa;
@@ -245,10 +194,6 @@ const DATA_EXTENSO = new RegExp(
 );
 const DATA_ISO = /(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/g;
 
-/**
- * Todas as datas de um texto, na ordem: dd/mm/aaaa, dd.mm.aaaa, dd-mm-aaaa,
- * dd/mm/aa, aaaa-mm-dd e por extenso ("15 de setembro de 2026", "15/set/2026").
- */
 export function encontrarDatas(texto: string, anoReferencia?: number): Encontrado<string>[] {
   const r: Encontrado<string>[] = [];
   const corrigir = (s: string) => Number(corrigirOcrNumerico(s, true));
@@ -297,20 +242,18 @@ export function encontrarDatas(texto: string, anoReferencia?: number): Encontrad
   return r.sort((a, b) => a.inicio - b.inicio).filter((d, i, todas) => i === 0 || d.inicio >= todas[i - 1].fim);
 }
 
-/** Primeira data de um texto, ou null. */
 export function lerData(texto: string | null | undefined, anoReferencia?: number): string | null {
   if (!texto) return null;
   return encontrarDatas(texto, anoReferencia)[0]?.valor ?? null;
 }
 
-/** Soma dias a uma data AAAA-MM-DD (UTC, sem fuso). */
+// Em UTC: sem deslocamento de fuso.
 export function somarDias(iso: string, dias: number): string {
   const [a, m, d] = iso.split("-").map(Number);
   const dt = new Date(Date.UTC(a, m - 1, d) + dias * 86_400_000);
   return dt.toISOString().slice(0, 10);
 }
 
-/** Diferença em dias (b − a) entre duas datas AAAA-MM-DD. */
 export function diferencaDias(a: string, b: string): number {
   const ms = (iso: string) => {
     const [y, m, d] = iso.split("-").map(Number);
@@ -318,9 +261,6 @@ export function diferencaDias(a: string, b: string): number {
   };
   return Math.round((ms(b) - ms(a)) / 86_400_000);
 }
-
-// ---------------------------------------------------------------------------
-// Valor por extenso (recibos)
 
 const UNIDADES: Record<string, number> = {
   ZERO: 0,
@@ -374,7 +314,6 @@ const UNIDADES: Record<string, number> = {
   NOVECENTAS: 900,
 };
 
-/** Número por extenso de um trecho (sem "reais"/"centavos"); null se houver palavra desconhecida. */
 function extensoInteiro(palavras: string[]): number | null {
   let total = 0;
   let grupo = 0;
@@ -399,7 +338,6 @@ function extensoInteiro(palavras: string[]): number | null {
   return algum ? total + grupo : null;
 }
 
-/** "mil e quinhentos reais e cinquenta centavos" → 1500.5; null quando não reconhece. */
 export function extensoParaNumero(texto: string): number | null {
   const norm = normalizarTexto(texto).replace(/[^A-Z ]/g, " ");
   const palavras = norm.split(/\s+/).filter(Boolean);

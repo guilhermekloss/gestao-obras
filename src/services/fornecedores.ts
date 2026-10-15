@@ -13,7 +13,6 @@ export const fornecedorSchema = z.object({
 
 type FornecedorInput = z.infer<typeof fornecedorSchema>;
 
-/** Fornecedor cadastrado com este CNPJ/CPF, com ou sem máscara (o campo é texto livre). */
 export async function buscarFornecedorPorDocumento(documento: string, ignorarId?: string) {
   return prisma.fornecedor.findFirst({
     where: { cnpj: { in: variantesDocumento(documento) }, ...(ignorarId ? { NOT: { id: ignorarId } } : {}) },
@@ -21,12 +20,7 @@ export async function buscarFornecedorPorDocumento(documento: string, ignorarId?
   });
 }
 
-/**
- * Regra única de CNPJ/CPF do cadastro: dígitos verificadores corretos, gravado
- * com máscara e sem repetir em outro fornecedor (com ou sem máscara). Vazio é
- * permitido. `atual` (edição): um documento que não mudou passa sem checar o
- * DV, para não travar a edição de cadastros antigos.
- */
+// Na edição, documento igual ao `atual` passa sem checar o DV, para não travar cadastros antigos.
 export async function validarDocumentoFornecedor(
   cnpj: string | undefined,
   opts: { ignorarId?: string; atual?: string | null } = {},
@@ -45,7 +39,6 @@ export async function validarDocumentoFornecedor(
   return { ok: true, cnpj: gravar };
 }
 
-/** Cria um fornecedor após conferir o CNPJ/CPF — usado pelo cadastro completo, pela criação rápida na NF e pelas importações. */
 export async function criarFornecedorValidado(
   dados: FornecedorInput,
 ): Promise<{ ok: true; fornecedor: Fornecedor } | { ok: false; erro: string }> {

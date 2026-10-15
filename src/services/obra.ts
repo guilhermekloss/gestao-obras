@@ -1,11 +1,7 @@
 import { BP_TOTAL } from "./rateio";
 import { formatarPercentBp } from "@/lib/format";
 
-/**
- * Avanço físico da obra = média das etapas ponderada pelo orçamento previsto.
- * Etapas sem orçamento entram com peso igual entre si quando nenhuma etapa
- * tem orçamento; caso contrário, etapas sem orçamento não pesam.
- */
+// Ponderado pelo orçamento; etapa sem orçamento não pesa, salvo se nenhuma tiver (aí média simples).
 export function avancoPonderado(
   etapas: { orcamentoCents: number; percentBp: number }[],
 ): number {
@@ -24,7 +20,6 @@ export function avancoPonderado(
   return Math.round(somaPonderada / pesoTotal);
 }
 
-/** Garante que o avanço informado não regride nem passa de 100%. */
 export function validarAvanco(
   novoPercentBp: number,
   atualPercentBp: number,

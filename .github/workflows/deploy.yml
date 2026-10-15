@@ -1,12 +1,9 @@
 name: Deploy
 
-# main → CI → imagens no Artifact Registry → migrations → nova revisão sem tráfego
-# → smoke test na URL da revisão → 100% do tráfego. Se algo falhar antes do último
-# passo, os usuários continuam na revisão anterior.
+# CI → imagens → migrations → revisão sem tráfego → smoke test → 100%; falha antes disso mantém a revisão anterior.
 on:
   push:
     branches: [main]
-    # Mudanças só de documentação não geram deploy.
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -35,7 +32,7 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     permissions:
       contents: read
-      id-token: write # OIDC → Workload Identity Federation (sem chave de service account)
+      id-token: write
     env:
       APP: gestao-obras
       REGION: ${{ vars.GCP_REGION }}
@@ -108,7 +105,6 @@ jobs:
       - name: Nova revisão sem tráfego
         id: candidata
         run: |
-          # Nome da revisão carrega o nº do deploy e o commit: gestao-obras-r12-1-63fe7f9
           gcloud run deploy "$APP" --region "$REGION" --image "$REGISTRY/app:$GITHUB_SHA" \
             --revision-suffix "r${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA::7}" \
             --no-traffic --tag candidata --quiet

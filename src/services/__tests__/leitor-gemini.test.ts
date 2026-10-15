@@ -125,7 +125,7 @@ describe("analisarComGemini", () => {
 
   it("resposta cortada ou bloqueada vira mensagem amigável", async () => {
     process.env.GEMINI_API_KEY = "chave";
-    process.env.GEMINI_MODELO_REFORCO = ""; // sem reforço
+    process.env.GEMINI_MODELO_REFORCO = "";
     generateContent.mockResolvedValueOnce(resposta("{", "MAX_TOKENS"));
     await expect(analisarComGemini(foto, "image/jpeg")).rejects.toThrow(/documento inteiro/);
     generateContent.mockResolvedValueOnce(resposta("", "SAFETY"));
@@ -134,7 +134,7 @@ describe("analisarComGemini", () => {
 
   it("erros da API viram mensagens para o usuário", async () => {
     process.env.GEMINI_API_KEY = "chave";
-    process.env.GEMINI_MODELO_REFORCO = ""; // sem reforço
+    process.env.GEMINI_MODELO_REFORCO = "";
     const casos: [number, RegExp][] = [
       [403, /sem permissão/],
       [429, /Muitas análises/],

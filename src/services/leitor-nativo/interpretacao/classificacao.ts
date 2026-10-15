@@ -1,8 +1,3 @@
-/**
- * Classificação do documento: primeiro as âncoras com dígito verificador
- * (chave de acesso → modelo 55/65; chave NFS-e; linha digitável de boleto
- * ou de arrecadação); sem âncora, pontuação por palavras-chave.
- */
 import type { DocumentoLido } from "../../leitura-documento";
 import type { Ancoras } from "./comum";
 import type { Doc } from "./documento";
@@ -93,7 +88,7 @@ export function pontuar(doc: Doc): Record<Exclude<TipoDocumento, "NAO_E_DOCUMENT
   for (const [tipo, regras] of Object.entries(PONTOS) as [Exclude<TipoDocumento, "NAO_E_DOCUMENTO">, Regra[]][]) {
     r[tipo] = regras.reduce((s, [re, p]) => s + (re.test(n) ? p : 0), 0);
   }
-  // "RECIBO" no topo vale mais (e "Recibo do Pagador" é parte do boleto)
+  // "Recibo do Pagador" faz parte do boleto.
   const topo = doc.linhas
     .slice(0, 5)
     .map((l) => l.norm)
@@ -105,7 +100,7 @@ export function pontuar(doc: Doc): Record<Exclude<TipoDocumento, "NAO_E_DOCUMENT
   return r;
 }
 
-/** Tipo de arrecadação: tributos (segmento 5 ou 1, ou palavras de tributo) → GUIA; consumo → OUTRO. */
+// Segmento 1 (prefeituras) ou 5 (órgãos governamentais) da arrecadação = tributo.
 function tipoArrecadacao(segmento: string, doc: Doc): TipoDocumento {
   if (segmento === "5" || segmento === "1") return "GUIA";
   if (/IMPOSTO|TRIBUTO|\bTAXA\b|\bMULTA\b|\bDARF\b|\bIPTU\b|\bIPVA\b|DETRAN|PREFEITURA/.test(doc.normCompleto))
@@ -134,7 +129,6 @@ export function classificar(doc: Doc, ancoras: Ancoras): TipoDocumento {
   if (util < 40) return "NAO_E_DOCUMENTO";
   const temDocumento = ancoras.documentos.length > 0;
   if (maximo >= 3) {
-    // OUTRO só com pontuação própria (cupom, comprovante...) e algum valor
     if (melhor === "OUTRO" && !ancoras.temValor) return "NAO_E_DOCUMENTO";
     return melhor;
   }

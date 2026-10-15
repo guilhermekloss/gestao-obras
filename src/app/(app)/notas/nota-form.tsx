@@ -75,9 +75,7 @@ export function NotaForm({
   obras: ObraOption[];
   defaultValues?: Partial<NotaFormValues>;
   notaId?: string;
-  /** Parcelas gravadas (edição): marca no formulário quais seguem pagas ao salvar. */
   parcelasExistentes?: ParcelaExistente[];
-  /** Emitente lido do documento (foto/PDF) que ainda não está cadastrado. */
   fornecedorSugerido?: { nome: string; documento: string | null };
 }) {
   const router = useRouter();
@@ -125,7 +123,6 @@ export function NotaForm({
   const ehNF = exigeNumero(tipoDocumento);
   const situacaoPagas = situacaoParcelasPagas(parcelasExistentes, parcelas);
 
-  /** Ao trocar o tipo, sugere o tipo de item nas linhas ainda em branco. */
   function aoMudarTipoDocumento(novo: NotaFormValues["tipoDocumento"]) {
     const sugerido = tipoItemSugerido(novo);
     getValues("itens").forEach((item, i) => {
@@ -180,8 +177,7 @@ export function NotaForm({
     setValue("anexoNome", "");
   }
 
-  // Sem useMemo: `watch("itens")` devolve o mesmo array mutado pelo RHF, então
-  // memoizar pela referência deixava a soma parada no valor inicial.
+  // sem useMemo: `watch("itens")` devolve o mesmo array mutado pelo RHF (a soma ficaria parada)
   const somaItensCents = somaItensForm(itens);
   const totalCents = moedaParaCents(total);
   const somaRateioBp = somaRateioForm(rateios);
@@ -230,7 +226,6 @@ export function NotaForm({
 
   return (
     <form onSubmit={handleSubmit((v) => onSubmit(v))} className="space-y-6">
-      {/* Cabeçalho */}
       <Card>
         <CardHeader>
           <CardTitle>Dados do lançamento</CardTitle>
@@ -402,7 +397,6 @@ export function NotaForm({
         </CardContent>
       </Card>
 
-      {/* Itens */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
@@ -480,7 +474,6 @@ export function NotaForm({
         </CardContent>
       </Card>
 
-      {/* Rateio */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
@@ -567,7 +560,6 @@ export function NotaForm({
         </CardContent>
       </Card>
 
-      {/* Pagamento */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2">
@@ -654,7 +646,6 @@ export function NotaForm({
         </Button>
       </div>
 
-      {/* Fornecedor inline */}
       <Dialog open={dialogFornecedor} onOpenChange={setDialogFornecedor}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

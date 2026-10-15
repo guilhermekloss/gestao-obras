@@ -1,9 +1,6 @@
 import type { FaixaConsumo } from "@/services/analises";
 
-/**
- * Cores por faixa de consumo do orçamento (regra em `services/analises#faixaConsumo`).
- * Só tipos do service: o formulário (client) importa daqui sem puxar o Prisma.
- */
+// só tipos do service: o form (client) importa daqui sem puxar o Prisma
 export const ESTILO_FAIXA: Record<FaixaConsumo, { rotulo: string; texto: string; barra: string }> = {
   SEM_ORCAMENTO: { rotulo: "Sem orçamento", texto: "text-muted-foreground", barra: "bg-muted-foreground/40" },
   OK: { rotulo: "Ok (< 90%)", texto: "text-green-700 dark:text-green-400", barra: "bg-green-500" },

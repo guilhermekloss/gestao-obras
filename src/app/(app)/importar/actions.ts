@@ -44,7 +44,6 @@ const processar = acaoDeEscrita(
       return { ok: false, erro: "Nenhuma nota reconhecida nos arquivos — confira o formato das colunas" };
     }
 
-    // Fornecedores existentes (dedup por CNPJ e por nome normalizado)
     const fornecedoresDb = await prisma.fornecedor.findMany();
     const porCnpj = new Map(fornecedoresDb.filter((f) => f.cnpj).map((f) => [f.cnpj!, f.id]));
     const porNome = new Map(fornecedoresDb.map((f) => [normalizarChave(f.nome), f.id]));
@@ -56,7 +55,6 @@ const processar = acaoDeEscrita(
       if (!existe) fornecedoresNovos.add(normalizarChave(n.fornecedor));
     }
 
-    // Notas já importadas (fornecedor+número)
     const existentes = await prisma.notaFiscal.findMany({
       select: { numero: true, fornecedor: { select: { nome: true, cnpj: true } } },
     });
@@ -85,7 +83,6 @@ const processar = acaoDeEscrita(
     let importadas = 0;
     for (const n of novas) {
       await prisma.$transaction(async (tx) => {
-        // fornecedor: acha ou cria
         let fornecedorId =
           (n.cnpj ? porCnpj.get(n.cnpj) : undefined) ?? porNome.get(normalizarChave(n.fornecedor));
         if (!fornecedorId) {

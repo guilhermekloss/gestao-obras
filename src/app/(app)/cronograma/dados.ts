@@ -18,13 +18,7 @@ import {
   type SituacaoEtapa,
 } from "@/services/cronograma";
 
-/**
- * Leitura do cronograma de uma obra, já convertida para o formato das funções
- * puras de `services/cronograma.ts`. Compartilhada pela página `/cronograma`,
- * pela aba Cronograma da obra e (as consultas) pelo widget do dashboard.
- *
- * Nada aqui expõe valores em R$: o orçamento entra só como peso (em %).
- */
+// nada aqui expõe valores em R$: o orçamento entra só como peso (%)
 
 type EtapaCronograma = {
   id: string;
@@ -32,7 +26,7 @@ type EtapaCronograma = {
   inicioPrevisto: Dia | null;
   fimPrevisto: Dia | null;
   realizadoBp: number;
-  /** participação no orçamento da obra — `null` para quem não vê valores financeiros (CAMPO) */
+  // null para quem não vê valores financeiros (CAMPO)
   pesoBp: number | null;
   situacao: SituacaoEtapa;
 };
@@ -46,12 +40,11 @@ export type Cronograma = {
   realizadoHojeBp: number;
 };
 
-/** Dia de hoje no fuso do servidor. */
+// no fuso do servidor
 export function hojeDia(): Dia {
   return dataParaInput(new Date());
 }
 
-/** Converte etapas e medições do Prisma para o formato do service. */
 export function paraPlano(
   etapas: { id: string; orcamentoCents: number; inicioPrevisto: Date | null; fimPrevisto: Date | null }[],
   medicoes: { etapaId: string; data: Date; percentBp: number }[],
@@ -77,7 +70,7 @@ export async function carregarCronograma(obraId: string, opcoes: { comPesos: boo
     }),
     prisma.medicao.findMany({
       where: { etapa: { obraId } },
-      // mesma ordem de `avancoPorEtapa`: no mesmo dia, a última lançada vence (a ordenação do service é estável)
+      // mesma ordem de `avancoPorEtapa`: no mesmo dia, a última lançada vence
       orderBy: [{ data: "asc" }, { id: "asc" }],
       select: { etapaId: true, data: true, percentBp: true },
     }),
@@ -85,7 +78,7 @@ export async function carregarCronograma(obraId: string, opcoes: { comPesos: boo
 
   const hoje = hojeDia();
   const { plano, pontos } = paraPlano(etapas, medicoes);
-  // avanço atual = última medição registrada, mesmo que datada no futuro (igual a `avancoPorEtapa`)
+  // última medição, mesmo se datada no futuro (igual a `avancoPorEtapa`)
   const ultimo = realizadoPorEtapaNaData(pontos, "9999-12-31");
   const pesos = pesosDasEtapas(plano);
 
@@ -110,7 +103,6 @@ export async function carregarCronograma(obraId: string, opcoes: { comPesos: boo
   };
 }
 
-/** Curva S em basis points → pontos do gráfico (mês rotulado, percentuais 0–100). */
 export function paraGrafico(curva: PontoCurvaS[]): PontoCurvaSChart[] {
   return curva.map((p) => ({
     mes: formatarMesAno(inputParaData(`${p.mes}-15`)),

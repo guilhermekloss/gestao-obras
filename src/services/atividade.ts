@@ -1,11 +1,6 @@
 import { addWeeks, startOfWeek } from "date-fns";
 import { custoRateado } from "./rateio";
 
-/**
- * Catálogo das ações registradas no log de auditoria. A chave é o `tipo`
- * gravado em `Atividade`; o rótulo é o texto usado quando a action não
- * descreve a ação com mais detalhe.
- */
 export const TIPOS_ATIVIDADE = {
   "nota.criar": { rotulo: "Lançou um documento", categoria: "financeiro" },
   "nota.editar": { rotulo: "Editou um lançamento", categoria: "financeiro" },
@@ -60,7 +55,6 @@ export function tiposDaCategoria(categoria: CategoriaAtividade): TipoAtividade[]
   );
 }
 
-/** Detalhe que a action anota sobre o que fez — vira a linha do log. */
 export type DetalheAtividade = {
   descricao?: string;
   entidade?: "nota" | "rdo" | "obra" | "fornecedor" | "usuario" | "convite" | "medicao";
@@ -69,10 +63,6 @@ export type DetalheAtividade = {
   valorCents?: number;
 };
 
-/**
- * Onde abrir o registro de uma linha do log. Exclusões não têm link (o
- * registro não existe mais); avanço físico abre o cronograma da obra.
- */
 export function linkAtividade(a: {
   tipo: string;
   entidade: string | null;
@@ -101,7 +91,6 @@ export function linkAtividade(a: {
   }
 }
 
-/** Uma barra por semana (segunda a domingo), da mais antiga para a atual. */
 export function serieSemanal(
   datas: Date[],
   semanas: number,
@@ -128,16 +117,10 @@ type ResumoObraUsuario = {
   rdos: number;
   medicoes: number;
   lancamentos: number;
-  /** soma da parte de cada lançamento rateada para esta obra */
   valorCents: number;
   ultimaEm: Date;
 };
 
-/**
- * O que um usuário produziu em cada obra, a partir dos próprios registros
- * (RDOs que escreveu, avanços que lançou, notas que lançou) — vale também
- * para o histórico de antes do log de auditoria existir.
- */
 export function resumirPorObra(dados: {
   rdos: { obraId: string; criadoEm: Date }[];
   medicoes: { obraId: string; criadoEm: Date }[];
@@ -165,10 +148,6 @@ export function resumirPorObra(dados: {
   return [...mapa.values()].sort((a, b) => b.ultimaEm.getTime() - a.ultimaEm.getTime());
 }
 
-/**
- * Situação de uso de uma conta, para o admin achar contas paradas: quem
- * nunca entrou e quem não entra há mais de `diasParado` dias.
- */
 export function situacaoDeUso(
   u: { ativo: boolean; ultimoAcessoEm: Date | null },
   agora: Date = new Date(),

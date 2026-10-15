@@ -1,6 +1,5 @@
 name: CI
 
-# Roda em todo PR e é chamado pelo deploy (main só vai para produção se o CI passar).
 on:
   pull_request:
   workflow_call:

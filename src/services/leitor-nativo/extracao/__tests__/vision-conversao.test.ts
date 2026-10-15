@@ -18,10 +18,6 @@ import {
 type Ponto = { x: number; y: number };
 type Quebra = "SPACE" | "SURE_SPACE" | "EOL_SURE_SPACE" | "LINE_BREAK" | "HYPHEN";
 
-/**
- * Palavra no formato do Vision. `transformar` permite simular a foto girada
- * (os vértices seguem a direção do texto: 0 = canto superior esquerdo do texto).
- */
 function palavra(
   texto: string,
   x0: number,
@@ -51,7 +47,6 @@ function palavra(
   return { boundingBox, symbols: simbolos, confidence };
 }
 
-/** Página 1000×800: cabeçalho com CNPJ quebrado em pedaços, e "VALOR TOTAL" com o valor em outro bloco à direita. */
 function paginaExemplo(transformar?: (p: Ponto) => Ponto, normalizar?: { largura: number; altura: number }): PaginaVision {
   const w = (t: string, x0: number, y0: number, x1: number, y1: number, c: number, q?: Quebra) =>
     palavra(t, x0, y0, x1, y1, c, q, transformar, normalizar);
@@ -90,14 +85,12 @@ describe("paginasDoVision", () => {
     expect(cnpj.caixa.x).toBeCloseTo(0.09);
     expect(cnpj.caixa.y).toBeCloseTo(0.05);
     expect(cnpj.caixa.largura).toBeCloseTo(0.25);
-    // confiança ponderada por caracteres: o "95" duvidoso puxa para baixo
     expect(cnpj.confianca!).toBeLessThan(0.97);
     expect(cnpj.confianca!).toBeGreaterThan(0.9);
     expect(pagina.linhas[1].confianca).toBeCloseTo((10 * 0.99 + 8 * 0.97) / 18);
   });
 
   it("endireita a foto deitada (texto descendo, girado 90° no sentido horário)", () => {
-    // conteúdo 1000×800 girado 90° horário vira uma imagem 800×1000: (x, y) → (800 − y, x)
     const giro = (p: Ponto) => ({ x: 800 - p.y, y: p.x });
     const deitada = { ...paginaExemplo(giro), width: 800, height: 1000 };
     const [pagina] = paginasDoVision([{ fullTextAnnotation: { pages: [deitada] } }]);
@@ -106,7 +99,6 @@ describe("paginasDoVision", () => {
   });
 
   it("corrige a inclinação pelos vértices: valor alinhado à direita fica na linha certa", () => {
-    // cupom a −3,4° (lado direito sobe); entrelinha de 34 px, valor a 1300 px da margem
     const a = (-3.4 * Math.PI) / 180;
     const giro = (p: Ponto) => ({ x: p.x * Math.cos(a) - p.y * Math.sin(a), y: p.x * Math.sin(a) + p.y * Math.cos(a) + 150 });
     const paragrafos = Array.from({ length: 6 }, (_, i) => {
@@ -167,7 +159,6 @@ describe("files:annotate (PDF)", () => {
     };
     const paginas = paginasDoVision(anotacoesDoArquivo(resposta));
     expect(paginas.map((p) => p.numero)).toEqual([1, 2]);
-    // página sem width/height: as coordenadas normalizadas passam direto
     expect(paginas[0].linhas[0].texto).toBe("DANFE");
     expect(paginas[0].linhas[0].caixa.x).toBeCloseTo(0.1);
     expect(paginas[0].linhas[0].caixa.y).toBeCloseTo(50 / 800);

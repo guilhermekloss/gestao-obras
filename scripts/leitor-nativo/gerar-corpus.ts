@@ -1,23 +1,4 @@
-/**
- * Gera o corpus de avaliação do leitor nativo de documentos.
- *
- *   npx tsx scripts/leitor-nativo/gerar-corpus.ts [--saida <dir>] [--fixtures] [--so id1,id2]
- *
- * Para cada documento de `documentos.ts` (dados = verdade de referência):
- *   1. confere o `esperado` (documentoLidoSchema, DVs, somas, normalizarLeitura sem erro);
- *   2. renderiza o HTML no Chromium → `<id>.pdf` (camada de texto real) e
- *      `<id>.png` (~192 dpi);
- *   3. deriva as "fotos" com sharp → `<id>.jpg` (leve: 1–4°, desfoque, sombra,
- *      JPEG ~70, lado maior ≤ 2400 px) e `<id>.foto-forte.jpg` (mais degradada);
- *   4. confere que cada código de barras/QR decodifica de volta (PNG: obrigatório;
- *      fotos: informativo) e que a camada de texto do PDF tem os trechos-chave.
- *
- * Tudo vai para `--saida` (padrão: $TMPDIR/leitor-nativo-corpus). Com `--fixtures`,
- * o conjunto curado (pdf + jpg + esperado.json) e o README são copiados para
- * `src/services/leitor-nativo/__fixtures__/`.
- *
- * Sai com código 1 se alguma conferência obrigatória falhar.
- */
+// Uso: npx tsx scripts/leitor-nativo/gerar-corpus.ts [--saida <dir>] [--fixtures (copia para __fixtures__)] [--so id1,id2]
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -40,13 +21,10 @@ import { argumento, DIR_FIXTURES, DIR_SAIDA_PADRAO, HOJE, kb, temFlag } from "./
 import { montarCorpus, type DocCorpus } from "./documentos";
 import { gerarFoto, parametrosFortes } from "./foto";
 
-const ESCALA = 2; // 96 css px/pol × 2 = 192 dpi
+const ESCALA = 2;
 
 const problemas: string[] = [];
 const falhar = (msg: string) => problemas.push(msg);
-
-// ---------------------------------------------------------------------------
-// Conferência da verdade de referência
 
 const c = (v: number | null | undefined) => Math.round((v ?? 0) * 100);
 
@@ -107,7 +85,6 @@ function conferirCodigosImpressos(d: DocCorpus): string[] {
       if (b.length !== 44) erros.push("ITF sem 44 dígitos");
       if (b[0] === "8") {
         const linha = [0, 1, 2, 3].map((i) => b.slice(i * 11, i * 11 + 11)).join("");
-        // a linha de 48 impressa é conferida pelo texto do PDF; aqui, o DV geral das barras
         const html = so(d.html.match(/8\d{10}-\d \d{11}-\d \d{11}-\d \d{11}-\d/)?.[0] ?? "");
         if (!arrecadacaoValida(html)) erros.push("linha de arrecadação impressa inválida");
         if (html && [0, 1, 2, 3].map((i) => html.slice(i * 12, i * 12 + 11)).join("") !== linha) {
@@ -121,9 +98,6 @@ function conferirCodigosImpressos(d: DocCorpus): string[] {
   }
   return erros;
 }
-
-// ---------------------------------------------------------------------------
-// Renderização
 
 function fontesDisponiveis(): Set<string> {
   try {
@@ -140,7 +114,7 @@ async function abrirChromium(): Promise<Browser> {
   try {
     return await chromium.launch();
   } catch (e) {
-    // versão do Playwright diferente do Chromium instalado: usa o binário disponível
+    // Playwright em versão diferente do Chromium instalado: usa o binário disponível.
     for (const alt of ["/opt/pw-browsers/chromium", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) {
       if (existsSync(alt)) return chromium.launch({ executablePath: alt });
     }
@@ -173,9 +147,6 @@ async function renderizar(browser: Browser, d: DocCorpus): Promise<{ pdf: Buffer
   }
 }
 
-// ---------------------------------------------------------------------------
-// Conferências sobre os arquivos gerados
-
 async function textoDoPdf(pdf: Buffer): Promise<string> {
   const doc = await getDocumentProxy(new Uint8Array(pdf));
   const { text } = await extractText(doc, { mergePages: true });
@@ -189,9 +160,6 @@ async function conferirCodigos(d: DocCorpus, imagem: Buffer): Promise<{ ok: numb
   const faltando = d.codigos.filter((cod) => !lidos.some((l) => l.texto === cod.texto)).map((cod) => cod.formato);
   return { ok: d.codigos.length - faltando.length, total: d.codigos.length, faltando };
 }
-
-// ---------------------------------------------------------------------------
-// README dos fixtures
 
 function readme(docs: DocCorpus[], tamanhos: Map<string, number>, codigosFoto: Map<string, string>): string {
   const linhas = docs.map((d) => {
@@ -263,8 +231,6 @@ npx tsx scripts/leitor-nativo/avaliar.ts --dir /tmp/leitor-nativo-corpus
 `;
 }
 
-// ---------------------------------------------------------------------------
-
 async function main() {
   const saida = path.resolve(argumento("--saida") ?? DIR_SAIDA_PADRAO);
   const copiarFixtures = temFlag("--fixtures");
@@ -307,14 +273,12 @@ async function main() {
       writeFileSync(arq(".foto-forte.jpg"), forte);
       writeFileSync(arq(".esperado.json"), `${JSON.stringify(d.esperado, null, 2)}\n`);
 
-      // códigos: PNG limpo é obrigatório; fotos são informativas
       const cPng = await conferirCodigos(d, png);
       if (cPng.faltando.length) falhar(`${d.id}: código não decodifica do PNG (${cPng.faltando.join(", ")})`);
       const cJpg = await conferirCodigos(d, jpg);
       const cForte = await conferirCodigos(d, forte);
       codigosFoto.set(d.id, cJpg.faltando.length ? "não decodifica" : "decodifica");
 
-      // camada de texto do PDF
       const texto = await textoDoPdf(pdf);
       const ausentes = d.textosNoPdf.filter((t) => !texto.includes(t));
       if (ausentes.length) falhar(`${d.id}: PDF sem os trechos ${JSON.stringify(ausentes)}`);

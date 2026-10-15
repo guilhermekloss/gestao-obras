@@ -1,15 +1,8 @@
-/**
- * Documentos sintéticos (dados fictícios, DVs calculados) no formato em que
- * o OCR devolve as linhas: colunas separadas por vãos, rótulos de caixa em
- * cima e valores embaixo.
- */
-
 export const CHAVE_NFE = "35260911222333000181550010000123451876543218";
 export const CHAVE_NFCE = "35261011222333000181650010000007891135724688";
 export const CHAVE_NFSE = "35503082211222333000181000000000012326101234567898";
 export const QR_NFCE = `https://www.nfce.fazenda.sp.gov.br/qrcode?p=${CHAVE_NFCE}|2|1|1|DBC72319076AE674E49D848CD22C7DBC374663B9`;
 
-/** DANFE em uma linha por faixa (especificação §9.1): 3 itens, frete, 2 duplicatas. */
 export const DANFE = `RECEBEMOS DE DEPOSITO DE MATERIAIS FICTICIOS LTDA OS PRODUTOS E/OU SERVIÇOS CONSTANTES DA NOTA FISCAL
 ELETRÔNICA INDICADA AO LADO. EMISSÃO: 15/09/2026 VALOR TOTAL: R$ 1.675,50 DESTINATÁRIO: CONSTRUTORA EXEMPLO LTDA
 DATA DE RECEBIMENTO IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR NF-e Nº 000.012.345 SÉRIE 001
@@ -49,10 +42,6 @@ DADOS ADICIONAIS
 INFORMAÇÕES COMPLEMENTARES                                     RESERVADO AO FISCO
 PAGAMENTO VIA BOLETO BANCARIO. PEDIDO 4471.`;
 
-/**
- * DANFE com caixas empilhadas (rótulo em cima, valor embaixo), 7 itens,
- * IPI, transportadora com outro CNPJ e fatura em caixas lado a lado.
- */
 export const DANFE_EMPILHADO = `RECEBEMOS DE DEPOSITO DE MATERIAIS FICTICIOS LTDA OS PRODUTOS E/OU SERVIÇOS CONSTANTES DA NOTA FISCAL    NF-e
 ELETRÔNICA INDICADA AO LADO. EMISSÃO: 15/09/2026 VALOR TOTAL: R$ 3.355,32 DESTINATÁRIO: CONSTRUTORA        Nº 000.012.345
 EXEMPLO LTDA - AV. DO CANTEIRO, 500 JARDIM OBRA SAO PAULO-SP                                                SÉRIE 001
@@ -109,7 +98,6 @@ PAGAMENTO VIA BOLETO BANCARIO EM 2 PARCELAS (VER FATURA). PEDIDO 4471 - OBRA RES
 Valor aproximado dos tributos: R$ 546,25 (16,28%) Fonte: IBPT.
 ICMS recolhido por substituição tributária no item 000123 (CST 060).`;
 
-/** NFC-e com itens em duas linhas, desconto no total e PIX. */
 export const NFCE = `FERRAGENS FICTICIAS COMERCIO LTDA
 CNPJ: 11.222.333/0001-81 IE: 110.042.490.114
 RUA DO TUBO, 45 - VILA HIDRAULICA
@@ -143,7 +131,6 @@ Data de Autorização: 15/10/2026 14:32:12
 Tributos Totais Incidentes (Lei Federal 12.741/2012): R$ 15,23
 Obrigado pela preferência! Volte sempre.`;
 
-/** DANFSe padrão nacional (especificação §9.3). */
 export const NFSE_NACIONAL = `DANFSe v1.0     Documento Auxiliar da NFS-e     PREFEITURA DO MUNICÍPIO DE SÃO PAULO
 Chave de Acesso da NFS-e
 35503082211222333000181000000000012326101234567898
@@ -180,7 +167,6 @@ R$ 5.000,00       -                      -                        R$ 250,00     
 INFORMAÇÕES COMPLEMENTARES
 Retenção de 11% de INSS conforme IN RFB 2.110/2022. Pagamento por transferência ao prestador em até 10 dias.`;
 
-/** NFS-e da Prefeitura de São Paulo (especificação §9.4, com dados de pagamento após a discriminação). */
 export const NFSE_SP = `PREFEITURA DO MUNICÍPIO DE SÃO PAULO
 SECRETARIA MUNICIPAL DA FAZENDA
 NOTA FISCAL ELETRÔNICA DE SERVIÇOS - NFS-e
@@ -218,7 +204,6 @@ OUTRAS INFORMAÇÕES
 
 export const LINHA_BOLETO = "34191.09123 34567.821235 45678.900007 1 16150000123456";
 
-/** Boleto Itaú (especificação §9.5). */
 export const BOLETO = `Banco Itaú  341-7  Recibo do Pagador
 Beneficiário: DEPOSITO DE MATERIAIS FICTICIOS LTDA   CPF/CNPJ do Beneficiário: 11.222.333/0001-81
 Pagador: CONSTRUTORA EXEMPLO LTDA - CNPJ 98.765.432/0001-98
@@ -242,7 +227,6 @@ Sacador/Avalista:                                         Autenticação Mecâni
 
 export const LINHA_DAS = "85800000004-6 56780328072-9 02609123456-9 78901234567-5";
 
-/** DAS (especificação §9.6). */
 export const DAS = `Documento de Arrecadação do Simples Nacional
 CNPJ                 Razão Social
 11.222.333/0001-81   ENGENHARIA FICTICIA SERVICOS LTDA
@@ -261,7 +245,6 @@ Totais                                        456,78      -      -  456,78
 ${LINHA_DAS}
 Este documento deve ser pago até a data indicada em "Pagar este documento até".`;
 
-/** Recibo de mão de obra, com o corpo quebrado em várias linhas. */
 export const RECIBO = `RECIBO
 Nº 042
 VALOR R$ 1.500,00
@@ -275,7 +258,6 @@ JOSÉ DA SILVA PEREIRA
 CPF 529.982.247-25
 Fone: (11) 98888-7777`;
 
-/** Texto qualquer que não é documento de despesa. */
 export const NAO_DOCUMENTO = `Reunião de obra — pauta
 1. Andamento da alvenaria do bloco B
 2. Cronograma de concretagem das lajes

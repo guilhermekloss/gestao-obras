@@ -1,29 +1,9 @@
-/**
- * Análise de documento de custo com o Gemini (visão + PDF + saída estruturada),
- * acionada pelo usuário na conferência quando a leitura nativa
- * (`leitor-nativo/`) deixou muitos campos em dúvida. Só transcreve o documento
- * no formato `DocumentoLido`; as conferências (dígitos verificadores, somas,
- * cruzamento com a chave) continuam em `normalizarLeitura`.
- *
- * Configuração (variáveis de ambiente, só no servidor) — uma das duas:
- * - Vertex AI (produção no Cloud Run): `GEMINI_PROJETO` (ID do projeto GCP) e,
- *   opcional, `GEMINI_LOCAL` (padrão "global"). Autentica com a service account
- *   da instância — sem chave guardada;
- * - Gemini API (desenvolvimento): `GEMINI_API_KEY`.
- *
- * Custo: lê primeiro com o modelo mais barato (`GEMINI_MODELO`, padrão
- * Flash-Lite) e só repete com o reforço (`GEMINI_MODELO_REFORCO`, padrão
- * Flash; vazio desliga) quando a leitura não fecha — total ausente, soma dos
- * itens diferente do total ou imagem quase ilegível.
- */
 import { ApiError, GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { documentoLidoSchema, type DocumentoLido } from "./leitura-documento";
 import type { MidiaDocumento } from "./leitor-nativo/tipos";
 
-/** O mais barato da linha 3.5 (US$ 0,30 / 2,50 por milhão de tokens de entrada / saída). */
 export const MODELO_PADRAO = "gemini-3.5-flash-lite";
-/** Reforço quando a leitura barata não fecha (US$ 1,50 / 9,00). Estável até maio de 2027, no mínimo. */
 export const MODELO_REFORCO_PADRAO = "gemini-3.5-flash";
 
 export function analiseIaDisponivel(): boolean {
@@ -43,20 +23,13 @@ Regras:
 - Parcelas: duplicatas da fatura ou o vencimento do boleto. Deixe vazio se não houver vencimento impresso.
 - Use observacoes para avisar o que impede a conferência (ex.: "foto cortada após o item 12").`;
 
-/**
- * JSON Schema do `DocumentoLido` no subconjunto aceito pelo Gemini
- * (`responseJsonSchema`): sem `$schema`; anulável vira `anyOf` com `null`.
- */
+// O responseJsonSchema do Gemini não aceita `$schema`.
 export function schemaParaGemini(): Record<string, unknown> {
   const schema = { ...(z.toJSONSchema(documentoLidoSchema) as Record<string, unknown>) };
   delete schema.$schema;
   return schema;
 }
 
-/**
- * Converte o texto JSON devolvido pelo modelo em `DocumentoLido` validado.
- * Lança `Error` com mensagem para o usuário se vier fora do formato.
- */
 export function interpretarResposta(texto: string | undefined): DocumentoLido {
   if (!texto?.trim()) throw new Error("A IA não devolveu dados para este documento. Preencha manualmente.");
   let json: unknown;
@@ -80,11 +53,6 @@ function cliente(): GoogleGenAI {
 
 const TOLERANCIA_REAIS = 0.02;
 
-/**
- * A leitura "fecha"? Total presente, itens (com frete, outras despesas e
- * desconto geral) somando o total e imagem legível. Não fechar é o sinal para
- * repetir com o modelo de reforço.
- */
 export function leituraFecha(d: DocumentoLido): boolean {
   if (d.tipo === "NAO_E_DOCUMENTO") return true; // repetir não muda a resposta
   if (d.legibilidade === "RUIM") return false;
@@ -99,14 +67,8 @@ export function leituraFecha(d: DocumentoLido): boolean {
   return Math.abs(soma - d.valorTotal) <= TOLERANCIA_REAIS;
 }
 
-/** Erro de configuração/limite: repetir com outro modelo não adianta. */
 class ErroDefinitivo extends Error {}
 
-/**
- * Analisa o documento: modelo barato primeiro, reforço só se a leitura não
- * fechar (ou o barato falhar no conteúdo). Lança `Error` com mensagem para o
- * usuário quando a API falha ou não devolve um resultado aproveitável.
- */
 export async function analisarComGemini(arquivo: Buffer, midia: MidiaDocumento): Promise<DocumentoLido> {
   if (!analiseIaDisponivel()) throw new Error("A análise com IA não está configurada neste servidor.");
   const principal = process.env.GEMINI_MODELO || MODELO_PADRAO;
@@ -129,10 +91,9 @@ export async function analisarComGemini(arquivo: Buffer, midia: MidiaDocumento):
   console.info(JSON.stringify({ evento: "analise_ia_reforco", modelo: reforco, motivo: primeira ? "nao_fecha" : "falha" }));
   try {
     const segunda = await lerComModelo(reforco, arquivo, midia);
-    // fica com a do reforço se ela fecha ou se a barata nem existe
     return leituraFecha(segunda) || !primeira ? segunda : primeira;
   } catch (e) {
-    if (primeira) return primeira; // o usuário confere os avisos da leitura barata
+    if (primeira) return primeira;
     throw e instanceof ErroDefinitivo ? new Error(e.message) : e;
   }
 }

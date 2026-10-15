@@ -3,15 +3,9 @@ import { hash } from "bcryptjs";
 import { test, expect } from "./fixtures";
 import { prisma } from "../src/lib/prisma";
 
-/**
- * Camadas de segurança visíveis de fora: cabeçalhos, bloqueio de força bruta,
- * validação e autorização de arquivos e revogação de sessão na troca de senha.
- */
-
 const sufixo = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const SENHA = "senha-de-teste-e2e";
 
-/** PNG 1×1 válido. */
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
   "base64",
@@ -73,13 +67,11 @@ test("upload valida o conteúdo e CAMPO não abre anexo de lançamento", async (
   await entrar(admin, await criarUsuario("ADMIN"));
   await admin.waitForURL("**/dashboard");
 
-  // HTML com nome de imagem: recusado pelo conteúdo
   const falso = await admin.request.post("/api/upload", {
     multipart: { file: { name: "foto.jpg", mimeType: "image/jpeg", buffer: Buffer.from("<script>alert(1)</script>") } },
   });
   expect(falso.status()).toBe(415);
 
-  // PNG enviado como .jpg: aceito e gravado como .png (o tipo vem do conteúdo)
   const ok = await admin.request.post("/api/upload", {
     multipart: { file: { name: "foto.jpg", mimeType: "image/jpeg", buffer: PNG } },
   });
@@ -109,7 +101,6 @@ test("trocar a senha encerra as sessões abertas", async ({ browser }) => {
   await page.goto("/conta");
   await page.fill("#atual", SENHA);
 
-  // o formato exigido fica à vista e se marca enquanto digita
   const requisitos = page.locator("#nova-requisitos li");
   await expect(page.getByText("A senha precisa ter:")).toBeVisible();
   await page.fill("#nova", "1234567890");
@@ -121,7 +112,6 @@ test("trocar a senha encerra as sessões abertas", async ({ browser }) => {
   await page.getByRole("button", { name: "Trocar senha" }).click();
   await page.waitForURL("**/login?senha=1");
 
-  // a sessão do outro aparelho deixou de valer
   await outroAparelho.goto("/dashboard");
   await outroAparelho.waitForURL("**/login");
 

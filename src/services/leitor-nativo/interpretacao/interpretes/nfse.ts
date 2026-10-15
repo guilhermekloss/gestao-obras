@@ -1,11 +1,3 @@
-/**
- * NFS-e: DANFSe do padrão nacional e leiautes municipais (São Paulo,
- * ABRASF...). Estratégia ancorada em rótulos e seções (prestador, tomador,
- * discriminação, valores), robusta a prefeituras diferentes.
- *
- * valorTotal = valor BRUTO do serviço (custo da obra); líquido e retenções
- * (ISS retido, INSS 11%, IR, PIS/COFINS/CSLL) vão para `observacoes`.
- */
 import type { DocumentoLido } from "../../../leitura-documento";
 import { documentoVazio, juntarObservacoes, positivoOuNull, type Ancoras } from "../comum";
 import { dadosChaveNfse, documentoValido } from "../digitos";
@@ -32,7 +24,6 @@ const INICIO_DESCRICAO = /DISCRIMINACAO\s*DOS?\s*SERVICOS?|DESCRICAO\s*DOS?\s*SE
 const FIM_DESCRICAO =
   /VALOR\s*TOTAL|TRIBUTACAO|CODIGO\s*DO\s*SERVICO|\bINSS\b|\bIRRF\b|RETENC|OUTRAS\s*INFORMACOES|INFORMACOES\s*COMPLEMENTARES|DEDUCOES|BASE\s*DE\s*CALCULO|VALOR\s*D[OA]S?\s*SERVICOS?|\bISSQN\b|INTERMEDIARIO|TOTAIS\s*APROXIMADOS/;
 
-/** Discriminação do serviço: texto depois do rótulo até o próximo bloco. */
 function descricaoDoServico(doc: Doc): string | null {
   const i = acharLinha(doc, INICIO_DESCRICAO);
   if (i === -1) return null;
@@ -46,7 +37,6 @@ function descricaoDoServico(doc: Doc): string | null {
   for (let k = i + 1; k < Math.min(doc.linhas.length, i + 12); k++) {
     const l = doc.linhas[k];
     if (FIM_DESCRICAO.test(l.norm) || coberturaRotulos(l) > 0.5) break;
-    // dados de pagamento/pedido depois da discriminação não fazem parte do serviço
     if (partes.length && /^\s*(?:PEDIDO|DADOS\s*BANCARIOS|BANCO\b|CHAVE\s*PIX|PIX\b|OBS)/.test(l.norm)) break;
     partes.push(l.texto);
   }
@@ -54,7 +44,6 @@ function descricaoDoServico(doc: Doc): string | null {
   return texto ? texto.slice(0, 500) : null;
 }
 
-/** "Retido pelo Tomador", "Sim", "2 - Retido" → true; "Não Retido", "Não" → false. */
 function indicaRetencao(s: string | null): boolean | null {
   if (!s) return null;
   const n = normalizarTexto(s);
@@ -84,7 +73,6 @@ export function interpretarNfse(doc: Doc, ancoras: Ancoras): Resultado {
   );
   const limites = [iTom, iInter, iDesc, iServ];
 
-  // Prestador (emitente)
   const faixaPrest =
     iPrest !== -1 ? faixaEntre(doc, iPrest, limites) : { de: 0, ate: iTom !== -1 ? iTom : doc.linhas.length };
   const docPrest = documentoDe(doc, ["CNPJ_CPF", "CNPJ", "CPF"], {
@@ -100,7 +88,6 @@ export function interpretarNfse(doc: Doc, ancoras: Ancoras): Resultado {
   });
   lido.emitente.telefone = buscarRotulo(doc, ["FONE"], extrairTelefone, { faixa: faixaPrest })?.valor ?? null;
 
-  // Tomador (destinatário)
   if (iTom !== -1) {
     const faixaTom = faixaEntre(doc, iTom, [iInter, iDesc, iServ]);
     const d = documentoDe(doc, ["CNPJ_CPF", "CNPJ", "CPF"], {
@@ -113,7 +100,6 @@ export function interpretarNfse(doc: Doc, ancoras: Ancoras): Resultado {
     });
   }
 
-  // Número e data
   lido.numero = numeroDe(doc, ["NUMERO_NFSE"]) ?? (daChave ? daChave.numero : null);
   lido.dataEmissao = dataDe(doc, ["DATA_EMISSAO", "EMITIDA_EM"]);
   if (!lido.dataEmissao) {
@@ -124,7 +110,7 @@ export function interpretarNfse(doc: Doc, ancoras: Ancoras): Resultado {
     }
   }
 
-  // Valores
+  // valorTotal = valor bruto do serviço; líquido e retenções vão para as observações.
   const bruto = valorDe(doc, ["VALOR_SERVICO"]) ?? valorDe(doc, ["VALOR_TOTAL_NOTA"]) ?? valorDe(doc, ["VALOR_TOTAL"]);
   const liquido = valorDe(doc, ["VALOR_LIQUIDO"]);
   const descIncond = positivoOuNull(valorDe(doc, ["DESC_INCOND"]));
@@ -173,7 +159,6 @@ export function interpretarNfse(doc: Doc, ancoras: Ancoras): Resultado {
       notas.push("O valor líquido não fecha com o bruto menos as retenções lidas; confira.");
   }
 
-  // Item: a discriminação do serviço
   const descricao = descricaoDoServico(doc);
   if (descricao && bruto) {
     lido.itens = [
@@ -191,8 +176,7 @@ export function interpretarNfse(doc: Doc, ancoras: Ancoras): Resultado {
     notas.push("Discriminação do serviço não identificada na leitura.");
   }
 
-  // Forma de pagamento: a NFS-e não tem campo próprio; texto livre ("pagamento por
-  // transferência em até 10 dias") é condição comercial, não meio de pagamento — fica NAO_INFORMADA.
+  // A NFS-e não tem campo de forma de pagamento: texto livre é condição comercial (NAO_INFORMADA).
 
   lido.observacoes = juntarObservacoes(notas);
   return { lido };

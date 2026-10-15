@@ -1,8 +1,3 @@
-/**
- * Recibo: "Recebi(emos) de <pagador>, CPF/CNPJ ..., a importância de R$ X
- * (extenso), referente a <serviço>", local e data por extenso e, abaixo da
- * assinatura, o nome e o CPF/CNPJ de quem recebeu (emitente).
- */
 import type { DocumentoLido } from "../../../leitura-documento";
 import { documentoVazio, formaPagamentoDoTexto, juntarObservacoes, tipoDoItem, type Ancoras } from "../comum";
 import { encontrarDocumentos } from "../digitos";
@@ -22,7 +17,6 @@ import { telefoneDoTrecho, type Resultado } from "./auxiliares";
 const CIDADE_DATA =
   /,\s*(?:\d{1,2}\s*[º°]?\s*(?:DE\s+)?[A-Z]{3,9}\.?\s*(?:DE\s+)?\d{4}|\d{1,2}\s*[/.-]\s*\d{1,2}\s*[/.-]\s*\d{2,4})/;
 
-/** Trecho original correspondente a um grupo casado no texto normalizado (mesmo comprimento). */
 function trechoOriginal(original: string, m: RegExpExecArray, grupo: number): string {
   const ini = m.index + m[0].indexOf(m[grupo]);
   return original.slice(ini, ini + m[grupo].length);
@@ -37,7 +31,6 @@ export function interpretarRecibo(doc: Doc, ancoras: Ancoras): Resultado {
     .replace(/\s+/g, " ");
   const corpoNorm = normalizarTexto(corpo);
 
-  // Número: "RECIBO Nº 042" (na mesma linha ou na seguinte)
   const topo = doc.linhas
     .slice(0, 4)
     .map((l) => l.norm)
@@ -51,7 +44,6 @@ export function interpretarRecibo(doc: Doc, ancoras: Ancoras): Resultado {
     lido.numero = trechoOriginal(topoOriginal, num, 1);
   }
 
-  // Pagador (destinatário)
   const pag =
     /RECEB(?:I|EMOS)\s+(?:DO\(?A?\)?|DA|DE)\s+(?:SR\.?\(?A?\)?\s+|SRA\.?\s+|EMPRESA\s+)?(.+?)(?=\s*,|\s+(?:INSCRIT|PORTADOR|CPF|CNPJ)|\s+A\s+(?:IMPORTANCIA|QUANTIA))/.exec(
       corpoNorm,
@@ -64,7 +56,6 @@ export function interpretarRecibo(doc: Doc, ancoras: Ancoras): Resultado {
     lido.destinatario.documento = encontrarDocumentos(corpo.slice(fimPag, ate), true)[0]?.valor ?? null;
   }
 
-  // Valor: rótulo "VALOR R$" no topo > "a importância de R$" > extenso
   const valorTopo = valorDe(doc, ["VALOR"], {
     faixa: { de: 0, ate: Math.min(doc.linhas.length, 6) },
   });
@@ -85,14 +76,12 @@ export function interpretarRecibo(doc: Doc, ancoras: Ancoras): Resultado {
     notas.push(`O valor por extenso (${formatarReais(valorExtenso)}) difere do valor em algarismos; confira.`);
   }
 
-  // Referente a ... (descrição do item)
   const ref =
     /\b(?:REFERENTE|CORRESPONDENTE|RELATIV[OA])\s+(?:AOS|AO|AS|A)\s+(.+?)(?:\.(?=\s|$)|,\s*(?:DANDO|PARA\s+MAIOR|PELO\s+QUE)|$)/.exec(
       corpoNorm,
     );
   const referente = ref ? limparEspacos(trechoOriginal(corpo, ref, 1)) : null;
 
-  // Data: "Cidade, 10 de outubro de 2026" > rótulo > primeira data fora do texto do serviço
   let iData = -1;
   for (let i = 0; i < doc.linhas.length; i++) {
     if (CIDADE_DATA.test(doc.linhas[i].norm) && lerData(doc.linhas[i].texto)) {
@@ -107,7 +96,6 @@ export function interpretarRecibo(doc: Doc, ancoras: Ancoras): Resultado {
     lido.dataEmissao = foraDaRef?.valor ?? null;
   }
 
-  // Emitente: abaixo da data / da linha de assinatura
   const iAssinatura = acharLinha(doc, /_{5,}/);
   const inicioEmitente = Math.max(iData, iAssinatura) + 1;
   if (inicioEmitente > 0) {
@@ -129,7 +117,6 @@ export function interpretarRecibo(doc: Doc, ancoras: Ancoras): Resultado {
     if (eu) lido.emitente.nome = limparEspacos(trechoOriginal(corpo, eu, 1));
   }
 
-  // Forma de pagamento
   if (/\bCHEQUE\b/.test(corpoNorm)) notas.push("Pagamento em cheque — confira o meio de pagamento.");
   else lido.formaPagamento = formaPagamentoDoTexto(corpo.slice(Math.max(0, iImportancia)));
 

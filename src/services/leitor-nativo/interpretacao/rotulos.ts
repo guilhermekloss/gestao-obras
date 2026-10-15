@@ -1,14 +1,3 @@
-/**
- * Pareamento rótulo → valor.
- *
- * Os rótulos impressos (dicionário abaixo, sobre o texto normalizado) são
- * localizados em cada linha; o valor de um rótulo é procurado:
- *   1. na mesma linha, à direita, até o próximo rótulo;
- *   2. na linha de baixo, na mesma coluna — pela posição real das palavras
- *      quando a origem informa; senão pela ordem (rótulos × células/valores
- *      quando as contagens batem) e, por último, pela posição em caracteres.
- * Funciona também sem posições (texto corrido), com menos alcance.
- */
 import { encontrarDocumentos, type DocumentoEncontrado } from "./digitos";
 import type { Doc, Faixa, LinhaDoc, Token } from "./documento";
 import { ehTraco, encontrarValores, lerData, limparEspacos } from "./normalizacao";
@@ -17,9 +6,7 @@ type Rotulo = { chave: string; padrao: RegExp };
 
 const r = (chave: string, padrao: RegExp): Rotulo => ({ chave, padrao });
 
-/** Dicionário de rótulos (texto normalizado: maiúsculas, sem acento). */
 const ROTULOS: Rotulo[] = [
-  // identificação / partes
   r("CNPJ_BENEFICIARIO", /(?:CPF\s*\/\s*CNPJ|CNPJ\s*\/\s*CPF|CNPJ|CPF)\s*DO\s*BENEFICIARIO/),
   r("CNPJ_CPF", /\bC\s?NPJ\s*\/\s*CPF(?:\s*\/\s*NIF)?\b|\bCPF\s*\/\s*CNPJ(?:\s*\/\s*NIF)?\b/),
   r("CNPJ", /\bCNPJ\b(?:\s*\/\s*MF\b)?/),
@@ -38,7 +25,6 @@ const ROTULOS: Rotulo[] = [
   r("EMAIL", /\bE-?\s?MAIL\b/),
   r("CONTRIBUINTE", /\bCONTRIBUINTE\b/),
   r("EMITENTE", /\bEMITENTE\b|\bRECEBEDOR\b/),
-  // datas
   r("DATA_EMISSAO_DPS", /DATA\s*E\s*HORA\s*DA\s*EMISSAO\s*DA\s*DPS/),
   r("DATA_EMISSAO", /DATA\s*(?:E\s*HORA\s*)?D[AE]\s*EMISSAO(?:\s*DA\s*NFS-?E)?|\bEMISSAO\b/),
   r("EMITIDA_EM", /EMITIDA\s*EM/),
@@ -52,7 +38,6 @@ const ROTULOS: Rotulo[] = [
   r("DATA_DOCUMENTO", /DATA\s*DO\s*DOCUMENTO/),
   r("DATA_PROCESSAMENTO", /DATA\s*(?:DO\s*|DE\s*)?PROCESSAMENTO/),
   r("DATA_AUTORIZACAO", /DATA\s*DE\s*AUTORIZACAO/),
-  // NF-e
   r("NATUREZA", /NATUREZA\s*DA\s*OPERACAO/),
   r("PROTOCOLO", /PROTOCOLO\s*DE\s*AUTORIZACAO(?:\s*DE\s*USO)?/),
   r("CHAVE", /CHAVE\s*DE\s*ACESSO(?:\s*DA\s*NFS-?E)?/),
@@ -87,7 +72,6 @@ const ROTULOS: Rotulo[] = [
   r("PESO_LIQUIDO", /PESO\s*LIQUIDO/),
   r("BC_ISSQN", /BASE\s*DE\s*CALCULO\s*DO\s*ISSQN|\bBC\s*ISSQN\b/),
   r("V_ISSQN", /VALOR\s*DO\s*ISSQN|\bISSQN\s*APURADO\b/),
-  // NFS-e
   r("NUMERO_NFSE", /N(?:UMERO|º|°|O\.?)\s*DA\s*(?:NFS-?E|NOTA)|\bN[º°]\s*(?:DA\s*)?NFS-?E/),
   r("NUMERO_DPS", /NUMERO\s*DA\s*DPS/),
   r("SERIE_DPS", /SERIE\s*DA\s*DPS/),
@@ -124,7 +108,6 @@ const ROTULOS: Rotulo[] = [
   r("REGIME_ESPECIAL", /REGIME\s*ESPECIAL\s*DE\s*TRIBUTACAO/),
   r("CODIGO_SERVICO", /CODIGO\s*DO\s*SERVICO/),
   r("INSCRICAO_OBRA", /NUMERO\s*(?:DE\s*)?INSCRICAO\s*DA\s*OBRA/),
-  // boleto
   r("LOCAL_PAGAMENTO", /LOCAL\s*DE\s*PAGAMENTO/),
   r("BENEFICIARIO", /\bBENEFICIARIO\b|\bCEDENTE\b/),
   r("AGENCIA_CODIGO", /AGENCIA\s*\/\s*CODIGO\s*(?:DO\s*)?(?:BENEFICIARIO|CEDENTE)/),
@@ -146,7 +129,6 @@ const ROTULOS: Rotulo[] = [
   r("INSTRUCOES", /\bINSTRUCOES\b(?:\s*\(TEXTO\s*DE\s*RESPONSABILIDADE\s*DO\s*BENEFICIARIO\))?/),
   r("AUTENTICACAO", /AUTENTICACAO\s*MECANICA/),
   r("FICHA_COMPENSACAO", /FICHA\s*DE\s*COMPENSACAO/),
-  // guias
   r("VALOR_TOTAL_DOCUMENTO", /VALOR\s*TOTAL\s*DO\s*DOCUMENTO|\b10\s*-?\s*VALOR\s*TOTAL\b|\b11\s*-\s*TOTAL\b/),
   r("NUMERO_CPF_CNPJ", /NUMERO\s*DO\s*(?:CPF\s*OU\s*CNPJ|CNPJ\s*OU\s*CPF)/),
   r("NOME_TELEFONE", /NOME\s*\/\s*TELEFONE/),
@@ -159,7 +141,6 @@ const ROTULOS: Rotulo[] = [
   r("VALOR_OUTRAS_ENTIDADES", /VALOR\s*DE\s*OUTRAS\s*ENTIDADES/),
   r("ATM_MULTA_JUROS", /ATM\s*,?\s*MULTA\s*E\s*JUROS/),
   r("VALOR_PRINCIPAL", /VALOR\s*DO\s*PRINCIPAL/),
-  // NFC-e / genéricos
   r("VALOR_A_PAGAR", /VALOR\s*A\s*PAGAR|TOTAL\s*A\s*PAGAR/),
   r("VALOR_TOTAL", /VALOR\s*TOTAL\b/),
   r("QTD_TOTAL_ITENS", /QT(?:DE|D)?\.?\s*TOTAL\s*DE\s*ITENS/),
@@ -175,7 +156,6 @@ type Ocorrencia = { chave: string; inicio: number; fim: number };
 
 const cacheRotulos = new WeakMap<LinhaDoc, Ocorrencia[]>();
 
-/** Rótulos de uma linha, sem sobreposição (o mais longo vence), da esquerda para a direita. */
 export function rotulosDaLinha(linha: LinhaDoc): Ocorrencia[] {
   const emCache = cacheRotulos.get(linha);
   if (emCache) return emCache;
@@ -205,7 +185,6 @@ export function rotulosDaLinha(linha: LinhaDoc): Ocorrencia[] {
   return aceitos;
 }
 
-/** Fração dos caracteres alfanuméricos da linha que pertencem a rótulos. */
 export function coberturaRotulos(linha: LinhaDoc): number {
   const total = linha.norm.replace(/[^A-Z0-9]/g, "").length;
   if (!total) return 0;
@@ -214,16 +193,12 @@ export function coberturaRotulos(linha: LinhaDoc): number {
   return coberto / total;
 }
 
-/** A linha é só rótulos (o que sobra não tem letras nem dígitos)? */
 function soRotulos(linha: LinhaDoc): boolean {
   let resto = linha.norm;
   for (const o of rotulosDaLinha(linha))
     resto = resto.slice(0, o.inicio) + " ".repeat(o.fim - o.inicio) + resto.slice(o.fim);
   return !/[A-Z0-9]/.test(resto);
 }
-
-// ---------------------------------------------------------------------------
-// Unidades de valor de uma linha
 
 type Unidade = {
   texto: string;
@@ -252,15 +227,8 @@ function juntar(a: Unidade, b: Unidade, linha: LinhaDoc): Unidade {
   };
 }
 
-/**
- * Valores de uma linha: dentro de cada célula, tokens "atômicos" (números,
- * datas, valores, CNPJ, traço, e-mail) ficam sozinhos e palavras seguidas
- * formam um texto só. "R$ 1,00", "dd/mm/aaaa hh:mm", "(11) 3333-4444" e
- * "5,00 %" são unidos.
- */
 export function unidadesDaLinha(linha: LinhaDoc): Unidade[] {
   const tokens: Unidade[] = linha.tokens.map((t: Token) => ({ ...t }));
-  // junções de tokens que formam um valor só
   const unidos: Unidade[] = [];
   for (const t of tokens) {
     const ant = unidos[unidos.length - 1];
@@ -279,7 +247,6 @@ export function unidadesDaLinha(linha: LinhaDoc): Unidade[] {
     }
     unidos.push(t);
   }
-  // palavras seguidas na mesma célula viram um texto só
   const r: Unidade[] = [];
   for (const u of unidos) {
     const ant = r[r.length - 1];
@@ -292,7 +259,6 @@ export function unidadesDaLinha(linha: LinhaDoc): Unidade[] {
   return r;
 }
 
-/** Células da linha (trechos separados por vão grande). */
 function celulasDaLinha(linha: LinhaDoc): Unidade[] {
   const r: Unidade[] = [];
   for (const t of linha.tokens) {
@@ -303,12 +269,8 @@ function celulasDaLinha(linha: LinhaDoc): Unidade[] {
   return r;
 }
 
-// ---------------------------------------------------------------------------
-// Geometria
-
 type Intervalo = { x0: number; x1: number };
 
-/** Extensão horizontal de um trecho [inicio, fim) da linha, em posição real ou em caracteres. */
 function extensao(linha: LinhaDoc, inicio: number, fim: number, real: boolean): Intervalo | null {
   if (!real) return { x0: inicio, x1: fim };
   const ts = linha.tokens.filter((t) => t.inicio < fim && t.fim > inicio && t.x0 !== null && t.x1 !== null);
@@ -319,7 +281,6 @@ function extensao(linha: LinhaDoc, inicio: number, fim: number, real: boolean): 
   };
 }
 
-/** Largura média de um caractere (para tolerâncias), na mesma escala. */
 function larguraCaractere(linha: LinhaDoc, real: boolean): number {
   if (!real) return 1;
   let soma = 0;
@@ -332,13 +293,11 @@ function larguraCaractere(linha: LinhaDoc, real: boolean): number {
   return n ? soma / n : 0.01;
 }
 
-/** Unidades da linha de valores cujo centro cai na coluna do rótulo. */
 function porColuna(rotulos: LinhaDoc, valores: LinhaDoc, oc: Ocorrencia, real: boolean): string | null {
   const ocs = rotulosDaLinha(rotulos);
   const k = ocs.indexOf(oc);
   const ext = extensao(rotulos, oc.inicio, oc.fim, real);
   if (!ext) return null;
-  // limite direito: próximo rótulo ou próxima célula do cabeçalho
   let direita = Number.POSITIVE_INFINITY;
   for (const o of ocs.slice(k + 1)) {
     const e = extensao(rotulos, o.inicio, o.fim, real);
@@ -352,7 +311,6 @@ function porColuna(rotulos: LinhaDoc, valores: LinhaDoc, oc: Ocorrencia, real: b
       break;
     }
   }
-  // limite esquerdo: fim do rótulo anterior
   let esquerda = Number.NEGATIVE_INFINITY;
   if (k > 0) {
     const e = extensao(rotulos, ocs[k - 1].inicio, ocs[k - 1].fim, real);
@@ -370,7 +328,6 @@ function porColuna(rotulos: LinhaDoc, valores: LinhaDoc, oc: Ocorrencia, real: b
   return escolhidas.map((u) => u.texto).join(" ");
 }
 
-/** Valor da coluna do rótulo na linha de baixo. */
 function valorAbaixo(doc: Doc, indiceLinha: number, oc: Ocorrencia): string | null {
   const rotulos = doc.linhas[indiceLinha];
   const valores = doc.linhas[indiceLinha + 1];
@@ -389,8 +346,6 @@ function valorAbaixo(doc: Doc, indiceLinha: number, oc: Ocorrencia): string | nu
     if (celulas.length === ocs.length) return celulas[k].texto;
     const unidades = unidadesDaLinha(valores);
     if (unidades.length === ocs.length) return unidades[k].texto;
-    // faltam unidades: textos de várias palavras podem ser valores vizinhos
-    // grudados ("DM N" = Espécie Doc. + Aceite); separa as palavras se fechar a conta
     if (unidades.length < ocs.length) {
       const palavras = unidades.flatMap((u) => (/\s/.test(u.texto) && !/\d/.test(u.texto) ? u.texto.split(/\s+/) : [u.texto]));
       if (palavras.length === ocs.length) return palavras[k];
@@ -400,14 +355,10 @@ function valorAbaixo(doc: Doc, indiceLinha: number, oc: Ocorrencia): string | nu
   return null;
 }
 
-/** Texto à direita do rótulo na mesma linha, até o próximo rótulo. */
 function valorMesmaLinha(linha: LinhaDoc, oc: Ocorrencia, ignorar: string[] = []): string {
   const prox = rotulosDaLinha(linha).find((o) => o.inicio >= oc.fim && !ignorar.includes(o.chave));
   return linha.texto.slice(oc.fim, prox ? prox.inicio : linha.texto.length);
 }
-
-// ---------------------------------------------------------------------------
-// Extratores tipados
 
 export type Extrator<T> = (s: string) => T | null;
 
@@ -421,7 +372,6 @@ const extrairData: Extrator<string> = (s) => lerData(s);
 
 const extrairDocumento: Extrator<DocumentoEncontrado> = (s) => encontrarDocumentos(s, true)[0] ?? null;
 
-/** Número/código como impresso: primeiro token com dígito (sem ser data ou valor). */
 const extrairNumero: Extrator<string> = (s) => {
   for (const bruto of s.split(/\s+/)) {
     const t = bruto.replace(/^[:#º°.\-]+|[:,;.]+$/g, "");
@@ -432,7 +382,6 @@ const extrairNumero: Extrator<string> = (s) => {
   return null;
 };
 
-/** Texto (nome): até um vão grande, sem CNPJ/CPF anexado, sem pontuação nas pontas. */
 const extrairTexto: Extrator<string> = (s) => {
   let t = s.replace(/^[\s:=\-–.]+/, "");
   t = t.split(/\s{2,}/)[0] ?? "";
@@ -449,18 +398,11 @@ type Achado<T> = { valor: T; linha: number };
 
 type OpcoesBusca = {
   faixa?: Faixa;
-  /** procurar na mesma linha (padrão true) */
   mesmaLinha?: boolean;
-  /** procurar na linha de baixo (padrão true) */
   abaixo?: boolean;
-  /** rótulos que não interrompem o valor na mesma linha (ex.: "CNPJ" depois de "Pagador:") */
   ignorar?: string[];
 };
 
-/**
- * Valor do primeiro rótulo (na ordem de prioridade de `chaves`) que tem um
- * valor do tipo esperado na mesma linha ou logo abaixo.
- */
 export function buscarRotulo<T>(
   doc: Doc,
   chaves: string[],
@@ -489,7 +431,6 @@ export function buscarRotulo<T>(
   return null;
 }
 
-/** Atalhos tipados. */
 export const valorDe = (doc: Doc, chaves: string[], opcoes?: OpcoesBusca) =>
   buscarRotulo(doc, chaves, extrairValor, opcoes)?.valor ?? null;
 export const dataDe = (doc: Doc, chaves: string[], opcoes?: OpcoesBusca) =>

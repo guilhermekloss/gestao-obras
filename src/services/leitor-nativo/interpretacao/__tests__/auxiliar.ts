@@ -1,14 +1,7 @@
-/**
- * Monta um `TextoExtraido` sintético a partir de linhas de texto, como o OCR
- * entregaria: cada palavra com caixa proporcional à posição do caractere
- * (fonte monoespaçada), linhas de cima para baixo.
- */
 import type { CodigoLido, Linha, OrigemTexto, Pagina, TextoExtraido } from "../../tipos";
 
 export type OpcoesTexto = {
-  /** false: todas as caixas zeradas (origem sem posições úteis) */
   posicoes?: boolean;
-  /** true: vãos entre colunas viram um espaço só (texto corrido) */
   colapsar?: boolean;
   confianca?: number | null;
   origem?: OrigemTexto;
@@ -47,7 +40,6 @@ function linhaSintetica(fonte: string, i: number, opcoes: OpcoesTexto): Linha | 
   };
 }
 
-/** Texto em várias páginas: cada elemento de `paginas` é um bloco com linhas separadas por "\n". */
 export function montarTexto(paginas: string | string[], opcoes: OpcoesTexto = {}): TextoExtraido {
   const blocos = Array.isArray(paginas) ? paginas : [paginas];
   const ps: Pagina[] = blocos.map((bloco, n) => ({

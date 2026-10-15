@@ -1,8 +1,3 @@
-/**
- * Boleto de cobrança (ficha de compensação + recibo do pagador). Valor e
- * vencimento saem da linha digitável/código de barras validados (DV), e são
- * conferidos com o "Valor do Documento" e o "Vencimento" impressos.
- */
 import type { DocumentoLido } from "../../../leitura-documento";
 import { documentoVazio, juntarObservacoes, type Ancoras } from "../comum";
 import { vencimentoDoFator } from "../codigos";
@@ -26,7 +21,6 @@ export function interpretarBoleto(doc: Doc, ancoras: Ancoras, dataReferencia?: s
   const dataDocumento = dataDe(doc, ["DATA_DOCUMENTO"]) ?? dataDe(doc, ["DATA_PROCESSAMENTO"]);
   lido.dataEmissao = dataDocumento;
 
-  // Vencimento: fator do código (ciclo mais próximo da emissão) × impresso
   const referencia = dataDocumento ?? vencimentoImpresso ?? dataReferencia ?? null;
   const vencimentoCodigo = boleto ? vencimentoDoFator(boleto.fator, referencia) : null;
   const vencimento = vencimentoCodigo ?? vencimentoImpresso;
@@ -36,7 +30,6 @@ export function interpretarBoleto(doc: Doc, ancoras: Ancoras, dataReferencia?: s
     );
   }
 
-  // Valor: código (quando não é valor em aberto) × impresso
   const valor = boleto?.valor ?? (valorImpresso && valorImpresso > 0 ? valorImpresso : null);
   if (boleto?.valor && valorImpresso && Math.abs(boleto.valor - valorImpresso) > 0.005) {
     notas.push(
@@ -47,7 +40,6 @@ export function interpretarBoleto(doc: Doc, ancoras: Ancoras, dataReferencia?: s
     notas.push("Linha digitável não lida com segurança; valor e vencimento vieram do texto impresso — confira.");
   lido.valorTotal = valor;
 
-  // Beneficiário (emitente) e pagador (destinatário)
   lido.emitente.nome = textoDe(doc, ["BENEFICIARIO"]);
   const docBenef = documentoDe(doc, ["CNPJ_BENEFICIARIO"]) ?? documentoDe(doc, ["BENEFICIARIO"]);
   lido.emitente.documento = docBenef?.valor ?? null;

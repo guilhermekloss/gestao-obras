@@ -1,12 +1,7 @@
-# O Terraform é dono da CONFIGURAÇÃO (SA, segredos, escala, banco); o GitHub Actions
-# só troca a IMAGEM a cada deploy — por isso `image` fica em ignore_changes.
-# Na criação usa-se a imagem de exemplo do Google até o primeiro deploy do CI.
-
 locals {
   imagem_inicial_service = "us-docker.pkg.dev/cloudrun/container/hello"
   imagem_inicial_job     = "us-docker.pkg.dev/cloudrun/container/job"
-  # URL determinística do Cloud Run (https://SERVIÇO-NÚMERO_DO_PROJETO.REGIÃO.run.app):
-  # o link de convite não depende dos cabeçalhos Host/X-Forwarded-Host da requisição
+  # URL fixa: o link de convite não depende dos cabeçalhos Host/X-Forwarded-Host da requisição.
   app_url = var.app_url != "" ? var.app_url : "https://${var.app_name}-${data.google_project.this.number}.${var.region}.run.app"
 }
 
@@ -15,12 +10,12 @@ resource "google_cloud_run_v2_service" "app" {
   location             = var.region
   ingress              = "INGRESS_TRAFFIC_ALL"
   deletion_protection  = true
-  invoker_iam_disabled = true # app público; a autenticação é a do próprio app (Auth.js)
+  invoker_iam_disabled = true # público: a autenticação é a do próprio app
 
   template {
     service_account                  = google_service_account.run.email
     execution_environment            = "EXECUTION_ENVIRONMENT_GEN2"
-    timeout                          = "300s" # leitura de nota por OCR pode levar dezenas de segundos na fila
+    timeout                          = "300s"
     max_instance_request_concurrency = 40
 
     scaling {
@@ -47,7 +42,7 @@ resource "google_cloud_run_v2_service" "app" {
           cpu    = "1"
           memory = "1Gi"
         }
-        cpu_idle          = true # CPU cobrada só durante requisições
+        cpu_idle          = true
         startup_cpu_boost = true
       }
 
@@ -69,8 +64,7 @@ resource "google_cloud_run_v2_service" "app" {
         value = local.app_url
       }
       env {
-        # proxies à frente do app que acrescentam IP ao X-Forwarded-For (1 = só o Cloud Run;
-        # 2 com um Load Balancer na frente) — base do bloqueio de login por IP
+        # proxies que acrescentam IP ao X-Forwarded-For (1 = só Cloud Run; 2 = com LB): base do bloqueio de login por IP
         name  = "PROXY_SALTOS"
         value = tostring(var.proxy_saltos)
       }
@@ -136,12 +130,11 @@ resource "google_cloud_run_v2_service" "app" {
   }
 
   lifecycle {
+    # O Terraform cuida da configuração; o GitHub Actions troca a imagem e promove o tráfego a cada deploy.
+    # `template[0].revision` fica de fora: reenviar o nome da última revisão com config nova dá 409.
     ignore_changes = [
       template[0].containers[0].image,
-      # `template[0].revision` NÃO entra aqui de propósito: ignorado, o Terraform reenviaria o nome da
-      # última revisão do deploy (gestao-obras-rN-...) com a configuração nova e o Cloud Run recusaria
-      # (409 "Revision named ... with different configuration already exists"). Sem ele, o nome é livre.
-      traffic, # o deploy usa tag "candidata" e promove a revisão nova
+      traffic,
       client,
       client_version,
     ]
@@ -156,7 +149,6 @@ resource "google_cloud_run_v2_service" "app" {
   ]
 }
 
-# `prisma migrate deploy`, executado pelo CI antes de cada deploy do app.
 resource "google_cloud_run_v2_job" "migrate" {
   name                = "${var.app_name}-migrate"
   location            = var.region

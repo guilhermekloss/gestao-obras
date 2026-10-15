@@ -1,8 +1,3 @@
-/**
- * Peças comuns aos intérpretes: âncoras com dígito verificador (procuradas
- * uma vez), documento vazio, forma de pagamento e tipo de item por
- * palavras-chave.
- */
 import type { DocumentoLido } from "../../leitura-documento";
 import {
   chaveDosCodigos,
@@ -22,15 +17,12 @@ export type Parcela = DocumentoLido["parcelas"][number];
 export type FormaPagamento = DocumentoLido["formaPagamento"];
 
 export type Ancoras = {
-  /** chave de acesso 44 válida (códigos > texto) */
   chave: string | null;
-  /** sequência no formato de chave que não fechou o DV (para o aviso do normalizador) */
   chaveInvalida: string | null;
   modelo: string | null;
   qr: DadosQrNfce | null;
   chaveNfse: string | null;
   pagamento: CodigoPagamento | null;
-  /** CNPJ/CPF do texto todo, com a linha de cada um */
   documentos: (DocumentoEncontrado & { linha: number })[];
   temValor: boolean;
   temData: boolean;
@@ -41,7 +33,6 @@ export function encontrarAncoras(doc: Doc): Ancoras {
   let chave = dosCodigos?.chave ?? null;
   let chaveInvalida: string | null = null;
   if (!chave) {
-    // preferir o trecho perto de "CHAVE DE ACESSO"; juntar pares de linhas (chave quebrada)
     const iRotulo = acharLinha(doc, /CHAVE\s*DE\s*ACESSO|CONSULTE\s*PELA\s*CHAVE/);
     const ordem = doc.linhas.map((_, i) => i);
     if (iRotulo >= 0) ordem.sort((a, b) => Math.abs(a - iRotulo) - Math.abs(b - iRotulo));
@@ -113,7 +104,6 @@ export function documentoVazio(tipo: DocumentoLido["tipo"]): DocumentoLido {
   };
 }
 
-/** Meio de pagamento citado num trecho (o primeiro reconhecido), ou NAO_INFORMADA. */
 export function formaPagamentoDoTexto(texto: string): FormaPagamento {
   const n = normalizarTexto(texto);
   const regras: [RegExp, FormaPagamento][] = [
@@ -132,7 +122,6 @@ export function formaPagamentoDoTexto(texto: string): FormaPagamento {
   return melhor?.forma ?? "NAO_INFORMADA";
 }
 
-/** Tipo do item pela descrição (e CFOP de serviço, quando houver). */
 export function tipoDoItem(descricao: string, padrao: Item["tipo"] = "MATERIAL", cfop?: string): Item["tipo"] {
   const n = normalizarTexto(descricao);
   if (/^\s*(?:FRETE|CARRETO|TRANSPORTE)\b/.test(n)) return "FRETE";
@@ -142,18 +131,15 @@ export function tipoDoItem(descricao: string, padrao: Item["tipo"] = "MATERIAL",
   return padrao;
 }
 
-/** Junta as observações não vazias numa frase só (ou null). */
 export function juntarObservacoes(notas: (string | null | undefined)[]): string | null {
   const r = notas.map((n) => n?.trim()).filter((n): n is string => !!n);
   return r.length ? [...new Set(r)].join(" ") : null;
 }
 
-/** Remove zeros e negativos de um valor de totais (campo impresso "0,00" = não há). */
 export function positivoOuNull(v: number | null | undefined): number | null {
   return v !== null && v !== undefined && Number.isFinite(v) && v > 0 ? v : null;
 }
 
-/** Marcas de documento sem valor fiscal / cancelado / contingência. */
 export function avisosDeMarca(doc: Doc): string[] {
   const n = doc.normCompleto;
   const r: string[] = [];
