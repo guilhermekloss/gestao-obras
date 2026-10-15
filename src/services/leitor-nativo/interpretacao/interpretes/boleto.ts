@@ -11,7 +11,7 @@ import { formatarReais } from "../normalizacao";
 import { dataDe, documentoDe, numeroDe, textoDe, valorDe } from "../rotulos";
 import type { Resultado } from "./auxiliares";
 
-export function formatarData(iso: string): string {
+function formatarData(iso: string): string {
   const [a, m, d] = iso.split("-");
   return `${d}/${m}/${a}`;
 }

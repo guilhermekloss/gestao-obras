@@ -18,8 +18,8 @@ import { realizadoPorEtapaTodas } from "./custos";
 export type ClasseAbc = "A" | "B" | "C";
 
 /** Limites de classe sobre o custo acumulado (A até 80%, B até 95%, C o resto). */
-export const LIMITE_A_BP = 8_000;
-export const LIMITE_B_BP = 9_500;
+const LIMITE_A_BP = 8_000;
+const LIMITE_B_BP = 9_500;
 
 export type NotaParaAbc = {
   fornecedorId: string;
@@ -51,9 +51,9 @@ export type InsumoAbc = {
   classe: ClasseAbc;
 };
 
-export type ResumoClasse = { itens: number; custoCents: number; participacaoBp: number };
+type ResumoClasse = { itens: number; custoCents: number; participacaoBp: number };
 
-export type CurvaAbc = {
+type CurvaAbc = {
   insumos: InsumoAbc[];
   totalCents: number;
   resumo: Record<ClasseAbc, ResumoClasse>;
@@ -182,7 +182,7 @@ export function curvaAbc(notas: NotaParaAbc[]): CurvaAbc {
 export type FaixaConsumo = "SEM_ORCAMENTO" | "OK" | "ATENCAO" | "ESTOURO";
 
 /** A partir de quanto consumido do previsto a etapa entra em atenção. */
-export const ATENCAO_BP = 9_000;
+const ATENCAO_BP = 9_000;
 
 /** Consumo do orçamento em basis points (null quando não há previsto). */
 export function consumoBp(previstoCents: number, realizadoCents: number): number | null {
@@ -206,7 +206,7 @@ export function faixaConsumo(previstoCents: number, realizadoCents: number): Fai
 
 export type Severidade = "CRITICA" | "ATENCAO";
 
-export type TipoAlerta =
+type TipoAlerta =
   | "ORCAMENTO_ESTOURO"
   | "ORCAMENTO_ATENCAO"
   | "PARCELA_VENCIDA"
@@ -275,7 +275,7 @@ export function alertasOrcamento(etapas: EtapaParaAlerta[]): Alerta[] {
   return [...estouros.sort(porPeso), ...atencoes.sort(porPeso)].map(([, alerta]) => alerta);
 }
 
-export type ParcelaParaAlerta = {
+type ParcelaParaAlerta = {
   notaId: string;
   notaNumero: string;
   fornecedorNome: string;
@@ -330,7 +330,7 @@ export function alertasParcelasVencidas(
     }));
 }
 
-export type NotaParaAlerta = {
+type NotaParaAlerta = {
   id: string;
   numero: string;
   fornecedorNome: string;
@@ -384,7 +384,7 @@ export function montarAlertas(entrada: {
 // Carregadores (banco → entrada das funções puras)
 // ---------------------------------------------------------------------------
 
-export type FiltroAbc = {
+type FiltroAbc = {
   obraId?: string;
   /** início do período (dataCompra ≥ de). */
   de?: Date;

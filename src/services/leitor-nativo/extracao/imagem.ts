@@ -17,7 +17,7 @@ sharp.cache({ memory: 32, files: 0, items: 50 });
 /** Acima disso nem decodifica (protege contra "bombas" de descompressão). */
 const LIMITE_PIXELS_ENTRADA = 80_000_000;
 /** Lado maior da imagem de trabalho: ~10 MP no máximo, folga para o Code-128 da chave (≥ 2 px por barra). */
-export const LADO_MAXIMO = 3200;
+const LADO_MAXIMO = 3200;
 
 export const MSG_IMAGEM_INVALIDA =
   "Não foi possível ler a imagem (arquivo corrompido ou formato não aceito). Tente outra foto ou um PDF.";
@@ -90,7 +90,7 @@ const deRgba = (img: ImagemTrabalho) =>
  * Reduzir acima de ~2400 px não perde nada e economiza tempo e o heap do
  * WASM. PNG com compressão leve (só trafega até o worker).
  */
-export const LADO_OCR_MAX = 2400;
+const LADO_OCR_MAX = 2400;
 
 export async function varianteParaOcr(img: ImagemTrabalho): Promise<{ png: Buffer; largura: number; altura: number }> {
   const maior = Math.max(img.width, img.height);

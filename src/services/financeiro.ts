@@ -1,13 +1,13 @@
 import type { FormaPagto, TipoDocumento } from "@prisma/client";
 import { custoRateado } from "./rateio";
 
-export type ParcelaComRateio = {
+type ParcelaComRateio = {
   valorCents: number;
   vencimento: Date;
   rateios: { obraId: string; fracaoBp: number }[];
 };
 
-export type FluxoMensal = {
+type FluxoMensal = {
   meses: string[]; // "2026-01" ordenado
   obras: string[]; // obraIds presentes
   /** valores[mes][obraId] em centavos */

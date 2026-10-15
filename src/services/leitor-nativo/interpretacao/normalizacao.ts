@@ -55,7 +55,7 @@ export const CONFUSAO_OCR: Record<string, string> = {
 };
 
 /** Proporção de dígitos entre os caracteres alfanuméricos. */
-export function proporcaoDigitos(s: string): number {
+function proporcaoDigitos(s: string): number {
   const alnum = s.replace(/[^0-9A-Za-z]/g, "");
   if (!alnum) return 0;
   return alnum.replace(/\D/g, "").length / alnum.length;
@@ -89,7 +89,7 @@ const PADRAO_DINHEIRO = new RegExp(
   "g",
 );
 
-export type Encontrado<T> = {
+type Encontrado<T> = {
   valor: T;
   inicio: number;
   fim: number;
@@ -301,16 +301,6 @@ export function encontrarDatas(texto: string, anoReferencia?: number): Encontrad
 export function lerData(texto: string | null | undefined, anoReferencia?: number): string | null {
   if (!texto) return null;
   return encontrarDatas(texto, anoReferencia)[0]?.valor ?? null;
-}
-
-/** Competência "09/2026" ou "Setembro/2026" → { ano, mes }. */
-export function lerCompetencia(texto: string): { ano: number; mes: number } | null {
-  const norm = normalizarTexto(texto);
-  const ext = new RegExp(`(${NOMES_MESES})\\s*(?:\\/|DE)\\s*(\\d{4})`).exec(norm);
-  if (ext) return { ano: Number(ext[2]), mes: MESES[ext[1].slice(0, 3)] };
-  const num = /(?<![\d/])(0?[1-9]|1[0-2])\s*\/\s*(\d{4})(?!\d)/.exec(norm);
-  if (num) return { ano: Number(num[2]), mes: Number(num[1]) };
-  return null;
 }
 
 /** Soma dias a uma data AAAA-MM-DD (UTC, sem fuso). */

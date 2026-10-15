@@ -48,16 +48,16 @@ import { comPrazo, ErroLeitura, unicoNoProcesso } from "./semaforo";
 const DPI = "300";
 const OCIOSO_MS = 90_000;
 const MAX_JOBS = 50;
-export const PRAZO_OCR_MS = 90_000;
+const PRAZO_OCR_MS = 90_000;
 /** Confiança (0..100) para um caractere contar como "confiável". */
 const CONFIANCA_BOA = 70;
 /** Passada fraca: fração de caracteres confiáveis abaixo disso, ou menos de `MIN_CARACTERES_BONS`. */
 const FRACAO_BOA = 0.9;
 const MIN_CARACTERES_BONS = 150;
 
-export const MSG_OCR_INDISPONIVEL =
+const MSG_OCR_INDISPONIVEL =
   "Leitura automática indisponível no momento (o leitor de imagens não iniciou). Preencha os dados manualmente.";
-export const MSG_OCR_FALHOU = "Não foi possível ler o texto da imagem. Tente outra foto ou preencha manualmente.";
+const MSG_OCR_FALHOU = "Não foi possível ler o texto da imagem. Tente outra foto ou preencha manualmente.";
 
 type EstadoTesseract = {
   worker: Promise<Worker> | null;
@@ -113,7 +113,7 @@ export async function descartarTesseract(): Promise<void> {
   }
 }
 
-export type ResultadoOcrLocal = { palavras: PalavraBruta[]; inclinacao: number | undefined };
+type ResultadoOcrLocal = { palavras: PalavraBruta[]; inclinacao: number | undefined };
 
 type BlocoTesseract = NonNullable<Page["blocks"]>[number];
 
@@ -188,7 +188,7 @@ export async function reconhecer(imagem: Buffer): Promise<ResultadoOcrLocal> {
  * remontada em `linhas.ts`). Descarta o "lixo" típico de bordas de tabela:
  * palavras sem letra nem dígito e com confiança baixa ("|", "—", "_").
  */
-export function palavrasDoTesseract(blocos: BlocoTesseract[]): PalavraBruta[] {
+function palavrasDoTesseract(blocos: BlocoTesseract[]): PalavraBruta[] {
   const palavras: PalavraBruta[] = [];
   for (const bloco of blocos)
     for (const paragrafo of bloco.paragraphs)
@@ -209,7 +209,7 @@ export function palavrasDoTesseract(blocos: BlocoTesseract[]): PalavraBruta[] {
  * ponderada pelo comprimento, sem as linhas curtas (< 100 px), que medem mal.
  * `undefined` se não houver linhas suficientes (aí `linhas.ts` estima).
  */
-export function inclinacaoDoTesseract(blocos: BlocoTesseract[]): number | undefined {
+function inclinacaoDoTesseract(blocos: BlocoTesseract[]): number | undefined {
   const medidas: { s: number; peso: number }[] = [];
   for (const bloco of blocos)
     for (const paragrafo of bloco.paragraphs)

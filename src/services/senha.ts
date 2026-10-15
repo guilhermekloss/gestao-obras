@@ -7,7 +7,7 @@
 export const SENHA_MINIMA = 10;
 
 /** O bcrypt ignora tudo depois de 72 bytes: senha maior daria a falsa impressão de ser mais forte. */
-export const SENHA_MAXIMA_BYTES = 72;
+const SENHA_MAXIMA_BYTES = 72;
 
 /** Custo do bcrypt para hashes novos (~250 ms num vCPU do Cloud Run). */
 export const CUSTO_BCRYPT = 12;
@@ -85,7 +85,7 @@ function ehNome(senha: string, contexto: Contexto): boolean {
   return nomes.some((p) => n === p || n.replace(/[^a-z]/g, "") === p);
 }
 
-export type RequisitoSenha = { chave: "tamanho" | "comum" | "pessoal"; rotulo: string; ok: boolean };
+type RequisitoSenha = { chave: "tamanho" | "comum" | "pessoal"; rotulo: string; ok: boolean };
 
 /**
  * Regras da senha como lista para mostrar ao usuário enquanto ele digita

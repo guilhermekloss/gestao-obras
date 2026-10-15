@@ -2,7 +2,7 @@
  * Regras dos arquivos enviados (fotos do RDO e anexos de lançamentos). Puras:
  * o upload e o download ficam em `app/api/upload` e `app/api/fotos`.
  */
-export type ExtensaoArquivo = "jpg" | "png" | "webp" | "pdf";
+type ExtensaoArquivo = "jpg" | "png" | "webp" | "pdf";
 
 export const TIPO_MIME: Record<ExtensaoArquivo, string> = {
   jpg: "image/jpeg",
@@ -31,7 +31,7 @@ export function tipoPeloConteudo(b: Uint8Array): ExtensaoArquivo | null {
 /** Nome gerado pelo storage (`lib/storage.ts`): `<epoch ms>-<hex>.<ext>`. */
 const NOME_ARQUIVO = /^\d{10,16}-[0-9a-f]{8,32}\.(jpg|png|webp|pdf)$/;
 
-export function nomeArquivoValido(nome: string): boolean {
+function nomeArquivoValido(nome: string): boolean {
   return NOME_ARQUIVO.test(nome);
 }
 

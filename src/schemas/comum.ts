@@ -12,7 +12,7 @@ export const MAX_CENTS = 2_000_000_000;
 export const centavos = z.number().int().min(0).max(MAX_CENTS, "Valor acima do limite permitido");
 
 /** `yyyy-mm-dd` que existe no calendário, entre 1900 e 2200. */
-export function dataIsoValida(texto: string): boolean {
+function dataIsoValida(texto: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
   if (!m) return false;
   const [ano, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];

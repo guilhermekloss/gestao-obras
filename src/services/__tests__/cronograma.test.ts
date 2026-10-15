@@ -15,7 +15,6 @@ import {
   previstoNaData,
   realizadoNaData,
   situacaoEtapa,
-  somarDias,
   unirFaixas,
   validarDatasEtapa,
   type EtapaPlano,
@@ -52,9 +51,8 @@ describe("datas", () => {
     expect(mesesEntre("2025-11", "2026-02")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
   });
 
-  it("conta dias inclusive e soma dias", () => {
+  it("conta dias inclusive", () => {
     expect(duracaoEmDias("2026-01-01", "2026-01-31")).toBe(31);
-    expect(somarDias("2026-02-27", 2)).toBe("2026-03-01");
   });
 });
 

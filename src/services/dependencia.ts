@@ -27,7 +27,7 @@ const RECENCIA_DIAS_ZERO = 365;
 
 export type NivelDependencia = "ALTA" | "MEDIA" | "BAIXA";
 
-export type FatoresDependencia = {
+type FatoresDependencia = {
   /** Fatia (0..1) do gasto total da empresa. */
   shareGasto: number;
   /** Fatia (0..1) do gasto com o fornecedor em itens de fonte única. */
@@ -38,7 +38,7 @@ export type FatoresDependencia = {
   alcance: number;
 };
 
-export type Pontuacao = {
+type Pontuacao = {
   score: number; // 0..100
   nivel: NivelDependencia;
   /** Contribuição de cada fator, em pontos, para explicar o score. */
@@ -84,7 +84,7 @@ export function pontuar(f: FatoresDependencia): Pontuacao {
   return { score, nivel: nivelDe(score), componentes };
 }
 
-export type MetricasDependencia = Pontuacao & {
+type MetricasDependencia = Pontuacao & {
   fornecedorId: string;
   gastoCents: number;
   gastoExclusivoCents: number;

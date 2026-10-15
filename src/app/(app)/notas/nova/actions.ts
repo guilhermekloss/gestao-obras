@@ -128,11 +128,11 @@ export async function analisarDocumentoComIa(anexoUrl: string): Promise<LerDocum
   return r;
 }
 
-export type FornecedorConferido =
+type FornecedorConferido =
   | { modo: "existente"; id: string; /** grava este CNPJ/CPF se o cadastro ainda não tem */ completarDocumento?: string }
   | { modo: "novo"; nome: string; documento?: string };
 
-export type ResolverFornecedorResult = ActionResult & {
+type ResolverFornecedorResult = ActionResult & {
   fornecedor?: { id: string; nome: string; cnpj: string | null };
   /** a mensagem para o usuário quando o cadastro foi reaproveitado ou completado */
   info?: string;

@@ -16,9 +16,9 @@ export const MAX_FALHAS_IP = 30;
 /** Tentativas guardadas por 90 dias (investigação de incidente); as mais antigas são apagadas. */
 export const RETENCAO_TENTATIVAS_DIAS = 90;
 
-export type Tentativa = { sucesso: boolean; criadoEm: Date };
+type Tentativa = { sucesso: boolean; criadoEm: Date };
 
-export type SituacaoLogin = { bloqueado: false } | { bloqueado: true; liberaEm: Date; motivo: "email" | "ip" };
+type SituacaoLogin = { bloqueado: false } | { bloqueado: true; liberaEm: Date; motivo: "email" | "ip" };
 
 /**
  * `doEmail`: tentativas do e-mail dentro da janela (qualquer ordem).

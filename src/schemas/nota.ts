@@ -2,7 +2,7 @@ import { z } from "zod";
 import { urlArquivoValida } from "@/services/arquivos";
 import { centavos, dataIso, id, texto } from "./comum";
 
-export const itemNotaSchema = z.object({
+const itemNotaSchema = z.object({
   descricao: texto(500, "A descrição do item").min(1, "Descrição do item é obrigatória"),
   tipo: z.enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"]),
   qtde: z.number().positive("Quantidade deve ser positiva").max(1_000_000_000, "Quantidade acima do limite"),
@@ -23,7 +23,7 @@ export const parcelaSchema = z.object({
   vencimento: dataIso("Vencimento é obrigatório"),
 });
 
-export const tipoDocumentoSchema = z.enum(["NF", "RECIBO", "FOLHA", "GUIA", "OUTRO"]);
+const tipoDocumentoSchema = z.enum(["NF", "RECIBO", "FOLHA", "GUIA", "OUTRO"]);
 
 export const notaSchema = z.object({
   id: z.string().max(64).optional(), // presente na edição
@@ -64,4 +64,3 @@ export const notaSchema = z.object({
 // regra "NF exige número" fica em `salvarNota` (via `exigeNumero`).
 
 export type NotaInput = z.infer<typeof notaSchema>;
-export type ItemNotaInput = z.infer<typeof itemNotaSchema>;

@@ -26,7 +26,7 @@ import {
  * Nada aqui expõe valores em R$: o orçamento entra só como peso (em %).
  */
 
-export type EtapaCronograma = {
+type EtapaCronograma = {
   id: string;
   nome: string;
   inicioPrevisto: Dia | null;

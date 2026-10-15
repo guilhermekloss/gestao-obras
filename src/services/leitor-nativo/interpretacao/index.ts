@@ -34,7 +34,7 @@ import type { Resultado } from "./interpretes/auxiliares";
 import { avaliarLegibilidade } from "./legibilidade";
 import { encontrarDatas } from "./normalizacao";
 
-export type OpcoesInterpretacao = {
+type OpcoesInterpretacao = {
   /**
    * Data de referência (AAAA-MM-DD) para decidir o ciclo do fator de
    * vencimento de boletos quando o documento não traz data de emissão.
@@ -142,4 +142,3 @@ export function interpretarDocumento(texto: TextoExtraido, opcoes: OpcoesInterpr
   }
 }
 
-export type { DocumentoLido };

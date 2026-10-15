@@ -30,7 +30,7 @@ export function analiseIaDisponivel(): boolean {
   return Boolean(process.env.GEMINI_PROJETO || process.env.GEMINI_API_KEY);
 }
 
-export const INSTRUCOES = `Você transcreve documentos de despesa brasileiros (DANFE de NF-e, cupom NFC-e, NFS-e de prefeitura, recibo, boleto, guia de imposto) enviados por uma construtora — geralmente fotos de celular ou PDFs.
+const INSTRUCOES = `Você transcreve documentos de despesa brasileiros (DANFE de NF-e, cupom NFC-e, NFS-e de prefeitura, recibo, boleto, guia de imposto) enviados por uma construtora — geralmente fotos de celular ou PDFs.
 
 Regras:
 - Transcreva só o que está impresso. Campo ausente, cortado ou ilegível = null. Nunca invente nem estime valores.

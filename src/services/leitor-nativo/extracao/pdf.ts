@@ -22,11 +22,11 @@ export const MIN_CARACTERES_PAGINA = 40;
 /** Maior imagem que o pdf.js decodifica (pixels); acima disso é ignorada. */
 const MAX_PIXELS_IMAGEM = 40_000_000;
 
-export const MSG_PDF_SENHA = "O PDF está protegido por senha. Envie o arquivo sem senha ou uma foto do documento.";
+const MSG_PDF_SENHA = "O PDF está protegido por senha. Envie o arquivo sem senha ou uma foto do documento.";
 export const MSG_PDF_INVALIDO =
   "Não foi possível ler o arquivo PDF (arquivo corrompido ou incompleto). Tente outro PDF ou uma foto do documento.";
 
-export type DocumentoPdf = Awaited<ReturnType<typeof getDocumentProxy>>;
+type DocumentoPdf = Awaited<ReturnType<typeof getDocumentProxy>>;
 
 export async function abrirPdf(arquivo: Buffer | Uint8Array): Promise<DocumentoPdf> {
   try {
@@ -55,7 +55,7 @@ const multiplicar = (m1: number[], m2: number[]): Matriz => [
 ];
 
 /** Trecho de texto do pdf.js (o que importa dele). */
-export type TrechoPdf = { str: string; transform: number[]; width: number };
+type TrechoPdf = { str: string; transform: number[]; width: number };
 
 /**
  * Trechos do pdf.js → palavras em coordenadas da página (origem no topo).

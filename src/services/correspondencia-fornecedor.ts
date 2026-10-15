@@ -11,7 +11,7 @@ import { formatarDocumento } from "./nfe-xml";
 import { documentoValido } from "./leitura-documento";
 export type FornecedorCadastro = { id: string; nome: string; cnpj: string | null };
 
-export type MotivoCandidato =
+type MotivoCandidato =
   /** mesmo CNPJ raiz (8 primeiros dígitos): outra filial da mesma empresa */
   | "MESMA_EMPRESA"
   /** nome parecido e cadastrado sem CNPJ/CPF — provavelmente é o mesmo, falta completar o documento */
@@ -19,7 +19,7 @@ export type MotivoCandidato =
   /** nome parecido com CNPJ/CPF diferente — pode ser outra empresa ou documento mal lido */
   | "NOME_DOCUMENTO_DIFERENTE";
 
-export type CandidatoFornecedor = FornecedorCadastro & { motivo: MotivoCandidato; similaridade: number };
+type CandidatoFornecedor = FornecedorCadastro & { motivo: MotivoCandidato; similaridade: number };
 
 export type CorrespondenciaFornecedor = {
   /** fornecedor com o mesmo CNPJ/CPF (com ou sem máscara) */

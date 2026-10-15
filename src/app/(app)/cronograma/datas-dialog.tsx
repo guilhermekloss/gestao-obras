@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { salvarDatasEtapas } from "./actions";
 import { CalendarRange } from "lucide-react";
 
-export type EtapaDatas = {
+type EtapaDatas = {
   id: string;
   nome: string;
   inicioPrevisto: string | null; // "aaaa-mm-dd"

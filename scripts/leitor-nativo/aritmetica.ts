@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 export const so = (s: string) => s.replace(/\D/g, "");
 
 /** Módulo 11, pesos 2..9 da direita para a esquerda; resto < 2 → 0 (CNPJ, chave NF-e). */
-export function dvMod11Padrao(base: string): number {
+function dvMod11Padrao(base: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base.length - 1; i >= 0; i--) {
@@ -51,7 +51,7 @@ export function completarChaveNfse(base49: string): string {
 }
 
 /** Módulo 10 (boleto e arrecadação id 6/7): pesos 2,1,2,1… da direita, soma dos dígitos dos produtos. */
-export function dvMod10(base: string): number {
+function dvMod10(base: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base.length - 1; i >= 0; i--) {
@@ -64,7 +64,7 @@ export function dvMod10(base: string): number {
 }
 
 /** DV geral do boleto de cobrança: módulo 11 pesos 2..9; 0, 10 e 11 → 1. */
-export function dvBoletoGeral(base43: string): number {
+function dvBoletoGeral(base43: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base43.length - 1; i >= 0; i--) {
@@ -76,7 +76,7 @@ export function dvBoletoGeral(base43: string): number {
 }
 
 /** Módulo 11 de arrecadação (id 8/9): resto 0 ou 1 → 0; senão 11 − resto. */
-export function dvArrecadacaoMod11(base: string): number {
+function dvArrecadacaoMod11(base: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base.length - 1; i >= 0; i--) {
@@ -90,13 +90,13 @@ export function dvArrecadacaoMod11(base: string): number {
 const DIA_MS = 86_400_000;
 
 /** Fator de vencimento (ciclo reiniciado em 22/02/2025 = 1000). */
-export function fatorVencimento(iso: string): number {
+function fatorVencimento(iso: string): number {
   const dias = Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse("2025-02-22T00:00:00Z")) / DIA_MS);
   if (dias >= 0) return 1000 + dias;
   return Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse("1997-10-07T00:00:00Z")) / DIA_MS);
 }
 
-export type Boleto = { barras: string; linha: string; linhaFormatada: string };
+type Boleto = { barras: string; linha: string; linhaFormatada: string };
 
 /**
  * Boleto de cobrança: banco(3) moeda(1) [DV] fator(4) valor(10) campoLivre(25).
@@ -119,7 +119,7 @@ export function montarBoleto(banco: string, vencimentoIso: string, valorCents: n
 }
 
 /** Linha digitável (47) → código de barras (44). */
-export function linhaParaBarras(linha: string): string {
+function linhaParaBarras(linha: string): string {
   const l = so(linha);
   return l.slice(0, 4) + l.slice(32, 33) + l.slice(33, 47) + l.slice(4, 9) + l.slice(10, 20) + l.slice(21, 31);
 }
@@ -134,7 +134,7 @@ export function boletoValido(linha: string): boolean {
   return dvBoletoGeral(b.slice(0, 4) + b.slice(5)) === Number(b[4]);
 }
 
-export type Arrecadacao = { barras: string; linha: string; linhaFormatada: string };
+type Arrecadacao = { barras: string; linha: string; linhaFormatada: string };
 
 /**
  * Código de arrecadação (começa com 8): produto(1)=8 segmento(1) idValor(1) [DV] valor(11) resto(29).
@@ -217,10 +217,6 @@ export function fmtCnpj(d: string): string {
 
 export function fmtCpf(d: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
-}
-
-export function fmtDoc(d: string): string {
-  return d.length === 14 ? fmtCnpj(d) : fmtCpf(d);
 }
 
 /** Chave em 11 grupos de 4. */

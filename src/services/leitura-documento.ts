@@ -154,7 +154,7 @@ export function dadosDaChave(chave: string) {
 // ---------------------------------------------------------------------------
 // Normalização
 
-export type ItemLeitura = {
+type ItemLeitura = {
   descricao: string;
   tipo: TipoItem;
   qtde: number;
@@ -198,7 +198,7 @@ export type LeituraNormalizada = {
   avisos: string[];
 };
 
-export type ResultadoLeitura = { ok: true; leitura: LeituraNormalizada } | { ok: false; erro: string };
+type ResultadoLeitura = { ok: true; leitura: LeituraNormalizada } | { ok: false; erro: string };
 
 const DESCRICAO_TIPO: Record<DocumentoLido["tipo"], string> = {
   NFE: "NF-e (DANFE)",

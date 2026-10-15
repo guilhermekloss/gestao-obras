@@ -7,7 +7,7 @@ import type { DocumentoLido } from "../../leitura-documento";
 import type { Ancoras } from "./comum";
 import type { Doc } from "./documento";
 
-export type TipoDocumento = DocumentoLido["tipo"];
+type TipoDocumento = DocumentoLido["tipo"];
 
 type Regra = [RegExp, number];
 

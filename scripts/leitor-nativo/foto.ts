@@ -7,7 +7,7 @@ import sharp from "sharp";
 import type { ParametrosFoto } from "./documentos";
 
 /** o cliente do app reduz a 2400 px (JPEG 0,85) antes de enviar */
-export const LADO_MAXIMO = 2400;
+const LADO_MAXIMO = 2400;
 
 /** Sombra linear numa direção: iluminação desigual de foto de celular. */
 function sombraSvg(w: number, h: number, sombra: number, direcao: number): Buffer {

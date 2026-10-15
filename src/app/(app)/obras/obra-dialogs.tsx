@@ -4,7 +4,6 @@ import type { Obra } from "@prisma/client";
 import { FormDialog } from "@/components/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LabelAjuda } from "@/components/campo-ajuda";
 import { SelectNativo } from "@/components/select-nativo";
 import { criarObra, atualizarObra } from "./actions";

@@ -1,7 +1,7 @@
 import { addMonths, setDate, lastDayOfMonth } from "date-fns";
 import type { FormaPagto, StatusParcela } from "@prisma/client";
 
-export type ParcelaGerada = {
+type ParcelaGerada = {
   numero: number;
   valorCents: number;
   vencimento: Date;
@@ -81,7 +81,7 @@ export type ParcelaExistente = {
 };
 
 /** Parcela enviada pelo formulário de edição. `vencimento` em "aaaa-mm-dd". */
-export type ParcelaEditada = {
+type ParcelaEditada = {
   numero: number;
   valorCents: number;
   vencimento: string;
@@ -93,17 +93,17 @@ export type ParcelaEditada = {
  * - `atualizar`: mesmo número, mas valor ou vencimento mudou → grava e volta a ABERTA;
  * - `criar`: número que não existia.
  */
-export type AcaoParcela = "manter" | "atualizar" | "criar";
+type AcaoParcela = "manter" | "atualizar" | "criar";
 
-export type ParcelaReconciliada = ParcelaEditada & {
+type ParcelaReconciliada = ParcelaEditada & {
   acao: AcaoParcela;
   status: StatusParcela;
   pagaEm: Date | null;
 };
 
-export type ParcelaPagaAfetada = { numero: number; motivo: "alterada" | "removida" };
+type ParcelaPagaAfetada = { numero: number; motivo: "alterada" | "removida" };
 
-export type ReconciliacaoParcelas = {
+type ReconciliacaoParcelas = {
   /** Estado final de cada parcela editada, na ordem recebida. */
   parcelas: ParcelaReconciliada[];
   /** Números das parcelas antigas que deixaram de existir. */

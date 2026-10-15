@@ -45,7 +45,7 @@ const rdoSchema = z.object({
     .max(60, "No máximo 60 fotos por RDO"),
 });
 
-export type RdoInput = z.infer<typeof rdoSchema>;
+type RdoInput = z.infer<typeof rdoSchema>;
 
 const MSG_DUPLICADO = "Já existe um RDO desta obra nesta data.";
 

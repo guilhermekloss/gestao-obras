@@ -38,7 +38,7 @@ export async function svgCodigo(texto: string, formato: FormatoEscrita, opcoes =
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="${aspecto}" shape-rendering="crispEdges" width="100%" height="100%">${corpo.replace(/<desc>[^<]*<\/desc>/, "")}</svg>`;
 }
 
-export type CodigoDecodificado = { formato: string; texto: string };
+type CodigoDecodificado = { formato: string; texto: string };
 
 /** Lê todos os códigos de uma imagem codificada (PNG/JPEG). */
 export async function lerCodigos(imagem: Uint8Array): Promise<CodigoDecodificado[]> {

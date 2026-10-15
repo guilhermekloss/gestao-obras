@@ -36,7 +36,7 @@ const UNITARIO_TOKEN = /^\d[\d.]*,\d{2,4}$/;
 const QTDE_TOKEN = /^\d+(?:[.,]\d{1,4})?$/;
 const UNIDADE_TOKEN = /^[A-Za-z]{1,4}\d?$/;
 
-export type CaudaItem = {
+type CaudaItem = {
   inicio: number;
   quantidade: number | null;
   unidade: string | null;

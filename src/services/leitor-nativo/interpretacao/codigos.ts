@@ -21,7 +21,7 @@ import { arredondar2, diferencaDias, somarDias } from "./normalizacao";
 /** 11 grupos de 4 (com espaço/ponto entre eles) ou 44 contíguos; letras toleradas para correção. */
 const GRUPOS_CHAVE = /(?<![0-9A-Za-z])((?:[0-9A-Za-z|]{4}[ .]{0,2}){10}[0-9A-Za-z|]{4})(?![0-9A-Za-z])/g;
 
-export type ChaveEncontrada = { chave: string; valida: boolean };
+type ChaveEncontrada = { chave: string; valida: boolean };
 
 /**
  * Procura a chave de acesso (44) num trecho. Devolve a primeira válida
@@ -165,7 +165,7 @@ export function vencimentoDoFator(fator: number, referencia?: string | null): st
   return Math.abs(diferencaDias(referencia, antigo)) < Math.abs(diferencaDias(referencia, novo)) ? antigo : novo;
 }
 
-export type Boleto = {
+type Boleto = {
   barras: string;
   linha: string | null;
   banco: string;
@@ -206,7 +206,7 @@ export function boletoDaLinha(linha: string): Boleto | null {
 // ---------------------------------------------------------------------------
 // Arrecadação (contas de consumo, tributos: começa com 8)
 
-export type Arrecadacao = {
+type Arrecadacao = {
   barras: string;
   linha: string | null;
   segmento: string;

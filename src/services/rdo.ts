@@ -6,8 +6,8 @@ import { urlArquivoValida } from "./arquivos";
  * (efetivo e equipamentos), rótulos de clima/condição e permissão de edição.
  */
 
-export type EfetivoItem = { funcao: string; qtd: number };
-export type EquipamentoItem = { nome: string; qtd: number };
+type EfetivoItem = { funcao: string; qtd: number };
+type EquipamentoItem = { nome: string; qtd: number };
 
 /** Valores gravados em `climaManha`/`climaTarde`. A coluna é String, então valores fora da lista são exibidos como vieram. */
 export const CLIMAS = ["SOL", "NUBLADO", "CHUVA", "CHUVA_FORTE"] as const;

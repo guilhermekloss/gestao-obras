@@ -13,12 +13,12 @@ import { encontrarDocumentos, type DocumentoEncontrado } from "./digitos";
 import type { Doc, Faixa, LinhaDoc, Token } from "./documento";
 import { ehTraco, encontrarValores, lerData, limparEspacos } from "./normalizacao";
 
-export type Rotulo = { chave: string; padrao: RegExp };
+type Rotulo = { chave: string; padrao: RegExp };
 
 const r = (chave: string, padrao: RegExp): Rotulo => ({ chave, padrao });
 
 /** Dicionário de rótulos (texto normalizado: maiúsculas, sem acento). */
-export const ROTULOS: Rotulo[] = [
+const ROTULOS: Rotulo[] = [
   // identificação / partes
   r("CNPJ_BENEFICIARIO", /(?:CPF\s*\/\s*CNPJ|CNPJ\s*\/\s*CPF|CNPJ|CPF)\s*DO\s*BENEFICIARIO/),
   r("CNPJ_CPF", /\bC\s?NPJ\s*\/\s*CPF(?:\s*\/\s*NIF)?\b|\bCPF\s*\/\s*CNPJ(?:\s*\/\s*NIF)?\b/),
@@ -171,7 +171,7 @@ export const ROTULOS: Rotulo[] = [
   r("TOTAL", /\bTOTAL\b/),
 ];
 
-export type Ocorrencia = { chave: string; inicio: number; fim: number };
+type Ocorrencia = { chave: string; inicio: number; fim: number };
 
 const cacheRotulos = new WeakMap<LinhaDoc, Ocorrencia[]>();
 
@@ -225,7 +225,7 @@ function soRotulos(linha: LinhaDoc): boolean {
 // ---------------------------------------------------------------------------
 // Unidades de valor de uma linha
 
-export type Unidade = {
+type Unidade = {
   texto: string;
   inicio: number;
   fim: number;
@@ -293,7 +293,7 @@ export function unidadesDaLinha(linha: LinhaDoc): Unidade[] {
 }
 
 /** Células da linha (trechos separados por vão grande). */
-export function celulasDaLinha(linha: LinhaDoc): Unidade[] {
+function celulasDaLinha(linha: LinhaDoc): Unidade[] {
   const r: Unidade[] = [];
   for (const t of linha.tokens) {
     const ant = r[r.length - 1];
@@ -371,7 +371,7 @@ function porColuna(rotulos: LinhaDoc, valores: LinhaDoc, oc: Ocorrencia, real: b
 }
 
 /** Valor da coluna do rótulo na linha de baixo. */
-export function valorAbaixo(doc: Doc, indiceLinha: number, oc: Ocorrencia): string | null {
+function valorAbaixo(doc: Doc, indiceLinha: number, oc: Ocorrencia): string | null {
   const rotulos = doc.linhas[indiceLinha];
   const valores = doc.linhas[indiceLinha + 1];
   if (!valores || valores.pagina !== rotulos.pagina) return null;
@@ -401,7 +401,7 @@ export function valorAbaixo(doc: Doc, indiceLinha: number, oc: Ocorrencia): stri
 }
 
 /** Texto à direita do rótulo na mesma linha, até o próximo rótulo. */
-export function valorMesmaLinha(linha: LinhaDoc, oc: Ocorrencia, ignorar: string[] = []): string {
+function valorMesmaLinha(linha: LinhaDoc, oc: Ocorrencia, ignorar: string[] = []): string {
   const prox = rotulosDaLinha(linha).find((o) => o.inicio >= oc.fim && !ignorar.includes(o.chave));
   return linha.texto.slice(oc.fim, prox ? prox.inicio : linha.texto.length);
 }
@@ -411,18 +411,18 @@ export function valorMesmaLinha(linha: LinhaDoc, oc: Ocorrencia, ignorar: string
 
 export type Extrator<T> = (s: string) => T | null;
 
-export const extrairValor: Extrator<number> = (s) => {
+const extrairValor: Extrator<number> = (s) => {
   const t = s.replace(/^[\s:=]+/, "");
   if (ehTraco(t.split(/\s{2,}/)[0] ?? "")) return 0;
   return encontrarValores(t)[0]?.valor ?? null;
 };
 
-export const extrairData: Extrator<string> = (s) => lerData(s);
+const extrairData: Extrator<string> = (s) => lerData(s);
 
-export const extrairDocumento: Extrator<DocumentoEncontrado> = (s) => encontrarDocumentos(s, true)[0] ?? null;
+const extrairDocumento: Extrator<DocumentoEncontrado> = (s) => encontrarDocumentos(s, true)[0] ?? null;
 
 /** Número/código como impresso: primeiro token com dígito (sem ser data ou valor). */
-export const extrairNumero: Extrator<string> = (s) => {
+const extrairNumero: Extrator<string> = (s) => {
   for (const bruto of s.split(/\s+/)) {
     const t = bruto.replace(/^[:#º°.\-]+|[:,;.]+$/g, "");
     if (!/\d/.test(t) || !/^[0-9A-Za-z][0-9A-Za-z./\-]*$/.test(t)) continue;
@@ -433,7 +433,7 @@ export const extrairNumero: Extrator<string> = (s) => {
 };
 
 /** Texto (nome): até um vão grande, sem CNPJ/CPF anexado, sem pontuação nas pontas. */
-export const extrairTexto: Extrator<string> = (s) => {
+const extrairTexto: Extrator<string> = (s) => {
   let t = s.replace(/^[\s:=\-–.]+/, "");
   t = t.split(/\s{2,}/)[0] ?? "";
   const doc = encontrarDocumentos(t, true)[0];
@@ -445,9 +445,9 @@ export const extrairTexto: Extrator<string> = (s) => {
   return t;
 };
 
-export type Achado<T> = { valor: T; linha: number };
+type Achado<T> = { valor: T; linha: number };
 
-export type OpcoesBusca = {
+type OpcoesBusca = {
   faixa?: Faixa;
   /** procurar na mesma linha (padrão true) */
   mesmaLinha?: boolean;

@@ -18,7 +18,7 @@ import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
 import { erroEtapasDoRateio } from "@/services/obras";
 
-export type SalvarNotaResult = ActionResult & { id?: string };
+type SalvarNotaResult = ActionResult & { id?: string };
 
 export const salvarNota = acaoDeEscrita(
   {
@@ -268,7 +268,7 @@ export const excluirNota = acaoDeEscrita(
   },
 );
 
-export type CriarFornecedorInlineResult = ActionResult & {
+type CriarFornecedorInlineResult = ActionResult & {
   fornecedor?: { id: string; nome: string; cnpj: string | null };
 };
 

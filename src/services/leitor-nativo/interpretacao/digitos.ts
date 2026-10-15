@@ -24,7 +24,7 @@ function valorCaractere(c: string): number {
 }
 
 /** Módulo 11 com pesos 2..9 da direita para a esquerda; resto < 2 → 0 (CNPJ e chave NF-e). */
-export function dvModulo11(base: string): number {
+function dvModulo11(base: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base.length - 1; i >= 0; i--) {
@@ -209,7 +209,7 @@ function escolherVariante(base: string[], ambiguas: number[], valido: (s: string
   return ok.length === 1 ? ok[0] : null;
 }
 
-export type DocumentoCorrigido = {
+type DocumentoCorrigido = {
   /** sem pontuação; corrigido quando o DV fechou, senão como lido */
   valor: string;
   valido: boolean;

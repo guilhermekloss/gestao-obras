@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma, StatusObra } from "@prisma/client";
 import { whereObrasPermitidas, type RestricaoObras } from "./acesso";
 
-export type ObraOption = { id: string; nome: string };
-export type ObraParaRateio = ObraOption & { etapas: { id: string; nome: string }[] };
+type ObraOption = { id: string; nome: string };
+type ObraParaRateio = ObraOption & { etapas: { id: string; nome: string }[] };
 
 const STATUS_ATIVA: StatusObra[] = ["PLANEJAMENTO", "ANDAMENTO"];
 

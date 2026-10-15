@@ -123,7 +123,7 @@ export function serieSemanal(
   return serie;
 }
 
-export type ResumoObraUsuario = {
+type ResumoObraUsuario = {
   obraId: string;
   rdos: number;
   medicoes: number;

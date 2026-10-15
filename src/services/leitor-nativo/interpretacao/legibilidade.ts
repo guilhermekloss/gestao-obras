@@ -79,7 +79,7 @@ export function consistente(lido: DocumentoLido): boolean {
   return true;
 }
 
-export type Legibilidade = DocumentoLido["legibilidade"];
+type Legibilidade = DocumentoLido["legibilidade"];
 
 /**
  * BOA: confiança ≥ 0,80, cobertura ≥ 0,9 e tudo consistente.

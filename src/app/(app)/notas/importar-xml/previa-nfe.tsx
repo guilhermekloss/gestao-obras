@@ -18,7 +18,7 @@ import { formatarDocumento, type Nfe } from "@/services/nfe-xml";
 import type { SituacaoImportacao } from "./actions";
 import { AlertTriangle, CheckCircle2, ExternalLink, UserPlus } from "lucide-react";
 
-export const TIPOS: { value: TipoItem; label: string }[] = [
+const TIPOS: { value: TipoItem; label: string }[] = [
   { value: "MATERIAL", label: "Material" },
   { value: "SERVICO", label: "Serviço" },
   { value: "FRETE", label: "Frete" },

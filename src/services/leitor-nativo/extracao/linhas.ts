@@ -40,11 +40,11 @@ export type PalavraBruta = {
 };
 
 /** Sobreposição vertical mínima (fração da menor altura) para duas palavras estarem na mesma linha. */
-export const SOBREPOSICAO_MINIMA = 0.5;
+const SOBREPOSICAO_MINIMA = 0.5;
 /** Vão (fração da altura mediana da linha) abaixo do qual dois pedaços são a mesma palavra. */
-export const VAO_COLADO = 0.1;
+const VAO_COLADO = 0.1;
 /** Limiar de coluna = `FATOR_COLUNA` × espaço típico da página, limitado a [mín, máx] (em alturas). */
-export const FATOR_COLUNA = 2.5;
+const FATOR_COLUNA = 2.5;
 export const VAO_COLUNA_MIN = 0.8;
 export const VAO_COLUNA_MAX = 2.5;
 /** Sem vãos suficientes para medir o espaço típico, usa este limiar. */
@@ -191,7 +191,7 @@ function endireitar(p: PalavraBruta, s: number): PalavraInterna {
   return { texto: p.texto, x0: p.x0, x1: p.x1, y0: c - h / 2, y1: c + h / 2, orig: p };
 }
 
-export type OpcoesLinhas = {
+type OpcoesLinhas = {
   /** inclinação conhecida (dy/dx); sem ela, é estimada pelas palavras. PDF passa 0. */
   inclinacao?: number;
 };

@@ -153,9 +153,9 @@ export function escolhaParaAction(f: EscolhaFornecedor) {
   return null;
 }
 
-export type NivelAcerto = "alto" | "medio" | "baixo";
+type NivelAcerto = "alto" | "medio" | "baixo";
 
-export type IndiceAcerto = {
+type IndiceAcerto = {
   /** 0–100 */
   percentual: number;
   nivel: NivelAcerto;

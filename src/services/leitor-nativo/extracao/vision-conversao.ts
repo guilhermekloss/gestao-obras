@@ -34,7 +34,7 @@ type ParagrafoVision = { words?: PalavraVision[] };
 type BlocoVision = { paragraphs?: ParagrafoVision[] };
 export type PaginaVision = { width?: number; height?: number; blocks?: BlocoVision[]; confidence?: number };
 
-export type ErroStatusVision = { code?: number; message?: string };
+type ErroStatusVision = { code?: number; message?: string };
 
 /** `AnnotateImageResponse` (o que usamos). */
 export type AnotacaoVision = {
@@ -94,7 +94,7 @@ function medianaPonderada(medidas: { s: number; peso: number }[]): number | unde
 }
 
 /** Uma página do `fullTextAnnotation` → `Pagina` com linhas montadas. */
-export function paginaDoVision(pagina: PaginaVision, numero: number): Pagina {
+function paginaDoVision(pagina: PaginaVision, numero: number): Pagina {
   // PDF pode vir sem dimensões; 1×1 mantém as coordenadas normalizadas
   const largura = pagina.width || 1;
   const altura = pagina.height || 1;

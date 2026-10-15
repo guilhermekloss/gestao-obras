@@ -29,7 +29,7 @@ import {
 } from "./aritmetica";
 import { svgCodigo, type FormatoEscrita } from "./codigos";
 
-export type Pagina = "A4" | "A5-paisagem" | "cupom-80mm";
+type Pagina = "A4" | "A5-paisagem" | "cupom-80mm";
 
 export type ParametrosFoto = {
   /** graus, positivo = horário */
@@ -67,11 +67,11 @@ export type DocCorpus = {
 // ---------------------------------------------------------------------------
 // Partes comuns (fictícias)
 
-export const CNPJ_EMITENTE = completarCnpj("112223330001"); // 11.222.333/0001-81 (da especificação)
-export const CNPJ_CONSTRUTORA = completarCnpj("987654320001"); // 98.765.432/0001-98
-export const CNPJ_TRANSPORTADORA = completarCnpj("456789010001");
-export const CPF_CONSUMIDOR = completarCpf("123456789"); // 123.456.789-09
-export const CPF_PEDREIRO = completarCpf("529982247"); // 529.982.247-25
+const CNPJ_EMITENTE = completarCnpj("112223330001"); // 11.222.333/0001-81 (da especificação)
+const CNPJ_CONSTRUTORA = completarCnpj("987654320001"); // 98.765.432/0001-98
+const CNPJ_TRANSPORTADORA = completarCnpj("456789010001");
+const CPF_CONSUMIDOR = completarCpf("123456789"); // 123.456.789-09
+const CPF_PEDREIRO = completarCpf("529982247"); // 529.982.247-25
 
 const CONSTRUTORA = {
   nome: "CONSTRUTORA EXEMPLO LTDA",

@@ -112,13 +112,13 @@ quando a leitura barata não fecha.
 
 ### Acessar o banco do seu computador
 
-Para rodar os scripts de importação (`prisma/importar-*.ts`) ou um cliente SQL, use o [Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/postgres/sql-proxy) — o banco não aceita conexões diretas:
+Para usar um cliente SQL ou rodar um script do Prisma contra a produção, use o [Cloud SQL Auth Proxy](https://cloud.google.com/sql/docs/postgres/sql-proxy) — o banco não aceita conexões diretas:
 
 ```bash
 gcloud auth application-default login
 cloud-sql-proxy SEU_PROJECT_ID:southamerica-east1:gestao-obras-pg --port 6543
 # senha: gcloud secrets versions access latest --secret gestao-obras-database-url
-DATABASE_URL="postgresql://app:SENHA@localhost:6543/gestao_obras" npx tsx prisma/importar-dados-reais.ts
+DATABASE_URL="postgresql://app:SENHA@localhost:6543/gestao_obras" npx prisma studio
 ```
 
 ### Backups e restauração

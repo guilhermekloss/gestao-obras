@@ -33,7 +33,6 @@ import {
   encontrarValores,
   extensoParaNumero,
   formatarReais,
-  lerCompetencia,
   lerData,
   lerDecimal,
   lerValor,
@@ -139,11 +138,6 @@ describe("datas", () => {
     expect(anoCompleto(99)).toBe(1999);
     expect(anoCompleto(28, 2026)).toBe(1928);
     expect(anoCompleto(27, 2026)).toBe(2027);
-  });
-
-  it("competência", () => {
-    expect(lerCompetencia("Setembro/2026")).toEqual({ ano: 2026, mes: 9 });
-    expect(lerCompetencia("09/2026")).toEqual({ ano: 2026, mes: 9 });
   });
 
   it("valor por extenso", () => {

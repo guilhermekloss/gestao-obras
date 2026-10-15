@@ -27,7 +27,7 @@ import type { FormaPagto, TipoItem } from "@prisma/client";
 import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 
-export type ItemNfe = {
+type ItemNfe = {
   descricao: string;
   ncm: string | null;
   qtde: number;
@@ -41,7 +41,7 @@ export type ItemNfe = {
   tipoSugerido: TipoItem;
 };
 
-export type DuplicataNfe = {
+type DuplicataNfe = {
   /** `nDup` como veio no XML (ex.: "001"). */
   numero: string;
   /** aaaa-mm-dd */
@@ -49,7 +49,7 @@ export type DuplicataNfe = {
   valorCents: number;
 };
 
-export type EmitenteNfe = {
+type EmitenteNfe = {
   /** só dígitos — 14 (CNPJ) ou 11 (CPF) */
   documento: string;
   tipoDocumento: "CNPJ" | "CPF";
@@ -74,7 +74,7 @@ export type Nfe = {
   avisos: string[];
 };
 
-export type ResultadoNfe = { ok: true; nfe: Nfe } | { ok: false; erro: string };
+type ResultadoNfe = { ok: true; nfe: Nfe } | { ok: false; erro: string };
 
 // ---------------------------------------------------------------------------
 // Conversões numéricas
@@ -360,7 +360,7 @@ function fecharNoTotal(itens: ItemNfe[], tot: No | undefined, totalCents: number
 // ---------------------------------------------------------------------------
 // Parcelas
 
-export type ParcelaNfe = { numero: number; valorCents: number; vencimento: string };
+type ParcelaNfe = { numero: number; valorCents: number; vencimento: string };
 
 /** Parcelas a lançar: as duplicatas da nota ou, sem cobrança, uma única com vencimento na emissão. */
 export function parcelasDaNfe(nfe: Pick<Nfe, "duplicatas" | "totalCents" | "dataEmissao">): ParcelaNfe[] {

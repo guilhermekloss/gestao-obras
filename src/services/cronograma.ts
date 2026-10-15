@@ -15,7 +15,7 @@ import { avancoPonderado } from "./obra";
  */
 
 export type Dia = string; // "aaaa-mm-dd"
-export type Mes = string; // "aaaa-mm"
+type Mes = string; // "aaaa-mm"
 
 export type EtapaPlano = {
   id: string;
@@ -44,7 +44,7 @@ export const ROTULO_SITUACAO: Record<SituacaoEtapa, string> = {
 };
 
 /** Folga tolerada entre o previsto até hoje e o realizado antes de marcar atraso (10 p.p.). */
-export const MARGEM_ATRASO_BP = 1000;
+const MARGEM_ATRASO_BP = 1000;
 
 const MS_DIA = 86_400_000;
 const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
@@ -74,11 +74,7 @@ function numeroDoDia(dia: Dia): number {
   return Math.round(Date.parse(`${dia}T00:00:00Z`) / MS_DIA);
 }
 
-function diaDoNumero(n: number): Dia {
-  return new Date(n * MS_DIA).toISOString().slice(0, 10);
-}
-
-export function mesDoDia(dia: Dia): Mes {
+function mesDoDia(dia: Dia): Mes {
   return dia.slice(0, 7);
 }
 
@@ -357,11 +353,6 @@ export function posicaoNoGantt(
 /** Duração em dias corridos (inclusive) — para exibição. */
 export function duracaoEmDias(inicio: Dia, fim: Dia): number {
   return numeroDoDia(fim) - numeroDoDia(inicio) + 1;
-}
-
-/** Soma dias a um dia — útil em testes e para sugerir datas. */
-export function somarDias(dia: Dia, dias: number): Dia {
-  return diaDoNumero(numeroDoDia(dia) + dias);
 }
 
 /** Peso de cada etapa na obra em basis points (mesma regra de `avancoPonderado`) — exibição sem R$. */

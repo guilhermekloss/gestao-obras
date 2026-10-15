@@ -61,7 +61,6 @@ export const novoConviteSchema = z
     message: "Escolha ao menos uma obra ou marque “Todas as obras”",
   });
 
-export type NovoConvite = z.infer<typeof novoConviteSchema>;
 
 /** O que o convidado preenche na página do link. */
 export const cadastroConviteSchema = z

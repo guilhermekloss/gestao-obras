@@ -48,7 +48,7 @@ function mesAnoDaChave(chave: string | null): string | null {
 
 const NUMERICO = /^-?\d[\d.]*,\d+$/;
 
-export type LinhaProduto = {
+type LinhaProduto = {
   codigo: string;
   descricao: string;
   ncm: string;

@@ -11,7 +11,7 @@ export const fornecedorSchema = z.object({
   obs: z.string().max(2000, "A observação pode ter no máximo 2000 caracteres").optional(),
 });
 
-export type FornecedorInput = z.infer<typeof fornecedorSchema>;
+type FornecedorInput = z.infer<typeof fornecedorSchema>;
 
 /** Fornecedor cadastrado com este CNPJ/CPF, com ou sem máscara (o campo é texto livre). */
 export async function buscarFornecedorPorDocumento(documento: string, ignorarId?: string) {

@@ -50,7 +50,7 @@ const falhar = (msg: string) => problemas.push(msg);
 
 const c = (v: number | null | undefined) => Math.round((v ?? 0) * 100);
 
-export function conferirEsperado(e: DocumentoLido): string[] {
+function conferirEsperado(e: DocumentoLido): string[] {
   const erros: string[] = [];
   const r = documentoLidoSchema.safeParse(e);
   if (!r.success) erros.push(`schema: ${r.error.message}`);

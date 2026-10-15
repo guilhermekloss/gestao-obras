@@ -4,7 +4,7 @@
  * (`infra/terraform/seguranca.tf`) filtram por `jsonPayload.evento`.
  * Nunca inclua senha, token ou conteúdo de documento.
  */
-export type EventoSeguranca =
+type EventoSeguranca =
   | "login_falhou"
   | "login_bloqueado"
   | "sessao_revogada"

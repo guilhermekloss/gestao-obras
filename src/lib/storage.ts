@@ -10,7 +10,7 @@ import { Storage } from "@google-cloud/storage";
  * - GCS: grava no bucket de `STORAGE_BUCKET` (produção no Cloud Run, cujo disco
  *   é efêmero). Credenciais vêm da service account do serviço (ADC).
  */
-export interface StorageDriver {
+interface StorageDriver {
   salvar(buffer: Buffer, extensao: string): Promise<string>; // retorna URL
   ler(nomeArquivo: string): Promise<Buffer>;
 }
@@ -21,7 +21,7 @@ function novoNome(extensao: string) {
   return `${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${extensao}`;
 }
 
-export const storageLocal: StorageDriver = {
+const storageLocal: StorageDriver = {
   async salvar(buffer, extensao) {
     await mkdir(UPLOADS_DIR, { recursive: true });
     const nome = novoNome(extensao);

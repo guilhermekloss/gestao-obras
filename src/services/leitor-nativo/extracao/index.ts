@@ -29,7 +29,7 @@ import { descartarTesseract, reconhecer } from "./tesseract";
 import { anotarImagem, anotarImagens, anotarPdf, MAX_BYTES_INLINE, tratarErroResposta } from "./vision";
 import { paginasDoVision, type AnotacaoVision } from "./vision-conversao";
 
-export type MotorOcr = "local" | "vision";
+type MotorOcr = "local" | "vision";
 
 /** Motor de OCR configurado em `OCR_MOTOR` (padrão "local"). */
 export function motorOcr(): MotorOcr {
@@ -45,7 +45,7 @@ const filaVision = unicoNoProcesso("fila-vision", () => new Semaforo(4, 20));
 
 const pesado = <T>(tarefa: () => Promise<T>) => filaPesada.executar(tarefa, { esperaMaximaMs: ESPERA_MAXIMA_MS });
 
-export const MSG_FALHA_GERAL =
+const MSG_FALHA_GERAL =
   "Não foi possível ler o arquivo. Tente outra foto ou PDF, ou preencha os dados manualmente.";
 export const MSG_PDF_SEM_TEXTO =
   "Não foi possível ler este PDF (ele é uma imagem escaneada sem texto legível). Envie uma foto nítida do documento ou preencha manualmente.";

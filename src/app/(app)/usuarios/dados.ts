@@ -100,9 +100,7 @@ export async function carregarConvites(agora: Date = new Date()) {
   }));
 }
 
-export type ConviteDaLista = Awaited<ReturnType<typeof carregarConvites>>[number];
-
-export type FiltroAtividades = {
+type FiltroAtividades = {
   usuarioId?: string;
   obraId?: string;
   categoria?: CategoriaAtividade;

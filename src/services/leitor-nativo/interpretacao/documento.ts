@@ -43,8 +43,6 @@ export type Doc = {
   /** todas as linhas unidas por "\n" (original e normalizado) */
   textoCompleto: string;
   normCompleto: string;
-  /** início de cada linha em `textoCompleto` */
-  inicioLinha: number[];
   /** última página presente */
   paginas: number;
 };
@@ -102,12 +100,6 @@ export function construirDoc(entrada: TextoExtraido): Doc {
       });
     }
   }
-  const inicioLinha: number[] = [];
-  let pos = 0;
-  for (const l of linhas) {
-    inicioLinha.push(pos);
-    pos += l.texto.length + 1;
-  }
   const textoCompleto = linhas.map((l) => l.texto).join("\n");
   return {
     linhas,
@@ -117,7 +109,6 @@ export function construirDoc(entrada: TextoExtraido): Doc {
     comPosicoes: linhas.length > 0 && linhas.filter((l) => l.comPosicao).length >= linhas.length * 0.6,
     textoCompleto,
     normCompleto: linhas.map((l) => l.norm).join("\n"),
-    inicioLinha,
     paginas: entrada.paginas.reduce((m, p) => Math.max(m, p.numero), 0),
   };
 }
@@ -130,18 +121,6 @@ export function acharLinha(doc: Doc, padrao: RegExp, desde = 0, ate = doc.linhas
   return -1;
 }
 
-/** Linha do documento que contém a posição `pos` de `textoCompleto`. */
-export function linhaDaPosicao(doc: Doc, pos: number): number {
-  let lo = 0;
-  let hi = doc.inicioLinha.length - 1;
-  while (lo < hi) {
-    const meio = (lo + hi + 1) >> 1;
-    if (doc.inicioLinha[meio] <= pos) lo = meio;
-    else hi = meio - 1;
-  }
-  return lo;
-}
-
 /** Texto das linhas [de, ate) unido por "\n". */
 export function textoDasLinhas(doc: Doc, de: number, ate: number): string {
   return doc.linhas
@@ -152,22 +131,3 @@ export function textoDasLinhas(doc: Doc, de: number, ate: number): string {
 
 /** Faixa de linhas [de, ate). */
 export type Faixa = { de: number; ate: number };
-
-export function faixaInteira(doc: Doc): Faixa {
-  return { de: 0, ate: doc.linhas.length };
-}
-
-/**
- * Seção que começa na primeira linha que casa `inicio` e vai até a próxima
- * que casa algum dos `fins` (ou o fim do documento). null se não achar o início.
- */
-export function secao(doc: Doc, inicio: RegExp, fins: RegExp[], desde = 0): Faixa | null {
-  const de = acharLinha(doc, inicio, desde);
-  if (de === -1) return null;
-  let ate = doc.linhas.length;
-  for (const f of fins) {
-    const i = acharLinha(doc, f, de + 1);
-    if (i !== -1 && i < ate) ate = i;
-  }
-  return { de, ate };
-}

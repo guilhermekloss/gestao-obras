@@ -69,7 +69,7 @@ function agendarDescarte() {
   estado.timer.unref?.();
 }
 
-export function formatoCodigo(formato: string): FormatoCodigo {
+function formatoCodigo(formato: string): FormatoCodigo {
   if (formato.startsWith("Code128")) return "CODE128";
   if (formato.startsWith("ITF")) return "ITF";
   if (formato.startsWith("QR")) return "QR";

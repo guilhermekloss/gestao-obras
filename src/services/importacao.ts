@@ -16,7 +16,7 @@
  */
 import { BP_TOTAL, custoRateado, distribuirBpPorPeso } from "./rateio";
 
-export type ItemImportado = {
+type ItemImportado = {
   descricao: string;
   tipo: "MATERIAL" | "SERVICO" | "FRETE" | "ENCARGO";
   qtde: number;
@@ -26,16 +26,16 @@ export type ItemImportado = {
   totalCents: number;
 };
 
-export type RateioImportado = { codigoObra: string; fracaoBp: number };
+type RateioImportado = { codigoObra: string; fracaoBp: number };
 
-export type ParcelaImportada = {
+type ParcelaImportada = {
   numero: number;
   valorCents: number;
   vencimento: Date;
   pagaEm: Date | null;
 };
 
-export type NotaImportada = {
+type NotaImportada = {
   fornecedor: string;
   cnpj: string | null;
   numero: string;
@@ -54,7 +54,7 @@ export type NotaImportada = {
   parcelas: ParcelaImportada[];
 };
 
-export type ResultadoImportacao = {
+type ResultadoImportacao = {
   notas: NotaImportada[];
   inconsistencias: string[];
 };

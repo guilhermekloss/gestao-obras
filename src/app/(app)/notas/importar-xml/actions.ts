@@ -28,9 +28,9 @@ const importarSchema = z.object({
   parcelas: z.array(parcelaSchema).min(1, "A nota precisa de ao menos 1 parcela"),
 });
 
-export type ImportarNfeInput = z.infer<typeof importarSchema>;
+type ImportarNfeInput = z.infer<typeof importarSchema>;
 
-export type ImportarNfeResult = ActionResult & {
+type ImportarNfeResult = ActionResult & {
   /** quando a NF-e já está lançada — a tela oferece o link para ela */
   notaExistenteId?: string;
 };

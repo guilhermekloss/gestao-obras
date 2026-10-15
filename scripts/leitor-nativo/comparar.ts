@@ -40,7 +40,7 @@ const cents = (v: number | null | undefined) => (v === null || v === undefined |
 /** null e 0 são equivalentes para frete/outras/desconto ("não há") */
 const centsOuZero = (v: number | null | undefined) => cents(v) ?? 0;
 
-export function normalizarTexto(s: string): string {
+function normalizarTexto(s: string): string {
   return s
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -50,7 +50,7 @@ export function normalizarTexto(s: string): string {
     .trim();
 }
 
-export function levenshtein(a: string, b: string): number {
+function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   let ant = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
@@ -67,7 +67,7 @@ export function levenshtein(a: string, b: string): number {
  * Nome "parecido": similaridade de Levenshtein ≥ 0,85 sobre o texto normalizado,
  * ou todas as palavras do esperado presentes no lido com no máximo 3 palavras a mais.
  */
-export function nomeConfere(esperado: string | null, lido: string | null): boolean {
+function nomeConfere(esperado: string | null, lido: string | null): boolean {
   if (!esperado) return !lido;
   if (!lido) return false;
   const e = normalizarTexto(esperado);
@@ -81,7 +81,7 @@ export function nomeConfere(esperado: string | null, lido: string | null): boole
 }
 
 /** Números de nota comparados sem pontuação e sem zeros à esquerda; demais, sem espaços. */
-export function numeroConfere(esperado: string | null, lido: string | null): boolean {
+function numeroConfere(esperado: string | null, lido: string | null): boolean {
   const n = (s: string | null) => {
     const t = (s ?? "").replace(/[\s.\-/]/g, "").toUpperCase();
     return /^\d+$/.test(t) ? String(Number(t)) : (s ?? "").replace(/\s+/g, "").toUpperCase();
@@ -93,7 +93,7 @@ export function numeroConfere(esperado: string | null, lido: string | null): boo
  * Forma de pagamento: igual, ou NAO_INFORMADA ≡ BOLETO quando o documento tem
  * vencimentos (é o que `normalizarLeitura` decide nesse caso).
  */
-export function formaConfere(esperado: DocumentoLido, lido: DocumentoLido): boolean {
+function formaConfere(esperado: DocumentoLido, lido: DocumentoLido): boolean {
   if (esperado.formaPagamento === lido.formaPagamento) return true;
   const par = new Set([esperado.formaPagamento, lido.formaPagamento]);
   return esperado.parcelas.length > 0 && par.has("NAO_INFORMADA") && par.has("BOLETO");
