@@ -88,7 +88,7 @@ resource "google_cloud_run_v2_service" "app" {
         value = var.motor_ocr
       }
       dynamic "env" {
-        for_each = { for k, v in { GEMINI_PROJETO = var.project_id, GEMINI_MODELO = var.gemini_modelo } : k => v if var.gemini_habilitado }
+        for_each = { for k, v in { GEMINI_PROJETO = var.project_id, GEMINI_MODELO = var.gemini_modelo, GEMINI_MODELO_REFORCO = var.gemini_modelo_reforco } : k => v if var.gemini_habilitado }
         content {
           name  = env.key
           value = env.value

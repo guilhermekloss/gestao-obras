@@ -160,8 +160,13 @@ da leitura nativa (`normalizarLeitura`, fornecedor, duplicata, destinatário) e 
 - `src/services/leitor-gemini.ts` (SDK `@google/genai`): Vertex AI em produção, autenticado pela service
   account do Cloud Run (papel `roles/aiplatform.user`, sem chave guardada); `GEMINI_API_KEY` só para
   desenvolvimento local.
-- Modelo padrão `gemini-3.5-flash` (estável na Vertex AI até maio de 2027, no mínimo); troque com
-  `GEMINI_MODELO`.
+- **Custo — barato primeiro**: lê com `gemini-3.5-flash-lite` (US$ 0,30 / 2,50 por milhão de tokens de
+  entrada / saída) e só repete com `gemini-3.5-flash` (US$ 1,50 / 9,00) quando a leitura não fecha — total
+  ausente, itens + frete + outras − desconto ≠ total, ou imagem quase ilegível (`leituraFecha`). Estimativa por foto
+  de nota (alguns milhares de tokens de entrada e de saída, incluindo o raciocínio do modelo): **abaixo de
+  US$ 0,01 (~R$ 0,05)** no Flash-Lite e ~US$ 0,04 quando o reforço entra — confira no faturamento após as
+  primeiras análises. Troque com
+  `GEMINI_MODELO` / `GEMINI_MODELO_REFORCO` (vazio desliga o reforço).
 - Privacidade: ao clicar, a imagem/PDF é enviada ao Google (Vertex AI, local `global`).
 
 ## Configuração
@@ -170,7 +175,8 @@ da leitura nativa (`normalizarLeitura`, fornecedor, duplicata, destinatário) e 
 # .env
 OCR_MOTOR=local                     # local (padrão) | vision | desligado (foto/PDF só anexados)
 GEMINI_PROJETO=meu-projeto-gcp      # opcional: botão "Analisar com IA" via Vertex AI (ou GEMINI_API_KEY=... no dev)
-GEMINI_MODELO=gemini-3.5-flash      # opcional (padrão)
+GEMINI_MODELO=gemini-3.5-flash-lite # opcional (padrão): lê primeiro, o mais barato
+GEMINI_MODELO_REFORCO=gemini-3.5-flash  # opcional (padrão): só quando a leitura barata não fecha; vazio desliga
 CNPJS_EMPRESA=12.345.678/0001-95    # opcional: CNPJs da empresa (vírgula) para conferir o destinatário
 ```
 

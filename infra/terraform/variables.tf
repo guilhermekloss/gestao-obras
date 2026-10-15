@@ -80,7 +80,13 @@ variable "gemini_habilitado" {
 }
 
 variable "gemini_modelo" {
-  description = "Modelo do Gemini usado na análise com IA."
+  description = "Modelo do Gemini que lê primeiro (o mais barato)."
+  type        = string
+  default     = "gemini-3.5-flash-lite"
+}
+
+variable "gemini_modelo_reforco" {
+  description = "Modelo que relê só quando a leitura barata não fecha (soma dos itens ≠ total). Vazio desliga."
   type        = string
   default     = "gemini-3.5-flash"
 }

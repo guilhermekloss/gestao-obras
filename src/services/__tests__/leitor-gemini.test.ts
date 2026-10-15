@@ -21,9 +21,15 @@ vi.mock("@google/genai", () => {
 });
 
 const { ApiError } = await import("@google/genai");
-const { analisarComGemini, analiseIaDisponivel, interpretarResposta, schemaParaGemini, MODELO_PADRAO } = await import(
-  "../leitor-gemini"
-);
+const {
+  analisarComGemini,
+  analiseIaDisponivel,
+  interpretarResposta,
+  leituraFecha,
+  schemaParaGemini,
+  MODELO_PADRAO,
+  MODELO_REFORCO_PADRAO,
+} = await import("../leitor-gemini");
 
 const DOC = {
   tipo: "RECIBO",
@@ -44,7 +50,7 @@ const DOC = {
   observacoes: null,
 };
 
-const ENV = ["GEMINI_PROJETO", "GEMINI_API_KEY", "GEMINI_LOCAL", "GEMINI_MODELO"] as const;
+const ENV = ["GEMINI_PROJETO", "GEMINI_API_KEY", "GEMINI_LOCAL", "GEMINI_MODELO", "GEMINI_MODELO_REFORCO"] as const;
 let salvo: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -119,6 +125,7 @@ describe("analisarComGemini", () => {
 
   it("resposta cortada ou bloqueada vira mensagem amigável", async () => {
     process.env.GEMINI_API_KEY = "chave";
+    process.env.GEMINI_MODELO_REFORCO = ""; // sem reforço
     generateContent.mockResolvedValueOnce(resposta("{", "MAX_TOKENS"));
     await expect(analisarComGemini(foto, "image/jpeg")).rejects.toThrow(/documento inteiro/);
     generateContent.mockResolvedValueOnce(resposta("", "SAFETY"));
@@ -127,6 +134,7 @@ describe("analisarComGemini", () => {
 
   it("erros da API viram mensagens para o usuário", async () => {
     process.env.GEMINI_API_KEY = "chave";
+    process.env.GEMINI_MODELO_REFORCO = ""; // sem reforço
     const casos: [number, RegExp][] = [
       [403, /sem permissão/],
       [429, /Muitas análises/],
@@ -139,5 +147,78 @@ describe("analisarComGemini", () => {
     }
     generateContent.mockRejectedValueOnce(new TypeError("fetch failed"));
     await expect(analisarComGemini(foto, "image/jpeg")).rejects.toThrow(/Sem conexão/);
+  });
+});
+
+const NOTA = {
+  ...DOC,
+  tipo: "NFE",
+  valorTotal: 130,
+  valorFrete: 10,
+  itens: [
+    { descricao: "Cimento", quantidade: 2, unidade: "SC", valorUnitario: 30, desconto: null, valorTotal: 60, tipo: "MATERIAL" },
+    { descricao: "Areia", quantidade: 1, unidade: "M3", valorUnitario: 60, desconto: null, valorTotal: 60, tipo: "MATERIAL" },
+  ],
+};
+
+describe("leituraFecha", () => {
+  it("itens + frete = total fecha; diferença ou total ausente não fecha", () => {
+    expect(leituraFecha(interpretarResposta(JSON.stringify(NOTA)))).toBe(true);
+    expect(leituraFecha(interpretarResposta(JSON.stringify({ ...NOTA, valorTotal: 150 })))).toBe(false);
+    expect(leituraFecha(interpretarResposta(JSON.stringify({ ...NOTA, valorTotal: null })))).toBe(false);
+  });
+  it("sem itens (recibo, guia) basta o total; imagem ruim nunca fecha", () => {
+    expect(leituraFecha(interpretarResposta(JSON.stringify(DOC)))).toBe(true);
+    expect(leituraFecha(interpretarResposta(JSON.stringify({ ...DOC, legibilidade: "RUIM" })))).toBe(false);
+  });
+});
+
+describe("cascata de modelos (barato primeiro)", () => {
+  const foto = Buffer.from([0xff, 0xd8, 0xff]);
+  const modelos = () => generateContent.mock.calls.map((c) => c[0].model);
+
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = "chave";
+  });
+
+  it("leitura barata que fecha: uma chamada só, no Flash-Lite", async () => {
+    generateContent.mockResolvedValue(resposta(JSON.stringify(NOTA)));
+    await analisarComGemini(foto, "image/jpeg");
+    expect(modelos()).toEqual([MODELO_PADRAO]);
+    expect(MODELO_PADRAO).toMatch(/flash-lite/);
+  });
+
+  it("não fecha no barato: repete no reforço e fica com a que fecha", async () => {
+    generateContent
+      .mockResolvedValueOnce(resposta(JSON.stringify({ ...NOTA, valorTotal: 150 })))
+      .mockResolvedValueOnce(resposta(JSON.stringify(NOTA)));
+    const lido = await analisarComGemini(foto, "image/jpeg");
+    expect(modelos()).toEqual([MODELO_PADRAO, MODELO_REFORCO_PADRAO]);
+    expect(lido.valorTotal).toBe(130);
+  });
+
+  it("nenhuma fecha: fica com a do barato (o usuário confere os avisos)", async () => {
+    generateContent
+      .mockResolvedValueOnce(resposta(JSON.stringify({ ...NOTA, valorTotal: 150, observacoes: "barato" })))
+      .mockResolvedValueOnce(resposta(JSON.stringify({ ...NOTA, valorTotal: 170, observacoes: "reforco" })));
+    expect((await analisarComGemini(foto, "image/jpeg")).observacoes).toBe("barato");
+  });
+
+  it("barato falha no conteúdo: o reforço responde", async () => {
+    generateContent.mockResolvedValueOnce(resposta("{", "MAX_TOKENS")).mockResolvedValueOnce(resposta(JSON.stringify(NOTA)));
+    expect((await analisarComGemini(foto, "image/jpeg")).valorTotal).toBe(130);
+  });
+
+  it("reforço falha: devolve a leitura barata", async () => {
+    generateContent
+      .mockResolvedValueOnce(resposta(JSON.stringify({ ...NOTA, valorTotal: 150 })))
+      .mockRejectedValueOnce(new ApiError({ message: "x", status: 503 }));
+    expect((await analisarComGemini(foto, "image/jpeg")).valorTotal).toBe(150);
+  });
+
+  it("erro de permissão ou limite não gasta uma segunda chamada", async () => {
+    generateContent.mockRejectedValueOnce(new ApiError({ message: "x", status: 429 }));
+    await expect(analisarComGemini(foto, "image/jpeg")).rejects.toThrow(/Muitas análises/);
+    expect(modelos()).toHaveLength(1);
   });
 });

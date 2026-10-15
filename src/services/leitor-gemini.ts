@@ -10,15 +10,21 @@
  *   opcional, `GEMINI_LOCAL` (padrão "global"). Autentica com a service account
  *   da instância — sem chave guardada;
  * - Gemini API (desenvolvimento): `GEMINI_API_KEY`.
- * `GEMINI_MODELO` troca o modelo (padrão abaixo).
+ *
+ * Custo: lê primeiro com o modelo mais barato (`GEMINI_MODELO`, padrão
+ * Flash-Lite) e só repete com o reforço (`GEMINI_MODELO_REFORCO`, padrão
+ * Flash; vazio desliga) quando a leitura não fecha — total ausente, soma dos
+ * itens diferente do total ou imagem quase ilegível.
  */
 import { ApiError, GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { documentoLidoSchema, type DocumentoLido } from "./leitura-documento";
 import type { MidiaDocumento } from "./leitor-nativo/tipos";
 
-/** Estável na Vertex AI até maio de 2027, no mínimo. */
-export const MODELO_PADRAO = "gemini-3.5-flash";
+/** O mais barato da linha 3.5 (US$ 0,30 / 2,50 por milhão de tokens de entrada / saída). */
+export const MODELO_PADRAO = "gemini-3.5-flash-lite";
+/** Reforço quando a leitura barata não fecha (US$ 1,50 / 9,00). Estável até maio de 2027, no mínimo. */
+export const MODELO_REFORCO_PADRAO = "gemini-3.5-flash";
 
 export function analiseIaDisponivel(): boolean {
   return Boolean(process.env.GEMINI_PROJETO || process.env.GEMINI_API_KEY);
@@ -72,17 +78,70 @@ function cliente(): GoogleGenAI {
   return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 }
 
+const TOLERANCIA_REAIS = 0.02;
+
 /**
- * Analisa o documento. Lança `Error` com mensagem para o usuário quando a API
- * falha ou não devolve um resultado aproveitável.
+ * A leitura "fecha"? Total presente, itens (com frete, outras despesas e
+ * desconto geral) somando o total e imagem legível. Não fechar é o sinal para
+ * repetir com o modelo de reforço.
+ */
+export function leituraFecha(d: DocumentoLido): boolean {
+  if (d.tipo === "NAO_E_DOCUMENTO") return true; // repetir não muda a resposta
+  if (d.legibilidade === "RUIM") return false;
+  if (d.valorTotal === null || d.valorTotal <= 0) return false;
+  if (d.itens.length === 0) return true; // recibo/guia sem itens: o total basta
+  if (d.itens.some((it) => it.valorTotal === null)) return false;
+  const soma =
+    d.itens.reduce((a, it) => a + (it.valorTotal ?? 0), 0) +
+    (d.valorFrete ?? 0) +
+    (d.valorOutrasDespesas ?? 0) -
+    (d.descontoGeral ?? 0);
+  return Math.abs(soma - d.valorTotal) <= TOLERANCIA_REAIS;
+}
+
+/** Erro de configuração/limite: repetir com outro modelo não adianta. */
+class ErroDefinitivo extends Error {}
+
+/**
+ * Analisa o documento: modelo barato primeiro, reforço só se a leitura não
+ * fechar (ou o barato falhar no conteúdo). Lança `Error` com mensagem para o
+ * usuário quando a API falha ou não devolve um resultado aproveitável.
  */
 export async function analisarComGemini(arquivo: Buffer, midia: MidiaDocumento): Promise<DocumentoLido> {
   if (!analiseIaDisponivel()) throw new Error("A análise com IA não está configurada neste servidor.");
+  const principal = process.env.GEMINI_MODELO || MODELO_PADRAO;
+  const reforco = process.env.GEMINI_MODELO_REFORCO ?? MODELO_REFORCO_PADRAO;
 
+  let primeira: DocumentoLido | null = null;
+  let erroPrimeira: unknown = null;
+  try {
+    primeira = await lerComModelo(principal, arquivo, midia);
+    if (leituraFecha(primeira)) return primeira;
+  } catch (e) {
+    if (e instanceof ErroDefinitivo) throw new Error(e.message);
+    erroPrimeira = e;
+  }
+  if (!reforco || reforco === principal) {
+    if (primeira) return primeira;
+    throw erroPrimeira;
+  }
+
+  console.info(JSON.stringify({ evento: "analise_ia_reforco", modelo: reforco, motivo: primeira ? "nao_fecha" : "falha" }));
+  try {
+    const segunda = await lerComModelo(reforco, arquivo, midia);
+    // fica com a do reforço se ela fecha ou se a barata nem existe
+    return leituraFecha(segunda) || !primeira ? segunda : primeira;
+  } catch (e) {
+    if (primeira) return primeira; // o usuário confere os avisos da leitura barata
+    throw e instanceof ErroDefinitivo ? new Error(e.message) : e;
+  }
+}
+
+async function lerComModelo(modelo: string, arquivo: Buffer, midia: MidiaDocumento): Promise<DocumentoLido> {
   let resposta;
   try {
     resposta = await cliente().models.generateContent({
-      model: process.env.GEMINI_MODELO || MODELO_PADRAO,
+      model: modelo,
       contents: [
         {
           role: "user",
@@ -103,9 +162,9 @@ export async function analisarComGemini(arquivo: Buffer, midia: MidiaDocumento):
   } catch (e) {
     if (e instanceof ApiError) {
       if (e.status === 401 || e.status === 403) {
-        throw new Error("Análise com IA indisponível: sem permissão no Gemini (confira a configuração).");
+        throw new ErroDefinitivo("Análise com IA indisponível: sem permissão no Gemini (confira a configuração).");
       }
-      if (e.status === 429) throw new Error("Muitas análises ao mesmo tempo — aguarde um minuto e tente de novo.");
+      if (e.status === 429) throw new ErroDefinitivo("Muitas análises ao mesmo tempo — aguarde um minuto e tente de novo.");
       if (e.status === 400) {
         throw new Error("O arquivo não pôde ser analisado (formato ou tamanho não aceito). Tente outra foto ou PDF.");
       }
