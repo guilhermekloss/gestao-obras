@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Circle, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { CampoSenha } from "@/components/campo-senha";
+import { ReguaCota } from "@/components/regua-cota";
 import { cn } from "@/lib/utils";
 import { DICA_SENHA, SENHA_MINIMA, requisitosSenha } from "@/services/senha";
 
@@ -14,6 +15,7 @@ export function CampoSenhaNova({
   outraPessoa = false,
   nome,
   email,
+  className,
 }: {
   id?: string;
   name?: string;
@@ -22,6 +24,7 @@ export function CampoSenhaNova({
   outraPessoa?: boolean;
   nome?: string;
   email?: string;
+  className?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [senha, setSenha] = useState("");
@@ -52,14 +55,15 @@ export function CampoSenhaNova({
 
   const requisitos = requisitosSenha(senha, contexto);
   const listaId = `${id}-requisitos`;
+  const atendidos = requisitos.filter((r) => r.ok).length;
+  const completa = atendidos === requisitos.length;
 
   return (
-    <div className="grid gap-2">
-      <Input
+    <div className="grid gap-3">
+      <CampoSenha
         ref={ref}
         id={id}
         name={name}
-        type="password"
         required={required}
         minLength={SENHA_MINIMA}
         maxLength={72}
@@ -67,10 +71,22 @@ export function CampoSenhaNova({
         aria-invalid={invalido || undefined}
         aria-describedby={listaId}
         onChange={(e) => setSenha(e.target.value)}
+        className={className}
       />
-      <div id={listaId} className="rounded-md border bg-muted/40 p-3 text-xs">
-        <p className="mb-1.5 font-medium text-foreground">A senha precisa ter:</p>
-        <ul className="grid gap-1">
+      <div id={listaId} className="text-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="font-medium text-foreground">A senha precisa ter:</p>
+          <p className={cn("num text-base", completa ? "text-estado-no-prazo-fg" : "text-muted-foreground")}>
+            {atendidos} de {requisitos.length}
+          </p>
+        </div>
+        <ReguaCota
+          percent={(atendidos / requisitos.length) * 100}
+          rotulo="Requisitos da senha atendidos"
+          cor={completa ? "bg-estado-no-prazo-borda" : "bg-primary"}
+          className="my-1.5 w-full flex-none"
+        />
+        <ul className="grid gap-1.5">
           {requisitos.map((r) => {
             const rotulo =
               outraPessoa && r.chave === "pessoal" ? "Não contém o e-mail nem é o nome da pessoa" : r.rotulo;
@@ -79,11 +95,11 @@ export function CampoSenhaNova({
               <li
                 key={r.chave}
                 className={cn(
-                  "flex items-start gap-1.5",
+                  "flex items-start gap-2",
                   r.ok ? "text-estado-no-prazo-fg" : senha ? "text-destructive" : "text-muted-foreground",
                 )}
               >
-                <Icone className="mt-px size-3.5 shrink-0" aria-hidden />
+                <Icone className="mt-0.5 size-4 shrink-0" aria-hidden />
                 <span>
                   {rotulo}
                   <span className="sr-only">{r.ok ? " — atendido" : " — pendente"}</span>
@@ -92,7 +108,7 @@ export function CampoSenhaNova({
             );
           })}
         </ul>
-        <p className="mt-2 text-muted-foreground">{DICA_SENHA}</p>
+        <p className="mt-3 text-muted-foreground">{DICA_SENHA}</p>
       </div>
     </div>
   );
