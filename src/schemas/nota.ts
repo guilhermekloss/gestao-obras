@@ -3,6 +3,7 @@ import { urlArquivoValida } from "@/services/arquivos";
 import { centavos, dataIso, id, texto } from "./comum";
 
 const itemNotaSchema = z.object({
+  materialId: z.string().max(64).optional(),
   descricao: texto(500, "A descrição do item").min(1, "Descrição do item é obrigatória"),
   tipo: z.enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"]),
   qtde: z.number().positive("Quantidade deve ser positiva").max(1_000_000_000, "Quantidade acima do limite"),

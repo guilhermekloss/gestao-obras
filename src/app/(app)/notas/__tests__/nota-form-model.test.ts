@@ -19,6 +19,7 @@ import {
 import type { LeituraNormalizada } from "@/services/leitura-documento";
 
 const ITEM: ItemForm = {
+  materialId: "",
   descricao: "Cimento",
   tipo: "MATERIAL",
   qtde: "40",
@@ -158,11 +159,21 @@ describe("montarPayload", () => {
       fornecedorId: "forn-1",
       numero: "100",
       totalCents: 120000,
-      itens: [{ descricao: "Cimento", qtde: 40, unitCents: 3000, descontoCents: 0 }],
+      itens: [{ materialId: undefined, descricao: "Cimento", qtde: 40, unitCents: 3000, descontoCents: 0 }],
       rateios: [{ obraId: "obra-1", etapaId: undefined, fracaoBp: 10000 }],
       parcelas: [{ numero: 1, valorCents: 120000, vencimento: "2026-01-15" }],
       forcar: false,
     });
+  });
+
+  it("leva o material escolhido no item; sem material, o item vai avulso", () => {
+    const payload = montarPayload(
+      { ...valores, itens: [{ ...ITEM, materialId: "mat-1" }, ITEM] },
+      undefined,
+      false,
+    );
+    expect(payload.itens[0].materialId).toBe("mat-1");
+    expect(payload.itens[1].materialId).toBeUndefined();
   });
 
   it("inclui o id e forcar=true ao reenviar após um aviso", () => {
@@ -249,6 +260,13 @@ describe("valoresDaLeitura", () => {
   };
   const opts = { fornecedorId: "f1", anexoUrl: "/api/fotos/a.jpg", anexoNome: "nota.jpg", hoje: "2026-10-14" };
 
+  it("liga cada item ao material na mesma ordem; sem lista, os itens ficam avulsos", () => {
+    const duas = { ...leitura, itens: [leitura.itens[0], { ...leitura.itens[0], descricao: "Areia" }] };
+    const v = valoresDaLeitura(duas, { ...opts, materialIds: ["mat-1", ""] });
+    expect(v.itens?.map((i) => i.materialId)).toEqual(["mat-1", ""]);
+    expect(valoresDaLeitura(duas, opts).itens?.map((i) => i.materialId)).toEqual(["", ""]);
+  });
+
   it("preenche cabeçalho, itens e anexo; o payload fecha com o total", () => {
     const v = valoresDaLeitura(leitura, opts);
     expect(v).toMatchObject({
@@ -263,7 +281,7 @@ describe("valoresDaLeitura", () => {
       chaveNfe: leitura.chaveNfe,
     });
     expect(v.itens).toEqual([
-      { descricao: "Cimento", tipo: "MATERIAL", qtde: "3", unidade: "SC", unit: "50,17", desconto: "0,01" },
+      { materialId: "", descricao: "Cimento", tipo: "MATERIAL", qtde: "3", unidade: "SC", unit: "50,17", desconto: "0,01" },
     ]);
     expect(somaItensForm(v.itens!)).toBe(15050);
     expect(v.parcelas).toEqual([{ numero: 1, valor: "150,50", vencimento: "2026-09-15" }]);

@@ -120,6 +120,7 @@ describe("parseNfeXml — 1 item, envelope nfeProc, sem duplicata", () => {
     expect(nfe.itens).toEqual([
       {
         descricao: "TINTA ACRILICA FOSCA BRANCA 18L",
+        codigo: "TA-018",
         ncm: "32091010",
         qtde: 2,
         unidade: "GL",

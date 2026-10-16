@@ -1,3 +1,5 @@
+import { EscolhaMaterial } from "../escolha-material";
+import type { MaterialCatalogo, VinculoMaterial } from "@/services/materiais";
 import Link from "next/link";
 import type { TipoItem } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -109,10 +111,17 @@ export function PreviaItens({
   nfe,
   tipos,
   onTipo,
+  vinculos,
+  catalogo,
+  onVinculo,
 }: {
   nfe: Nfe;
   tipos: TipoItem[];
   onTipo: (indice: number, tipo: TipoItem) => void;
+  // um por item: ligação ao catálogo de materiais (a escolha é do usuário quando não há ligação exata)
+  vinculos: VinculoMaterial[];
+  catalogo: MaterialCatalogo[];
+  onVinculo: (indice: number, vinculo: VinculoMaterial) => void;
 }) {
   return (
     <Card>
@@ -121,7 +130,7 @@ export function PreviaItens({
           Itens
           <CampoAjuda titulo="Itens da NF-e">
             Os itens vêm do XML e não podem ser editados aqui — só o <b>tipo</b>, que classifica o
-            custo nos relatórios. Frete e impostos cobrados por fora (IPI, ST, seguro, outras
+            custo nos relatórios, e o <b>material</b> do catálogo a que cada item corresponde. Frete e impostos cobrados por fora (IPI, ST, seguro, outras
             despesas) aparecem como itens próprios, para a soma fechar com o total da nota.
           </CampoAjuda>
         </CardTitle>
@@ -139,8 +148,8 @@ export function PreviaItens({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {nfe.itens.map((item, i) => (
-              <TableRow key={i}>
+            {nfe.itens.flatMap((item, i) => [
+              <TableRow key={i} className={vinculos[i] ? "border-b-0" : undefined}>
                 <TableCell className="max-w-56 whitespace-normal md:max-w-none">
                   <p className={item.origem === "PRODUTO" ? "font-medium" : "italic"}>{item.descricao}</p>
                   <p className="text-xs text-muted-foreground">
@@ -173,8 +182,21 @@ export function PreviaItens({
                   {item.descontoCents ? formatarMoeda(item.descontoCents) : "—"}
                 </TableCell>
                 <TableCell className="text-right font-medium">{formatarMoeda(item.totalCents)}</TableCell>
-              </TableRow>
-            ))}
+              </TableRow>,
+              vinculos[i] && (
+                <TableRow key={`material-${i}`}>
+                  <TableCell colSpan={6} className="pt-0 whitespace-normal">
+                    <EscolhaMaterial
+                      vinculo={vinculos[i]}
+                      descricao={item.descricao}
+                      unidade={item.unidade}
+                      catalogo={catalogo}
+                      onChange={(v) => onVinculo(i, v)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ),
+            ])}
           </TableBody>
           <TableFooter>
             <TableRow>

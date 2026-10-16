@@ -22,6 +22,8 @@ import { normalizarLeitura, type DocumentoLido, type LeituraNormalizada } from "
 import { leituraAutomaticaDisponivel, lerDocumentoNativo, type MidiaDocumento } from "@/services/leitor-nativo";
 import { ErroLeitura } from "@/services/leitor-nativo/extracao/semaforo";
 import { analiseIaDisponivel, analisarComGemini } from "@/services/leitor-gemini";
+import { correspondenciaItem, normalizarUnidade, type CorrespondenciaItem, type MaterialCatalogo } from "@/services/materiais";
+import { carregarBaseMateriais, criarMaterialValidado, buscarMaterialPorNome } from "@/services/materiais-db";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -39,6 +41,8 @@ export type LerDocumentoResult =
       correspondencia: CorrespondenciaFornecedor;
       destinatarioEhEmpresa: boolean | null;
       notaExistente: { id: string; numero: string } | null;
+      // um por item da leitura, na mesma ordem
+      materiais: CorrespondenciaItem[];
     }
   | { ok: false; erro: string };
 
@@ -79,10 +83,16 @@ async function lerEConferir(
           })
         : null);
 
+    const base = await carregarBaseMateriais();
+    const materiais = leitura.itens.map((item) =>
+      correspondenciaItem({ descricao: item.descricao }, { ...base, fornecedorId: correspondencia.exato?.id }),
+    );
+
     return {
       ok: true,
       leitura,
       correspondencia,
+      materiais,
       destinatarioEhEmpresa: destinatarioEhEmpresa(
         leitura.destinatario.documento,
         lerCnpjsEmpresa(process.env.CNPJS_EMPRESA),
@@ -164,5 +174,55 @@ export const resolverFornecedor = acaoDeEscrita(
     const { id, cnpj } = criado.fornecedor;
     registrarFornecedor(`Cadastrou o fornecedor ${nome}`, id);
     return { ok: true, fornecedor: { id, nome: criado.fornecedor.nome, cnpj }, info: `Fornecedor ${nome} cadastrado` };
+  },
+);
+
+type VinculoParaAction =
+  | { modo: "nenhum" }
+  | { modo: "existente"; id: string }
+  | { modo: "novo"; nome: string; unidade: string };
+
+type ResolverMateriaisResult = ActionResult & { materialIds?: string[]; criados?: MaterialCatalogo[] };
+
+// Cria os materiais novos que o usuário confirmou e devolve o id de cada item ("" = avulso).
+// Só cadastra: o apelido (texto da nota → material) é gravado junto com o lançamento.
+export const resolverMateriais = acaoDeEscrita(
+  { papeis: [...PAPEIS], revalidar: ["/materiais"], atividade: "material.criar" },
+  async (_user, vinculos: VinculoParaAction[]): Promise<ResolverMateriaisResult> => {
+    ignorarAtividade(); // só registra quando cadastra algo (abaixo)
+    if (!Array.isArray(vinculos) || vinculos.length > 500) return { ok: false, erro: "Itens inválidos." };
+
+    const ids: string[] = [];
+    const criados: MaterialCatalogo[] = [];
+    for (const v of vinculos) {
+      if (v.modo === "nenhum") {
+        ids.push("");
+      } else if (v.modo === "existente") {
+        const existe = await prisma.material.findUnique({ where: { id: v.id }, select: { id: true } });
+        if (!existe) return { ok: false, erro: "Um dos materiais escolhidos não existe mais — escolha de novo." };
+        ids.push(existe.id);
+      } else {
+        const nome = v.nome.trim();
+        const unidade = normalizarUnidade(v.unidade);
+        if (!nome || !unidade) return { ok: false, erro: "Informe o nome e a unidade do novo material." };
+        const igual = await buscarMaterialPorNome(nome);
+        if (igual) {
+          ids.push(igual.id);
+          continue;
+        }
+        const r = await criarMaterialValidado({ nome, unidade, tipo: "MATERIAL" });
+        if (!r.ok) return r;
+        ids.push(r.material.id);
+        criados.push(r.material);
+      }
+    }
+
+    if (criados.length > 0) {
+      anotarAtividade({
+        descricao: `Cadastrou ${criados.length === 1 ? `o material ${criados[0].nome}` : `${criados.length} materiais`} pela leitura de nota`,
+        entidade: "material",
+      });
+    }
+    return { ok: true, materialIds: ids, criados };
   },
 );

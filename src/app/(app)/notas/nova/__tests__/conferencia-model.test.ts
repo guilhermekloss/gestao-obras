@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { LeituraNormalizada } from "@/services/leitura-documento";
 import type { CorrespondenciaFornecedor } from "@/services/correspondencia-fornecedor";
+import type { CorrespondenciaItem } from "@/services/materiais";
 import {
+  adicionarItem,
+  comMaterialIds,
   conferenciaDaReleitura,
   conferenciaInicial,
   errosConferencia,
+  escolherVinculo,
+  removerItem,
+  vinculosParaAction,
   indiceAcerto,
   escolhaParaAction,
   situacaoDocumento,
@@ -26,7 +32,9 @@ const LEITURA: LeituraNormalizada = {
   parcelas: [],
   avisos: [],
 };
-const OPTS = { anexoUrl: "/api/fotos/a.jpg", anexoNome: "a.jpg", hoje: "2026-10-14", obraPadrao: "obra-1" };
+const CIMENTO = { id: "mat-1", nome: "Cimento CP II 50kg", unidade: "SC", tipo: "MATERIAL" as const, categoria: null };
+const LIGADO: CorrespondenciaItem = { exato: CIMENTO, origem: "texto", candidatos: [] };
+const OPTS = { anexoUrl: "/api/fotos/a.jpg", anexoNome: "a.jpg", hoje: "2026-10-14", obraPadrao: "obra-1", materiais: [LIGADO] };
 const SEM_CORRESPONDENCIA: CorrespondenciaFornecedor = { exato: null, nomeDivergente: false, candidatos: [] };
 
 function valida(parcial: Partial<Conferencia> = {}): Conferencia {
@@ -190,5 +198,65 @@ describe("conferenciaDaReleitura", () => {
     expect(nova.valores.numero).toBe("999");
     expect(nova.valores.rateios).toEqual(anterior.valores.rateios);
     expect(nova.conferido).toBe(false);
+  });
+});
+
+describe("materiais dos itens", () => {
+  it("ligação exata já vem escolhida e o materialId segue no item", () => {
+    const c = conferenciaInicial(LEITURA, SEM_CORRESPONDENCIA, OPTS);
+    expect(c.vinculos).toEqual([{ modo: "existente", id: "mat-1", automatico: true }]);
+    expect(c.valores.itens[0].materialId).toBe("mat-1");
+  });
+
+  it("sem ligação exata o item fica pendente e bloqueia a confirmação", () => {
+    const c = conferenciaInicial(LEITURA, SEM_CORRESPONDENCIA, { ...OPTS, materiais: [{ exato: null, origem: null, candidatos: [] }] });
+    expect(c.vinculos).toEqual([{ modo: "pendente", candidatos: [] }]);
+    expect(errosConferencia({ ...c, conferido: true })).toEqual([
+      "Itens: a linha 1 precisa de um material — ligue a um existente, cadastre como novo ou deixe avulso.",
+    ]);
+  });
+
+  it("depois de decidir (ligar, cadastrar ou avulso) a nota pode ser confirmada", () => {
+    const pendente = conferenciaInicial(LEITURA, SEM_CORRESPONDENCIA, { ...OPTS, materiais: [] });
+    for (const vinculo of [
+      { modo: "existente" as const, id: "mat-9", automatico: false },
+      { modo: "novo" as const, nome: "Cimento Votoran 50kg", unidade: "SC" },
+      { modo: "nenhum" as const },
+    ]) {
+      expect(errosConferencia({ ...escolherVinculo(pendente, 0, vinculo), conferido: true })).toEqual([]);
+    }
+    expect(escolherVinculo(pendente, 0, { modo: "existente", id: "mat-9", automatico: false }).valores.itens[0].materialId).toBe("mat-9");
+    expect(escolherVinculo(pendente, 0, { modo: "nenhum" }).valores.itens[0].materialId).toBe("");
+  });
+
+  it("item de frete não pede material", () => {
+    const leitura = { ...LEITURA, itens: [{ ...LEITURA.itens[0], descricao: "FRETE", tipo: "FRETE" as const }] };
+    const c = conferenciaInicial(leitura, SEM_CORRESPONDENCIA, { ...OPTS, materiais: [] });
+    expect(c.vinculos).toEqual([{ modo: "nenhum" }]);
+  });
+
+  it("remover e adicionar item mantém os vínculos alinhados", () => {
+    const base = conferenciaInicial(LEITURA, SEM_CORRESPONDENCIA, OPTS);
+    const com2 = adicionarItem(base);
+    expect(com2.valores.itens).toHaveLength(2);
+    expect(com2.vinculos).toEqual([{ modo: "existente", id: "mat-1", automatico: true }, { modo: "nenhum" }]);
+    const sem1 = removerItem(com2, 0);
+    expect(sem1.valores.itens).toHaveLength(1);
+    expect(sem1.vinculos).toEqual([{ modo: "nenhum" }]);
+  });
+
+  it("monta as escolhas para a action e aplica os ids devolvidos", () => {
+    expect(
+      vinculosParaAction([
+        { modo: "existente", id: "a", automatico: true },
+        { modo: "novo", nome: "Tubo", unidade: "M" },
+        { modo: "pendente", candidatos: [] },
+        { modo: "nenhum" },
+      ]),
+    ).toEqual([{ modo: "existente", id: "a" }, { modo: "novo", nome: "Tubo", unidade: "M" }, { modo: "nenhum" }, { modo: "nenhum" }]);
+
+    const c = adicionarItem(conferenciaInicial(LEITURA, SEM_CORRESPONDENCIA, OPTS));
+    expect(comMaterialIds(c.valores, ["x", ""]).itens.map((i) => i.materialId)).toEqual(["x", ""]);
+    expect(comMaterialIds(c.valores, ["x"]).itens.map((i) => i.materialId)).toEqual(["x", ""]);
   });
 });

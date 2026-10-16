@@ -155,12 +155,13 @@ model Etapa {
 }
 
 model Fornecedor {
-  id    String       @id @default(cuid())
-  nome  String
-  cnpj  String?      @unique
-  fone  String?
-  obs   String?
-  notas NotaFiscal[]
+  id               String            @id @default(cuid())
+  nome             String
+  cnpj             String?           @unique
+  fone             String?
+  obs              String?
+  notas            NotaFiscal[]
+  apelidosMaterial MaterialApelido[]
 }
 
 model NotaFiscal {
@@ -199,8 +200,43 @@ model ItemNota {
   unitCents     Int
   descontoCents Int        @default(0)
   totalCents    Int
+  materialId    String?
+  material      Material?  @relation(fields: [materialId], references: [id], onDelete: SetNull)
 
   @@index([notaId])
+  @@index([materialId])
+}
+
+/// Catálogo de materiais: o item do lançamento aponta para cá para somar quantidades e preços entre notas.
+model Material {
+  id        String            @id @default(cuid())
+  nome      String            @unique
+  /// Unidade padrão (PC, M, M², M³, KG, SC, L, RL, BR, CX...).
+  unidade   String
+  tipo      TipoItem          @default(MATERIAL)
+  categoria String?
+  ativo     Boolean           @default(true)
+  criadoEm  DateTime          @default(now())
+  apelidos  MaterialApelido[]
+  itens     ItemNota[]
+}
+
+/// Texto (ou código de produto do fornecedor) que o usuário já ligou a um material: base da ligação automática.
+model MaterialApelido {
+  id                String      @id @default(cuid())
+  materialId        String
+  material          Material    @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  /// Descrição normalizada (`chaveMaterial`).
+  chave             String      @unique
+  descricaoOriginal String
+  fornecedorId      String?
+  fornecedor        Fornecedor? @relation(fields: [fornecedorId], references: [id], onDelete: SetNull)
+  /// `cProd` do XML da NF-e.
+  codigoProduto     String?
+  criadoEm          DateTime    @default(now())
+
+  @@index([materialId])
+  @@index([fornecedorId, codigoProduto])
 }
 
 /// Vale para a nota inteira, não por item.

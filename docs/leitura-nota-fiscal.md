@@ -37,11 +37,41 @@ anexado e o formulário fica aberto para preenchimento manual — o usuário nun
   NF exige o CNPJ/CPF do emitente;
 - número (NF), data de emissão válida e valor total;
 - itens com descrição, quantidade e unidade, e **soma dos itens = total**;
+- **material de cada item decidido** (ver "Materiais e vínculo automático");
 - parcelas com valor e vencimento, e **soma das parcelas = total**;
 - obra em todas as linhas do rateio e **rateio = 100%**;
 - a caixa "Conferi os dados com o documento" marcada.
 
 Documento já lançado (mesma chave, ou mesmo fornecedor + número) desabilita o botão e mostra o link da nota.
+
+## Materiais e vínculo automático
+
+Cada item de lançamento pode apontar para um **material do catálogo** (`/materiais`). O catálogo nasceu das
+planilhas de quantitativo (lotes 03 e 19) e cresce com o uso; o mesmo material com nomes diferentes nas
+notas é ligado a um cadastro só, e quem decide é o usuário.
+
+**Lançamento manual:** na linha do item, o campo *Material* busca no catálogo (nome ou palavras em qualquer
+ordem). Ao escolher, preenche descrição, unidade, tipo e o último preço pago (do fornecedor, se já comprou
+dele) e leva o foco para a quantidade. O **+** cadastra um material novo na hora; item avulso (frete,
+serviço) continua sem material.
+
+**Leitura de foto/PDF e de XML:** o sistema compara cada item com o catálogo (`services/materiais.ts`):
+
+| Situação | O que acontece |
+|---|---|
+| Código do produto do fornecedor (`cProd` do XML) já ligado antes | Liga sozinho, mesmo que a descrição tenha mudado |
+| Mesmo texto (sem acento/caixa/pontuação) já ligado antes, ou igual ao nome de um material | Liga sozinho ("ligado automaticamente"; dá para trocar) |
+| Nome parecido | **Pendente**: lista candidatos com o percentual de semelhança |
+| Nada parecido | **Pendente**: cadastrar como novo (nome e unidade vindos da nota, editáveis) |
+| Frete, serviço, encargo | Sem material, não pergunta |
+
+Pendente **bloqueia** "Confirmar e lançar" / "Importar nota": o sistema nunca cria nem liga material
+parecido por conta própria. A decisão vira **apelido** (texto e, no XML, código + fornecedor): na próxima
+nota a ligação é automática. Medidas diferentes (8 mm × 10 mm) reduzem a semelhança, para não sugerir
+o material errado. Em `/materiais/<id>` dá para ver e remover apelidos e **juntar** dois materiais
+(lançamentos e apelidos passam para o escolhido).
+
+Importação por planilha (`/importar`) liga o material só quando a descrição já é conhecida; não cadastra.
 
 ## Integridade de fornecedores e envolvidos
 
@@ -201,6 +231,10 @@ CNPJS_EMPRESA=12.345.678/0001-95    # opcional: CNPJs da empresa (vírgula) para
 | `src/app/(app)/notas/nova/conferencia-dialog.tsx` | Pop-up de conferência: documento ao lado, campos editáveis, escolha do fornecedor, confirmar e lançar |
 | `src/app/(app)/notas/nova/conferencia-model.ts` | Estado inicial da conferência e `errosConferencia` (o que bloqueia confirmar) |
 | `src/services/correspondencia-fornecedor.ts` | Emitente × cadastro (mesmo documento, filial, nome parecido), destinatário × empresa, CNPJ/CPF do cadastro |
+| `src/services/materiais.ts` | Puro: `chaveMaterial`, similaridade, `correspondenciaItem` (código > texto > nome > candidatos), `VinculoMaterial` |
+| `src/services/materiais-db.ts` | Catálogo no banco: `registrarApelido`, `ultimosPrecos`, criação sem duplicar nome |
+| `src/app/(app)/notas/escolha-material.tsx` | Decisão por item (ligar, cadastrar novo, avulso), usada na conferência e na prévia do XML |
+| `src/app/(app)/materiais/` | Lista, cadastro, apelidos e junção de materiais |
 | `src/lib/imagem.ts` | Reduz e converte a foto (HEIC/PNG → JPEG, máx. 2400 px) antes do upload |
 | `src/app/(app)/notas/nota-form-model.ts` | `valoresDaLeitura` (leitura → valores do formulário) e `chaveNfe` no payload |
 

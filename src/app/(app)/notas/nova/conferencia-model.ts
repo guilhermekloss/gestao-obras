@@ -4,6 +4,13 @@ import { normalizarDocumentoCadastro } from "@/services/correspondencia-forneced
 import { normalizarData, type LeituraNormalizada } from "@/services/leitura-documento";
 import { BP_TOTAL } from "@/services/rateio";
 import {
+  errosDeVinculos,
+  materialIdDoVinculo,
+  vinculoInicial,
+  type CorrespondenciaItem,
+  type VinculoMaterial,
+} from "@/services/materiais";
+import {
   parseQtde,
   somaItensForm,
   somaParcelasForm,
@@ -21,19 +28,32 @@ export type EscolhaFornecedor =
 export type Conferencia = {
   valores: NotaFormValues;
   fornecedor: EscolhaFornecedor;
+  // um por item de `valores.itens`, na mesma ordem
+  vinculos: VinculoMaterial[];
   conferido: boolean;
+};
+
+type OpcoesConferencia = {
+  anexoUrl: string;
+  anexoNome: string;
+  hoje: string;
+  obraPadrao: string;
+  // correspondência de cada item da leitura com o catálogo
+  materiais?: CorrespondenciaItem[];
 };
 
 export function conferenciaInicial(
   leitura: LeituraNormalizada,
   correspondencia: CorrespondenciaFornecedor,
-  opts: { anexoUrl: string; anexoNome: string; hoje: string; obraPadrao: string },
+  opts: OpcoesConferencia,
 ): Conferencia {
+  const vinculos = leitura.itens.map((item, i) => vinculoInicial(opts.materiais?.[i], item.tipo));
   const lidos = valoresDaLeitura(leitura, {
     fornecedorId: correspondencia.exato?.id ?? "",
     anexoUrl: opts.anexoUrl,
     anexoNome: opts.anexoNome,
     hoje: opts.hoje,
+    materialIds: vinculos.map(materialIdDoVinculo),
   });
   const valores: NotaFormValues = {
     fornecedorId: "",
@@ -63,7 +83,7 @@ export function conferenciaInicial(
       documento: leitura.fornecedor.documento ?? leitura.fornecedor.documentoLido ?? "",
     };
   }
-  return { valores, fornecedor, conferido: false };
+  return { valores, fornecedor, vinculos, conferido: false };
 }
 
 export function situacaoDocumento(valor: string): "vazio" | "valido" | "invalido" {
@@ -102,6 +122,7 @@ export function errosConferencia(c: Conferencia): string[] {
     if (parseQtde(it.qtde) <= 0) erros.push(`Itens: a linha ${i + 1} está sem quantidade.`);
     if (!it.unidade.trim()) erros.push(`Itens: a linha ${i + 1} está sem unidade.`);
   });
+  erros.push(...errosDeVinculos(c.vinculos));
   const somaItens = somaItensForm(v.itens);
   if (v.itens.length > 0 && totalCents > 0 && somaItens !== totalCents) {
     erros.push(
@@ -130,6 +151,51 @@ export function escolhaParaAction(f: EscolhaFornecedor) {
   if (f.modo === "existente") return { modo: "existente" as const, id: f.id, completarDocumento: f.completarCom ?? undefined };
   if (f.modo === "novo") return { modo: "novo" as const, nome: f.nome, documento: f.documento || undefined };
   return null;
+}
+
+export function removerItem(c: Conferencia, i: number): Conferencia {
+  return {
+    ...c,
+    valores: { ...c.valores, itens: c.valores.itens.filter((_, j) => j !== i) },
+    vinculos: c.vinculos.filter((_, j) => j !== i),
+  };
+}
+
+export function adicionarItem(c: Conferencia): Conferencia {
+  return {
+    ...c,
+    valores: {
+      ...c.valores,
+      itens: [...c.valores.itens, { materialId: "", descricao: "", tipo: "MATERIAL", qtde: "1", unidade: "UN", unit: "", desconto: "" }],
+    },
+    vinculos: [...c.vinculos, { modo: "nenhum" }],
+  };
+}
+
+export function escolherVinculo(c: Conferencia, i: number, vinculo: VinculoMaterial): Conferencia {
+  return {
+    ...c,
+    valores: {
+      ...c.valores,
+      itens: c.valores.itens.map((it, j) => (j === i ? { ...it, materialId: materialIdDoVinculo(vinculo) } : it)),
+    },
+    vinculos: c.vinculos.map((v, j) => (j === i ? vinculo : v)),
+  };
+}
+
+// Escolhas para a action `resolverMateriais` (cria os novos e confirma os existentes).
+export function vinculosParaAction(vinculos: VinculoMaterial[]) {
+  return vinculos.map((v) =>
+    v.modo === "existente"
+      ? { modo: "existente" as const, id: v.id }
+      : v.modo === "novo"
+        ? { modo: "novo" as const, nome: v.nome, unidade: v.unidade }
+        : { modo: "nenhum" as const },
+  );
+}
+
+export function comMaterialIds(valores: NotaFormValues, ids: string[]): NotaFormValues {
+  return { ...valores, itens: valores.itens.map((it, i) => ({ ...it, materialId: ids[i] ?? "" })) };
 }
 
 type NivelAcerto = "alto" | "medio" | "baixo";
@@ -170,7 +236,7 @@ export function conferenciaDaReleitura(
   anterior: Conferencia,
   leitura: LeituraNormalizada,
   correspondencia: CorrespondenciaFornecedor,
-  opts: { anexoUrl: string; anexoNome: string; hoje: string; obraPadrao: string },
+  opts: OpcoesConferencia,
 ): Conferencia {
   const nova = conferenciaInicial(leitura, correspondencia, opts);
   return { ...nova, valores: { ...nova.valores, rateios: anterior.valores.rateios } };
