@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionItem, AccordionPanel, AccordionTrigger } from "@/components/ui/accordion";
+import { BarraDeAcao } from "@/components/barra-de-acao";
+import { CabecalhoSecao } from "@/components/cabecalho-secao";
+import { CampoForm, MensagemErro, atributosDoErro } from "@/components/campo-form";
 import { Combobox } from "@/components/combobox";
+import { ResumoLancamento } from "@/components/resumo-lancamento";
 import { SelectNativo } from "@/components/select-nativo";
-import { CampoAjuda } from "@/components/campo-ajuda";
 import {
   centsParaEditavel,
   formatarMoeda,
@@ -18,6 +22,7 @@ import {
   percentBpParaEditavel,
   percentEditavelParaBp,
 } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { BP_TOTAL, dividirIgualmente, validarRateio } from "@/services/rateio";
 import { validarParcelas } from "@/services/parcelas";
 import { parcelasDaNfe, parseNfeXml, type Nfe } from "@/services/nfe-xml";
@@ -25,11 +30,19 @@ import { errosDeVinculos, vinculoInicial, type MaterialCatalogo, type VinculoMat
 import { vinculosParaAction } from "../nova/conferencia-model";
 import { consultarSituacaoImportacao, importarNfe, sugerirMateriais, type SituacaoImportacao } from "./actions";
 import { AvisoNotaExistente, PreviaCabecalho, PreviaItens, formatarDataXml } from "./previa-nfe";
-import { AlertTriangle, FileCode2, Plus, Trash2, Upload, Wand2 } from "lucide-react";
+import { linhasDeConferencia } from "../conferencia-lancamento";
+import { AlertTriangle, FileCode2, ListChecks, Percent, Plus, Trash2, Upload, Wallet, Wand2 } from "lucide-react";
 
 type ObraRateio = { id: string; nome: string; etapas: { id: string; nome: string }[] };
 type RateioLinha = { obraId: string; etapaId: string; percent: string };
 type ParcelaLinha = { rotulo: string; valor: string; vencimento: string };
+type SecaoXml = "itens" | "rateio" | "parcelas";
+const SECOES: SecaoXml[] = ["itens", "rateio", "parcelas"];
+
+// espera a seção abrir antes de mover o foco (campo dentro de painel fechado não recebe foco)
+function depoisDeAbrir(acao: () => void) {
+  requestAnimationFrame(() => requestAnimationFrame(acao));
+}
 
 // o corpo de server action no Next tem limite padrão de 1 MB; folga para o resto do payload
 const MAX_BYTES_XML = 900 * 1024;
@@ -48,7 +61,11 @@ export function ImportarXmlForm({
   arquivoInicial?: File;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   const [pendente, startTransition] = useTransition();
+  const [secoes, setSecoes] = useState<SecaoXml[]>(SECOES);
+  // só depois da primeira tentativa de importar os campos ganham mensagem de erro
+  const [tentouImportar, setTentouImportar] = useState(false);
   const [lendo, setLendo] = useState(false);
 
   const [arquivo, setArquivo] = useState<{ nome: string; xml: string } | null>(null);
@@ -72,6 +89,7 @@ export function ImportarXmlForm({
     setTipos([]);
     setVinculos([]);
     setParcelas([]);
+    setTentouImportar(false);
   }
 
   const inicialLido = useRef(false);
@@ -153,35 +171,84 @@ export function ImportarXmlForm({
   const somaRateioBp = rateios.reduce((acc, r) => acc + bpDaLinha(r), 0);
   const parcelasCents = parcelas.map((p) => moedaParaCents(p.valor));
   const somaParcelasCents = parcelasCents.reduce((a, v) => a + v, 0);
+  const somaItensCents = nfe?.itens.reduce((acc, i) => acc + i.totalCents, 0) ?? 0;
+
+  const conferencia = linhasDeConferencia({
+    totalCents: nfe?.totalCents ?? 0,
+    somaItensCents,
+    somaRateioBp,
+    parcelas: parcelas.length,
+    somaParcelasCents,
+  });
+  const [, linhaRateio, linhaParcelas] = conferencia;
+
+  // erros de cada seção; só aparecem depois da primeira tentativa de importar
+  const errosVinculos = tentouImportar ? errosDeVinculos(vinculos) : [];
+  const erroObra = (r: RateioLinha) => (tentouImportar && !r.obraId ? "Selecione a obra." : null);
+  const erroPercent = (r: RateioLinha) => (tentouImportar && !r.percent.trim() ? "Informe o percentual." : null);
+  const erroRateio =
+    tentouImportar && linhaRateio.situacao === "erro" ? `O rateio precisa somar 100%. ${linhaRateio.detalhe}.` : null;
+  const erroValor = (p: ParcelaLinha) => (tentouImportar && !p.valor.trim() ? "Informe o valor da parcela." : null);
+  const erroVencimento = (p: ParcelaLinha) => (tentouImportar && !p.vencimento ? "Informe o vencimento." : null);
+  const erroParcelas =
+    tentouImportar && linhaParcelas.situacao === "erro"
+      ? `As parcelas precisam somar o total da nota. ${linhaParcelas.detalhe}.`
+      : null;
+  const secaoComErro: Record<SecaoXml, boolean> = {
+    itens: errosVinculos.length > 0,
+    rateio: Boolean(erroRateio || rateios.some((r) => erroObra(r) || erroPercent(r))),
+    parcelas: Boolean(erroParcelas || parcelas.some((p) => erroValor(p) || erroVencimento(p))),
+  };
+
+  function abrir(ids: SecaoXml[]) {
+    setSecoes((atuais) => [...new Set([...atuais, ...ids])]);
+  }
+
+  function irParaSecao(id: SecaoXml) {
+    abrir([id]);
+    depoisDeAbrir(() => {
+      const item = document.getElementById(`secao-xml-${id}`);
+      item?.scrollIntoView({ block: "start" });
+      item?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    });
+  }
 
   function importar() {
     if (!nfe || !arquivo) return;
-    if (rateios.some((r) => !r.obraId)) {
-      toast.error("Selecione a obra em todas as linhas do rateio");
-      return;
-    }
+    setTentouImportar(true);
+
     const rateiosBp = rateios.map((r) => ({
       obraId: r.obraId,
       etapaId: r.etapaId || undefined,
       fracaoBp: bpDaLinha(r),
     }));
-    if (!validarRateio(rateiosBp).ok) {
-      toast.error("O rateio entre obras deve somar 100%");
-      return;
-    }
     const parcelasPayload = parcelas.map((p, i) => ({
       numero: i + 1,
       valorCents: parcelasCents[i],
       vencimento: p.vencimento,
     }));
-    if (!validarParcelas(parcelasPayload, nfe.totalCents).ok) {
-      toast.error("A soma das parcelas deve ser igual ao total da nota");
-      return;
-    }
 
-    const pendentes = errosDeVinculos(vinculos);
-    if (pendentes.length > 0) {
-      toast.error(pendentes[0]);
+    const falhas: SecaoXml[] = [];
+    if (errosDeVinculos(vinculos).length > 0) falhas.push("itens");
+    if (
+      rateios.some((r) => !r.obraId || !r.percent.trim()) ||
+      !validarRateio(rateiosBp).ok
+    ) {
+      falhas.push("rateio");
+    }
+    if (
+      parcelas.some((p) => !p.valor.trim() || !p.vencimento) ||
+      !validarParcelas(parcelasPayload, nfe.totalCents).ok
+    ) {
+      falhas.push("parcelas");
+    }
+    if (falhas.length > 0) {
+      abrir(falhas);
+      depoisDeAbrir(() => {
+        const alvo = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"], [data-foco-erro]');
+        alvo?.scrollIntoView({ block: "center" });
+        alvo?.focus({ preventScroll: true });
+      });
       return;
     }
 
@@ -203,8 +270,10 @@ export function ImportarXmlForm({
     });
   }
 
+  const nomesDasObras = rateios.map((r) => obras.find((o) => o.id === r.obraId)?.nome).filter(Boolean);
+
   return (
-    <div className="space-y-6">
+    <div ref={formRef} className={cn("space-y-4", nfe && "pb-24 md:pb-0")}>
       <Card>
         <CardHeader>
           <CardTitle>Arquivo XML</CardTitle>
@@ -222,13 +291,9 @@ export function ImportarXmlForm({
               <FileCode2 className="size-4" />
               {lendo ? "Lendo..." : arquivo ? "Escolher outro arquivo" : "Escolher arquivo .xml"}
             </Button>
-            {arquivo && <span className="truncate text-sm text-muted-foreground">{arquivo.nome}</span>}
+            {arquivo && <span className="min-w-0 truncate text-sm text-muted-foreground">{arquivo.nome}</span>}
           </div>
-          {erroArquivo && (
-            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              {erroArquivo}
-            </p>
-          )}
+          {erroArquivo && <MensagemErro id="arquivo-xml">{erroArquivo}</MensagemErro>}
         </CardContent>
       </Card>
 
@@ -248,161 +313,238 @@ export function ImportarXmlForm({
             </ul>
           )}
 
-          <PreviaItens
-            nfe={nfe}
-            tipos={tipos}
-            onTipo={(i, tipo) => {
-              setTipos((prev) => prev.map((t, j) => (j === i ? tipo : t)));
-              // frete, serviço e encargo não têm material; ao voltar para material, o usuário decide de novo
-              setVinculos((prev) =>
-                prev.map((v, j) => {
-                  if (j !== i) return v;
-                  if (tipo !== "MATERIAL") return { modo: "nenhum" };
-                  return v.modo === "nenhum" ? { modo: "pendente", candidatos: [] } : v;
-                }),
-              );
-            }}
-            vinculos={vinculos}
-            catalogo={materiais}
-            onVinculo={(i, v) => setVinculos((prev) => prev.map((x, j) => (j === i ? v : x)))}
+          <ResumoLancamento
+            total={formatarMoeda(nfe.totalCents)}
+            linhas={conferencia}
+            pendentesExtras={errosVinculos.length > 0 ? 1 : 0}
+            onIr={(id) => irParaSecao(id as SecaoXml)}
           />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="flex items-center gap-2">
-                Rateio entre obras
-                <CampoAjuda titulo="Rateio entre obras">
-                  Distribui o valor desta nota entre uma ou mais obras, em percentual. A soma precisa
-                  fechar <b>100%</b>. Informe a <b>etapa</b> se quiser lançar o custo num estágio
-                  específico da obra.
-                </CampoAjuda>
-              </CardTitle>
-              <span
-                className={
-                  somaRateioBp === BP_TOTAL ? "text-sm text-estado-no-prazo-fg" : "text-sm font-medium text-destructive"
-                }
-              >
-                {percentBpParaEditavel(somaRateioBp)}% de 100%
-              </span>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {rateios.map((r, i) => {
-                const obra = obras.find((o) => o.id === r.obraId);
-                return (
-                  <div key={i} className="grid grid-cols-[1fr_90px_36px] gap-2 md:grid-cols-[1fr_1fr_110px_36px]">
-                    <Combobox
-                      options={obras.map((o) => ({ value: o.id, label: o.nome }))}
-                      value={r.obraId}
-                      onChange={(obraId) => alterarRateio(i, { obraId, etapaId: "" })}
-                      erro={!r.obraId}
-                      placeholder="Obra..."
-                      vazio="Nenhuma obra encontrada"
-                      mensagemErro="Selecione a obra"
-                    />
-                    <SelectNativo
-                      aria-label="Etapa"
-                      value={r.etapaId}
-                      onChange={(e) => alterarRateio(i, { etapaId: e.target.value })}
-                      className="col-span-3 row-start-2 md:col-span-1 md:row-start-auto"
-                    >
-                      <option value="">Etapa (opcional)</option>
-                      {obra?.etapas.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.nome}
-                        </option>
-                      ))}
-                    </SelectNativo>
-                    <Input
-                      aria-label="Percentual"
-                      inputMode="decimal"
-                      placeholder="%"
-                      value={r.percent}
-                      onChange={(e) => alterarRateio(i, { percent: e.target.value })}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      title="Remover obra"
-                      disabled={rateios.length === 1}
-                      onClick={() => setRateios((prev) => prev.filter((_, j) => j !== i))}
-                    >
-                      <Trash2 className="size-4 text-muted-foreground" />
-                    </Button>
-                  </div>
-                );
-              })}
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRateios((prev) => [...prev, { obraId: "", etapaId: "", percent: "" }])}
-                >
-                  <Plus className="size-4" /> Obra
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={dividirIgualmenteClick}>
-                  <Wand2 className="size-4" /> Dividir igualmente
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <Accordion multiple value={secoes} onValueChange={(valor) => setSecoes(valor as SecaoXml[])}>
+            <AccordionItem value="itens" id="secao-xml-itens" className="scroll-mt-56">
+              <AccordionTrigger>
+                <CabecalhoSecao
+                  compacto
+                  icone={ListChecks}
+                  titulo="Itens"
+                  resumo={`${nfe.itens.length} ${nfe.itens.length === 1 ? "item" : "itens"} · ${formatarMoeda(somaItensCents)}`}
+                  preenchida={errosDeVinculos(vinculos).length === 0}
+                  aviso={somaItensCents !== nfe.totalCents}
+                  erro={secaoComErro.itens}
+                />
+              </AccordionTrigger>
+              <AccordionPanel keepMounted>
+                <PreviaItens
+                  nfe={nfe}
+                  tipos={tipos}
+                  onTipo={(i, tipo) => {
+                    setTipos((prev) => prev.map((t, j) => (j === i ? tipo : t)));
+                    // frete, serviço e encargo não têm material; ao voltar para material, o usuário decide de novo
+                    setVinculos((prev) =>
+                      prev.map((v, j) => {
+                        if (j !== i) return v;
+                        if (tipo !== "MATERIAL") return { modo: "nenhum" };
+                        return v.modo === "nenhum" ? { modo: "pendente", candidatos: [] } : v;
+                      }),
+                    );
+                  }}
+                  vinculos={vinculos}
+                  catalogo={materiais}
+                  onVinculo={(i, v) => setVinculos((prev) => prev.map((x, j) => (j === i ? v : x)))}
+                />
+                {errosVinculos.length > 0 && (
+                  <MensagemErro id="vinculos" focavel>
+                    {errosVinculos[0]}
+                    {errosVinculos.length > 1 && ` (mais ${errosVinculos.length - 1} nesta lista)`}
+                  </MensagemErro>
+                )}
+              </AccordionPanel>
+            </AccordionItem>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="flex items-center gap-2">
-                Parcelas
-                <CampoAjuda titulo="Parcelas">
-                  Vêm das duplicatas (boletos) do XML. Sem duplicatas, a nota entra com uma parcela
-                  única vencendo na data de emissão. Ajuste valores e datas se precisar — a soma deve
-                  fechar com o total da nota.
-                </CampoAjuda>
-              </CardTitle>
-              <span
-                className={
-                  somaParcelasCents !== nfe.totalCents
-                    ? "text-sm font-medium text-destructive"
-                    : "text-sm text-muted-foreground"
-                }
-              >
-                Soma: {formatarMoeda(somaParcelasCents)}
-              </span>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {nfe.duplicatas.length === 0 && (
+            <AccordionItem value="rateio" id="secao-xml-rateio" className="scroll-mt-56">
+              <AccordionTrigger>
+                <CabecalhoSecao
+                  compacto
+                  icone={Percent}
+                  titulo="Rateio entre obras"
+                  resumo={
+                    nomesDasObras.length === 0
+                      ? "Escolha a obra"
+                      : `${percentBpParaEditavel(somaRateioBp)}% · ${nomesDasObras.length === 1 ? nomesDasObras[0] : `${nomesDasObras.length} obras`}`
+                  }
+                  preenchida={somaRateioBp === BP_TOTAL && rateios.every((r) => r.obraId)}
+                  erro={secaoComErro.rateio}
+                />
+              </AccordionTrigger>
+              <AccordionPanel keepMounted>
                 <p className="text-sm text-muted-foreground">
-                  O XML não traz duplicatas: parcela única com vencimento na emissão ({formatarDataXml(nfe.dataEmissao)}).
+                  Divide o valor da nota entre uma ou mais obras, em percentual. A soma precisa fechar 100%.
+                  Informe a etapa se o custo for de um estágio específico.
                 </p>
-              )}
-              {parcelas.map((p, i) => (
-                <div key={i} className="grid grid-cols-[48px_1fr_1fr] items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{p.rotulo}</span>
-                  <Input
-                    aria-label={`Valor da parcela ${i + 1}`}
-                    inputMode="decimal"
-                    value={p.valor}
-                    onChange={(e) => alterarParcela(i, { valor: e.target.value })}
-                  />
-                  <Input
-                    aria-label={`Vencimento da parcela ${i + 1}`}
-                    type="date"
-                    value={p.vencimento}
-                    onChange={(e) => alterarParcela(i, { vencimento: e.target.value })}
-                  />
+                {rateios.map((r, i) => {
+                  const obra = obras.find((o) => o.id === r.obraId);
+                  const id = (campo: string) => `xml-rateio-${i}-${campo}`;
+                  return (
+                    <div key={i} className="grid grid-cols-2 items-start gap-3 rounded-xl border p-3 md:grid-cols-[1fr_1fr_8rem_auto]">
+                      <CampoForm id={id("obra")} rotulo="Obra" className="col-span-2 md:col-span-1">
+                        <Combobox
+                          id={id("obra")}
+                          options={obras.map((o) => ({ value: o.id, label: o.nome }))}
+                          value={r.obraId}
+                          onChange={(obraId) => alterarRateio(i, { obraId, etapaId: "" })}
+                          erro={Boolean(erroObra(r))}
+                          placeholder="Escolher obra..."
+                          vazio="Nenhuma obra encontrada"
+                          mensagemErro="Selecione a obra."
+                        />
+                      </CampoForm>
+                      <CampoForm id={id("etapa")} rotulo="Etapa (opcional)" className="col-span-2 md:col-span-1">
+                        <SelectNativo
+                          id={id("etapa")}
+                          value={r.etapaId}
+                          onChange={(e) => alterarRateio(i, { etapaId: e.target.value })}
+                        >
+                          <option value="">Sem etapa</option>
+                          {obra?.etapas.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.nome}
+                            </option>
+                          ))}
+                        </SelectNativo>
+                      </CampoForm>
+                      <CampoForm id={id("percent")} rotulo="Percentual (%)" erro={erroPercent(r)}>
+                        <Input
+                          id={id("percent")}
+                          inputMode="decimal"
+                          placeholder="100"
+                          value={r.percent}
+                          {...atributosDoErro(id("percent"), erroPercent(r))}
+                          onChange={(e) => alterarRateio(i, { percent: e.target.value })}
+                        />
+                      </CampoForm>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="justify-self-end md:mt-7"
+                        disabled={rateios.length === 1}
+                        onClick={() => setRateios((prev) => prev.filter((_, j) => j !== i))}
+                      >
+                        <Trash2 className="size-4 text-muted-foreground" /> Remover
+                      </Button>
+                    </div>
+                  );
+                })}
+                {erroRateio && (
+                  <MensagemErro id="rateio" focavel>
+                    {erroRateio}
+                  </MensagemErro>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setRateios((prev) => [...prev, { obraId: "", etapaId: "", percent: "" }])}
+                  >
+                    <Plus className="size-4" /> Adicionar obra
+                  </Button>
+                  <Button type="button" variant="outline" onClick={dividirIgualmenteClick}>
+                    <Wand2 className="size-4" /> Dividir igualmente
+                  </Button>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              </AccordionPanel>
+            </AccordionItem>
 
-          <div className="flex justify-end gap-2 pb-4">
-            <Button variant="outline" render={<Link href="/notas" />}>
+            <AccordionItem value="parcelas" id="secao-xml-parcelas" className="scroll-mt-56">
+              <AccordionTrigger>
+                <CabecalhoSecao
+                  compacto
+                  icone={Wallet}
+                  titulo="Parcelas"
+                  resumo={`${parcelas.length} ${parcelas.length === 1 ? "parcela" : "parcelas"} · ${formatarMoeda(somaParcelasCents)}`}
+                  preenchida={parcelas.length > 0 && linhaParcelas.situacao === "ok"}
+                  erro={secaoComErro.parcelas}
+                />
+              </AccordionTrigger>
+              <AccordionPanel keepMounted>
+                <p className="text-sm text-muted-foreground">
+                  {nfe.duplicatas.length === 0
+                    ? `O XML não traz duplicatas: a nota entra com uma parcela única, vencendo na emissão (${formatarDataXml(nfe.dataEmissao)}).`
+                    : "Vêm das duplicatas (boletos) do XML."}{" "}
+                  Ajuste valores e datas se precisar. A soma deve fechar com o total da nota.
+                </p>
+                {parcelas.map((p, i) => {
+                  const id = (campo: string) => `xml-parcela-${i}-${campo}`;
+                  return (
+                    <div key={i} className="grid grid-cols-2 items-start gap-3 rounded-xl border p-3 sm:grid-cols-[8rem_1fr_1fr]">
+                      <p className="col-span-2 font-semibold [font-stretch:112%] sm:col-span-1 sm:mt-8">
+                        Parcela {i + 1}
+                        {nfe.duplicatas[i] && (
+                          <span className="block text-sm font-normal text-muted-foreground">
+                            Duplicata {p.rotulo}
+                          </span>
+                        )}
+                      </p>
+                      <CampoForm id={id("valor")} rotulo="Valor (R$)" erro={erroValor(p)}>
+                        <Input
+                          id={id("valor")}
+                          inputMode="decimal"
+                          value={p.valor}
+                          {...atributosDoErro(id("valor"), erroValor(p))}
+                          onChange={(e) => alterarParcela(i, { valor: e.target.value })}
+                        />
+                      </CampoForm>
+                      <CampoForm id={id("vencimento")} rotulo="Vencimento" erro={erroVencimento(p)}>
+                        <Input
+                          id={id("vencimento")}
+                          type="date"
+                          value={p.vencimento}
+                          {...atributosDoErro(id("vencimento"), erroVencimento(p))}
+                          onChange={(e) => alterarParcela(i, { vencimento: e.target.value })}
+                        />
+                      </CampoForm>
+                    </div>
+                  );
+                })}
+                {erroParcelas && (
+                  <MensagemErro id="parcelas" focavel>
+                    {erroParcelas}
+                  </MensagemErro>
+                )}
+              </AccordionPanel>
+            </AccordionItem>
+          </Accordion>
+
+          {/* no celular a barra fixa fica só com a ação principal; cancelar sobe para o fim do formulário */}
+          <Button variant="ghost" className="w-full md:hidden" render={<Link href="/notas" />}>
+            Cancelar
+          </Button>
+
+          <BarraDeAcao>
+            <p
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "min-w-0 flex-1 text-sm leading-snug sr-only md:not-sr-only",
+                tentouImportar && Object.values(secaoComErro).some(Boolean)
+                  ? "font-medium text-destructive"
+                  : "text-muted-foreground",
+              )}
+            >
+              {pendente
+                ? "Importando..."
+                : tentouImportar && Object.values(secaoComErro).some(Boolean)
+                  ? "Corrija os campos marcados em vermelho."
+                  : ""}
+            </p>
+            <Button variant="outline" className="hidden md:inline-flex" render={<Link href="/notas" />}>
               Cancelar
             </Button>
-            <Button type="button" disabled={pendente || !!existente} onClick={importar}>
+            <Button type="button" className="flex-1 md:flex-none" disabled={pendente || !!existente} onClick={importar}>
               <Upload className="size-4" />
               {pendente ? "Importando..." : "Importar nota"}
             </Button>
-          </div>
+          </BarraDeAcao>
         </>
       )}
 

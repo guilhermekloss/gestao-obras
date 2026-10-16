@@ -50,7 +50,7 @@ test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
   await page.getByRole("button", { name: "Gerar parcelas" }).click();
   await expect(page.locator('input[name="parcelas.0.valor"]')).toHaveValue("1200,00");
 
-  await page.getByRole("button", { name: "Lançar nota" }).click();
+  await page.getByRole("button", { name: "Salvar lançamento" }).click();
   await page.waitForURL("**/notas");
   await expect(page.getByText(NUMERO_NF)).toBeVisible();
 
@@ -59,7 +59,10 @@ test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
   await expect(linha).toHaveCount(1);
   await linha.locator('input[type="checkbox"]').check();
   await page.getByRole("button", { name: "Marcar como pagas" }).click();
-  await expect(page.getByText("marcadas como pagas")).toBeVisible();
+  // a confirmação mostra o que será pago antes de gravar
+  await expect(page.getByRole("dialog")).toContainText("Marcar 1 parcela como paga?");
+  await page.getByRole("button", { name: "Confirmar pagamento" }).click();
+  await expect(page.getByText(/marcada(s)? como paga(s)?/)).toBeVisible();
 
   await page.goto("/contas?visao=pagas");
   await expect(page.locator("tr", { hasText: NUMERO_NF })).toHaveCount(1);

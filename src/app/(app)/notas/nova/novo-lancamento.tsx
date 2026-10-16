@@ -346,8 +346,8 @@ export function NovoLancamento({
               </Button>
             </div>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Sem arquivo? Preencha manualmente o formulário abaixo.
+          <p className="mt-3 text-sm text-muted-foreground">
+            Sem arquivo? Preencha o formulário abaixo.
           </p>
         </div>
       )}
