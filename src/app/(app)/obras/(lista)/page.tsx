@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusObraBadge } from "@/components/status-obra-badge";
 import { NovaObraDialog } from "../obra-dialogs";
 import { formatarData } from "@/lib/format";
+import { EstadoVazio } from "@/components/estado-vazio";
+import { Building2 } from "lucide-react";
 
 export default async function ObrasPage() {
   const user = await usuarioAtual();
@@ -24,15 +26,25 @@ export default async function ObrasPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl">Obras</h1>
-        {podeEditar && <NovaObraDialog />}
+        {podeEditar && obras.length > 0 && <NovaObraDialog />}
       </div>
 
       {obras.length === 0 ? (
-        <p className="text-muted-foreground">
-          {user.obrasPermitidas === null
-            ? "Nenhuma obra cadastrada ainda."
-            : "Nenhuma obra liberada para você — fale com o administrador."}
-        </p>
+        user.obrasPermitidas === null ? (
+          <EstadoVazio
+            icone={Building2}
+            titulo="Nenhuma obra cadastrada"
+            acao={podeEditar && <NovaObraDialog rotulo="Cadastrar obra" grande />}
+          >
+            {podeEditar
+              ? "Cadastre a primeira obra para lançar notas, registrar o diário e acompanhar o avanço."
+              : "Peça ao escritório para cadastrar a primeira obra."}
+          </EstadoVazio>
+        ) : (
+          <EstadoVazio icone={Building2} titulo="Nenhuma obra liberada para você">
+            Peça ao administrador para liberar o seu acesso.
+          </EstadoVazio>
+        )
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {obras.map((obra) => (

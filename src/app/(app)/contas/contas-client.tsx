@@ -181,13 +181,6 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
                 </TableCell>
               </TableRow>
             ))}
-            {parcelas.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
-                  Nenhuma parcela nesta visão.
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </div>

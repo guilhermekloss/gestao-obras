@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Building2, HardHat, KeyRound, ReceiptText, type LucideIcon } from "lucide-react";
+import { Building2, HardHat, History, KeyRound, ReceiptText, type LucideIcon } from "lucide-react";
+import { EstadoVazio } from "@/components/estado-vazio";
 import { categoriaDoTipo, type CategoriaAtividade } from "@/services/atividade";
 import { formatarData, formatarTempoRelativo } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ export function FeedAtividades({
   atividades,
   mostrarUsuario = true,
   linkUsuario = true,
-  vazio = "Nenhuma ação registrada ainda.",
+  vazio = "As ações feitas na plataforma aparecem aqui.",
 }: {
   atividades: AtividadeDoFeed[];
   mostrarUsuario?: boolean;
@@ -24,7 +25,11 @@ export function FeedAtividades({
   vazio?: string;
 }) {
   if (atividades.length === 0) {
-    return <p className="py-6 text-center text-sm text-muted-foreground">{vazio}</p>;
+    return (
+      <EstadoVazio compacto nivel={3} icone={History} titulo="Nenhuma ação registrada">
+        {vazio}
+      </EstadoVazio>
+    );
   }
   const agora = new Date();
   return (

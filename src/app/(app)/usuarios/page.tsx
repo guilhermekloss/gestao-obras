@@ -14,6 +14,8 @@ import { SelectNativo } from "@/components/select-nativo";
 import { NovoUsuarioDialog, EditarUsuarioDialog } from "./usuario-dialogs";
 import { AcoesConvite, NovoConviteDialog } from "./convite-dialogs";
 import { FeedAtividades } from "./feed-atividades";
+import { EstadoVazio } from "@/components/estado-vazio";
+import { MailPlus } from "lucide-react";
 import {
   ATIVIDADES_POR_PAGINA,
   carregarConvites,
@@ -100,7 +102,7 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
       </nav>
 
       {aba.key === "pessoas" && <AbaPessoas usuarios={usuarios} obras={obras} agora={agora} />}
-      {aba.key === "convites" && <AbaConvites />}
+      {aba.key === "convites" && <AbaConvites obras={obras} />}
       {aba.key === "atividade" && <AbaAtividade busca={busca} usuarios={usuarios} obras={obras} />}
     </div>
   );
@@ -226,13 +228,17 @@ const COR_STATUS: Record<StatusConvite, "default" | "secondary" | "outline" | "d
   REVOGADO: "outline",
 };
 
-async function AbaConvites() {
+async function AbaConvites({ obras }: { obras: { id: string; nome: string }[] }) {
   const convites = await carregarConvites();
   if (convites.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        Nenhum convite ainda. Use “Convidar por link” para a pessoa fazer o próprio cadastro.
-      </p>
+      <EstadoVazio
+        icone={MailPlus}
+        titulo="Nenhum convite enviado"
+        acao={<NovoConviteDialog obras={obras} grande />}
+      >
+        Gere um link e a pessoa faz o próprio cadastro, já com o papel e as obras que você escolher.
+      </EstadoVazio>
     );
   }
   return (
@@ -343,7 +349,7 @@ async function AbaAtividade({
         <CardContent className="pt-2">
           <FeedAtividades
             atividades={atividades}
-            vazio="Nenhuma ação registrada com estes filtros. O log começa a contar a partir desta versão da plataforma."
+            vazio="Nada bate com estes filtros. O registro só começa a contar a partir desta versão."
           />
         </CardContent>
       </Card>

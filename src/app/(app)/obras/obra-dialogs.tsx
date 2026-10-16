@@ -77,14 +77,14 @@ function CamposObra({ obra }: { obra?: Obra }) {
   );
 }
 
-export function NovaObraDialog() {
+export function NovaObraDialog({ rotulo = "Nova obra", grande = false }: { rotulo?: string; grande?: boolean }) {
   return (
     <FormDialog
       titulo="Nova obra"
       action={criarObra}
       trigger={
-        <Button>
-          <Plus className="size-4" /> Nova obra
+        <Button size={grande ? "lg" : "default"}>
+          <Plus className="size-4" /> {rotulo}
         </Button>
       }
     >

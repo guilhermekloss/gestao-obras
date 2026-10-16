@@ -13,7 +13,8 @@ import {
 import { formatarData } from "@/lib/format";
 import { dataDoRdo, resumoClima, totalPessoas } from "@/services/rdo";
 import { CondicaoBadge } from "@/app/(app)/diario/condicao-badge";
-import { Plus } from "lucide-react";
+import { NotebookPen, Plus } from "lucide-react";
+import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import type { AbaObraProps } from "./tipos";
 
 const LIMITE = 100;
@@ -69,7 +70,19 @@ export async function AbaDiario({ obra }: AbaObraProps) {
       </CardHeader>
       <CardContent>
         {rdos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum RDO registrado nesta obra.</p>
+          <EstadoVazio
+            compacto
+            nivel={3}
+            icone={NotebookPen}
+            titulo="Nenhum RDO nesta obra"
+            acao={
+              <AcaoVazio href={`/diario/novo?obra=${obraId}`} icone={Plus}>
+                Registrar primeiro RDO
+              </AcaoVazio>
+            }
+          >
+            Registre o dia de trabalho para formar o histórico da obra.
+          </EstadoVazio>
         ) : (
           <>
             <Table>

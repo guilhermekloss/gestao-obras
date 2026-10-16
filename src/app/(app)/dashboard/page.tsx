@@ -14,6 +14,9 @@ import { AvancoLotes } from "./avanco-lotes";
 import { CurvaSWidget } from "./widgets/curva-s";
 import { AlertasLista } from "./alertas-lista";
 import { TopInsumos } from "./top-insumos";
+import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
+import { veFinanceiro } from "@/services/acesso";
+import { ChartGantt, ChartNoAxesColumn, ListOrdered, PiggyBank, ReceiptText, Scale } from "lucide-react";
 
 const MAX_ALERTAS = 8;
 const LINK_CARD =
@@ -96,6 +99,12 @@ export default async function DashboardPage() {
 
   const obrasAtivas = obras.filter((o) => o.status === "ANDAMENTO").length;
 
+  const acaoNota = veFinanceiro(user.role) && (
+    <AcaoVazio href="/notas/nova" icone={ReceiptText} variante="outline">
+      Lançar nota
+    </AcaoVazio>
+  );
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl md:text-3xl">Dashboard</h1>
@@ -147,7 +156,16 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {avancoData.length === 0 ? (
-              <Vazio texto="Registre o avanço das etapas em Cronograma → Avanço." />
+              <Vazio
+                icone={ChartGantt}
+                titulo="Sem avanço registrado"
+                texto="Marque quanto de cada etapa já foi feito."
+                acao={
+                  <AcaoVazio href="/cronograma?aba=avanco" icone={ChartGantt} variante="outline">
+                    Registrar avanço
+                  </AcaoVazio>
+                }
+              />
             ) : (
               <AvancoLotes data={avancoData} />
             )}
@@ -165,7 +183,12 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {abc.insumos.length === 0 ? (
-              <Vazio texto="Lance notas com itens para ver os maiores insumos." />
+              <Vazio
+                icone={ListOrdered}
+                titulo="Sem insumos ainda"
+                texto="Os maiores insumos aparecem a partir das notas com itens."
+                acao={acaoNota}
+              />
             ) : (
               <TopInsumos insumos={abc.insumos.slice(0, 5)} />
             )}
@@ -178,7 +201,12 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {gastoMensalData.length === 0 ? (
-              <Vazio texto="Sem compras registradas nos últimos 12 meses." />
+              <Vazio
+                icone={ChartNoAxesColumn}
+                titulo="Sem compras em 12 meses"
+                texto="O gráfico mostra quanto cada obra gastou por mês."
+                acao={acaoNota}
+              />
             ) : (
               <GastoMensalChart data={gastoMensalData} obras={obrasComGasto} />
             )}
@@ -191,7 +219,18 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {orcadoRealizadoData.length === 0 ? (
-              <Vazio texto="Defina orçamentos em Orçamento para ver a comparação." />
+              <Vazio
+                icone={Scale}
+                titulo="Sem orçamento definido"
+                texto="Defina o orçado de uma obra para comparar com o gasto."
+                acao={
+                  veFinanceiro(user.role) && (
+                    <AcaoVazio href="/orcamento" icone={PiggyBank} variante="outline">
+                      Definir orçamento
+                    </AcaoVazio>
+                  )
+                }
+              />
             ) : (
               <OrcadoRealizadoChart data={orcadoRealizadoData} />
             )}
@@ -236,6 +275,16 @@ function Cota({
   );
 }
 
-function Vazio({ texto }: { texto: string }) {
-  return <p className="py-10 text-center text-sm text-muted-foreground">{texto}</p>;
+function Vazio(props: {
+  icone: React.ComponentProps<typeof EstadoVazio>["icone"];
+  titulo: string;
+  texto: string;
+  acao?: React.ReactNode;
+}) {
+  const { texto, ...resto } = props;
+  return (
+    <EstadoVazio compacto nivel={3} {...resto}>
+      {texto}
+    </EstadoVazio>
+  );
 }

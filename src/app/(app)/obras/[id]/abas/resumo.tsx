@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { criarEtapa, excluirEtapa } from "../../actions";
 import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
-import { Plus, Trash2 } from "lucide-react";
+import { ChartGantt, NotebookPen, Plus, Trash2 } from "lucide-react";
+import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { dataDoRdo } from "@/services/rdo";
 import { podeEditarCadastros, veFinanceiro } from "@/services/acesso";
 import type { AbaObraProps } from "./tipos";
@@ -90,7 +91,31 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
           </CardHeader>
           <CardContent>
             {etapas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma etapa cadastrada.</p>
+              <EstadoVazio
+                compacto
+                nivel={3}
+                icone={ChartGantt}
+                titulo="Nenhuma etapa cadastrada"
+                acao={
+                  podeEditar && (
+                    <FormDialog
+                      titulo="Nova etapa"
+                      action={criarEtapa.bind(null, obra.id)}
+                      trigger={
+                        <Button size="lg">
+                          <Plus className="size-4" /> Cadastrar etapa
+                        </Button>
+                      }
+                    >
+                      <Input name="nome" placeholder="Nome da etapa" required />
+                    </FormDialog>
+                  )
+                }
+              >
+                {podeEditar
+                  ? "As etapas dividem a obra para medir o avanço e o custo."
+                  : "Peça ao escritório para cadastrar as etapas."}
+              </EstadoVazio>
             ) : (
               <ul className="divide-y">
                 {etapas.map((etapa) => {
@@ -163,7 +188,19 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
             </CardHeader>
             <CardContent>
               {ultimosRdos.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum RDO registrado.</p>
+                <EstadoVazio
+                  compacto
+                  nivel={3}
+                  icone={NotebookPen}
+                  titulo="Nenhum RDO registrado"
+                  acao={
+                    <AcaoVazio href={`/diario/novo?obra=${obra.id}`} icone={Plus}>
+                      Registrar primeiro RDO
+                    </AcaoVazio>
+                  }
+                >
+                  Os últimos dias de trabalho aparecem aqui.
+                </EstadoVazio>
               ) : (
                 <ul className="divide-y">
                   {ultimosRdos.map((rdo) => (
