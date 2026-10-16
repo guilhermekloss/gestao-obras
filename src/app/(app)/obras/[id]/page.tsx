@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { usuarioAtual } from "@/lib/auth";
-import { podeVerObra } from "@/services/acesso";
+import { obraAutorizada, usuarioAtual } from "@/lib/auth";
+import { podeEditarCadastros } from "@/services/acesso";
 import { StatusObraBadge } from "@/components/status-obra-badge";
 import { ConfirmButton } from "@/components/confirm-button";
 import { EditarObraDialog } from "../obra-dialogs";
@@ -32,12 +31,11 @@ export default async function ObraPage({
 }) {
   const user = await usuarioAtual();
   if (!user) redirect("/login");
-  const podeEditar = user.role !== "CAMPO";
+  const podeEditar = podeEditarCadastros(user.role);
   const ehAdmin = user.role === "ADMIN";
 
   const [{ id }, { aba: abaParam }] = await Promise.all([params, searchParams]);
-  if (!podeVerObra(user.obrasPermitidas, id)) notFound();
-  const obra = await prisma.obra.findUnique({ where: { id } });
+  const obra = await obraAutorizada(user, id);
   if (!obra) notFound();
 
   const abas = ABAS.filter((a) => a.papeis.includes(user.role));
@@ -82,7 +80,7 @@ export default async function ObraPage({
         ))}
       </nav>
 
-      <aba.Componente obraId={obra.id} role={user.role} />
+      <aba.Componente obra={obra} role={user.role} />
     </div>
   );
 }

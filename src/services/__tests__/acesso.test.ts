@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   descreverAcessoObras,
   INTERVALO_ULTIMO_ACESSO_MS,
+  podeEditarCadastros,
   podeVerObra,
   restricaoDeObras,
+  veFinanceiro,
   ultimoAcessoDesatualizado,
   whereObraIdPermitido,
   whereObrasPermitidas,
@@ -61,5 +63,16 @@ describe("ultimoAcessoDesatualizado", () => {
   });
   it("não grava dentro do intervalo", () => {
     expect(ultimoAcessoDesatualizado(new Date(agora.getTime() - 60_000), agora)).toBe(false);
+  });
+});
+
+describe("veFinanceiro e podeEditarCadastros", () => {
+  it("ADMIN e ESCRITORIO veem valores e editam cadastros; CAMPO não", () => {
+    for (const role of ["ADMIN", "ESCRITORIO"] as const) {
+      expect(veFinanceiro(role)).toBe(true);
+      expect(podeEditarCadastros(role)).toBe(true);
+    }
+    expect(veFinanceiro("CAMPO")).toBe(false);
+    expect(podeEditarCadastros("CAMPO")).toBe(false);
   });
 });

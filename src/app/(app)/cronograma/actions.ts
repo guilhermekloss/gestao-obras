@@ -18,7 +18,12 @@ function revalidarObra(obraId: string) {
 }
 
 export const salvarDatasEtapas = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS, atividade: "cronograma.datas" },
+  {
+    papeis: ["ADMIN", "ESCRITORIO"],
+    obra: (obraId: string, _formData: FormData) => obraId,
+    revalidar: ROTAS,
+    atividade: "cronograma.datas",
+  },
   async (_user, obraId: string, formData: FormData): Promise<ActionResult> => {
     const etapas = await prisma.etapa.findMany({
       where: { obraId },
@@ -120,7 +125,10 @@ export const criarMedicao = acaoDeEscrita(
 
 export const excluirMedicao = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS, atividade: "medicao.excluir" },
-  async (_user, id: string): Promise<ActionResult> => {
+  async (user, id: string): Promise<ActionResult> => {
+    const existente = await prisma.medicao.findUnique({ where: { id }, select: { etapa: { select: { obraId: true } } } });
+    if (!existente) return { ok: false, erro: "Avanço não encontrado" };
+    exigirAcessoObra(user, existente.etapa.obraId, "Avanço não encontrado");
     const medicao = await prisma.medicao.delete({
       where: { id },
       select: { percentBp: true, etapa: { select: { obraId: true, nome: true, obra: { select: { nome: true } } } } },

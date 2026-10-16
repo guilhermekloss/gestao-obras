@@ -1,3 +1,4 @@
+import type { ObraAutorizada } from "@/lib/auth";
 import { subDays } from "date-fns";
 import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -219,7 +220,8 @@ export async function carregarPerfilUsuario(id: string) {
   };
 }
 
-export async function carregarEquipeDaObra(obraId: string) {
+export async function carregarEquipeDaObra(obra: ObraAutorizada) {
+  const obraId = obra.id;
   const [usuarios, rdos, medicoes, rateios] = await Promise.all([
     prisma.usuario.findMany({
       where: {

@@ -1,3 +1,4 @@
+import { podeEditarCadastros } from "@/services/acesso";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { usuarioAtual } from "@/lib/auth";
@@ -11,7 +12,7 @@ import { formatarData } from "@/lib/format";
 export default async function ObrasPage() {
   const user = await usuarioAtual();
   if (!user) redirect("/login");
-  const podeEditar = user.role !== "CAMPO";
+  const podeEditar = podeEditarCadastros(user.role);
 
   const obras = await prisma.obra.findMany({
     where: whereObrasPermitidas(user.obrasPermitidas),

@@ -4,8 +4,8 @@ import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { compare, getRounds, hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@prisma/client";
-import { restricaoDeObras, ultimoAcessoDesatualizado, type RestricaoObras } from "@/services/acesso";
+import type { Obra, Role } from "@prisma/client";
+import { podeVerObra, restricaoDeObras, ultimoAcessoDesatualizado, type RestricaoObras } from "@/services/acesso";
 import {
   JANELA_MS,
   RETENCAO_TENTATIVAS_DIAS,
@@ -166,6 +166,16 @@ export const usuarioAtual = cache(async (): Promise<UsuarioAtual | null> => {
     obrasPermitidas: restricaoDeObras(usuario),
   };
 });
+
+declare const autorizada: unique symbol;
+// Obra que o usuário pode ver. Só `obraAutorizada` cria o valor: as abas e os carregadores pedem este tipo, não um id solto.
+export type ObraAutorizada = Obra & { readonly [autorizada]: true };
+
+// Sem acesso e obra inexistente dão o mesmo null: quem não tem acesso não descobre se a obra existe.
+export async function obraAutorizada(usuario: UsuarioAtual, obraId: string): Promise<ObraAutorizada | null> {
+  if (!podeVerObra(usuario.obrasPermitidas, obraId)) return null;
+  return (await prisma.obra.findUnique({ where: { id: obraId } })) as ObraAutorizada | null;
+}
 
 export async function exigirPapel(...papeis: Role[]) {
   const usuario = await usuarioAtual();

@@ -18,7 +18,8 @@ import type { AbaObraProps } from "./tipos";
 
 const LIMITE = 100;
 
-export async function AbaDiario({ obraId }: AbaObraProps) {
+export async function AbaDiario({ obra }: AbaObraProps) {
+  const obraId = obra.id;
   const [rdos, total, porCondicao] = await Promise.all([
     prisma.diarioObra.findMany({
       where: { obraId },

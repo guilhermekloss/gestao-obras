@@ -3,12 +3,13 @@ import { usuarioAtual, type UsuarioAtual } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { eventoSeguranca } from "@/lib/log-seguranca";
+import { veFinanceiro } from "@/services/acesso";
 import { TIPO_MIME, extensaoDoNome, urlDoArquivo } from "@/services/arquivos";
 
 // ADMIN/ESCRITORIO: tudo. CAMPO: o que enviou e fotos de RDO das suas obras,
 // nunca anexos de lançamentos (valores financeiros).
 async function podeVer(usuario: UsuarioAtual, nome: string): Promise<boolean> {
-  if (usuario.role !== "CAMPO") return true;
+  if (veFinanceiro(usuario.role)) return true;
 
   const enviado = await prisma.arquivo.findUnique({ where: { nome }, select: { enviadoPorId: true } });
   if (enviado?.enviadoPorId === usuario.id) return true;
