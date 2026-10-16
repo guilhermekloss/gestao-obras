@@ -52,3 +52,9 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 - Menu lateral (desktop): item ativo com fundo `nav-ativo`, marca lateral e `aria-current="page"`; nome e papel do usuário no rodapé.
 - Barra inferior (celular): 4 itens + "Mais" com as demais telas, em folha que sobe da base. Perfil com até 4 telas (campo) não mostra "Mais". Rótulos completos, em até 2 linhas. Quais itens ficam na barra: campo `fixo` em `src/components/nav-itens.ts`.
 - Permissões por papel ficam em `nav-itens.ts` (`papeis`) e têm teste em `src/components/__tests__/nav-itens.test.ts`.
+
+## Carregando, erro e página não encontrada
+- **Carregando:** cada tela de lista tem `loading.tsx` (dashboard, notas, contas, obras, diário, cronograma) com esqueleto no desenho da tela, sem spinner. Use o `Skeleton` de `src/components/ui/skeleton.tsx` e os blocos de `src/components/carregando.tsx` (`Carregando`, `CabecalhoSkeleton`, `FiltrosSkeleton`, `TabelaSkeleton`). O pulso some com `prefers-reduced-motion`. Tela nova de lista: crie o `loading.tsx` ao lado do `page.tsx`.
+- **Erro:** `src/app/(app)/error.tsx` (dentro da casca) e `src/app/error.tsx` (fora dela e falha do próprio layout) usam `ErroDePagina`. Nada do erro vai para a tela. O texto cobre falha do sistema e falta de acesso, porque `exigirPapel` lança erro e em produção o Next esconde a mensagem. Esta versão do Next entrega `retry` (não `reset`).
+- **Não encontrado:** `not-found.tsx` com casca (`notFound()` nas telas) e sem casca (endereço que não existe). Também cobre "sem acesso", porque o app responde igual para registro inexistente e registro proibido.
+- Limitação: as telas dentro de uma seção (por exemplo `/diario/novo`) mostram o esqueleto da lista da seção até ganharem o próprio `loading.tsx`.
