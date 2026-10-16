@@ -16,6 +16,13 @@ import { validarRateio } from "@/services/rateio";
 import { buscarFornecedorPorDocumento, criarFornecedorValidado, fornecedorSchema } from "@/services/fornecedores";
 import { formatarDocumento, parseNfeXml } from "@/services/nfe-xml";
 import { erroEtapasDoRateio } from "@/services/obras";
+import { correspondenciaItem, normalizarUnidade, type CorrespondenciaItem } from "@/services/materiais";
+import {
+  buscarMaterialPorNome,
+  carregarBaseMateriais,
+  criarMaterialValidado,
+  registrarApelido,
+} from "@/services/materiais-db";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -24,6 +31,18 @@ const importarSchema = z.object({
   nomeArquivo: z.string().optional(),
   // na mesma ordem dos itens do XML
   tipos: z.array(z.enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"])),
+  // na mesma ordem dos itens do XML; "pendente" não passa: o usuário decide antes de importar
+  materiais: z.array(
+    z.discriminatedUnion("modo", [
+      z.object({ modo: z.literal("nenhum") }),
+      z.object({ modo: z.literal("existente"), id: z.string().min(1).max(64) }),
+      z.object({
+        modo: z.literal("novo"),
+        nome: z.string().trim().min(1, "Informe o nome do novo material").max(200),
+        unidade: z.string().trim().min(1, "Informe a unidade do novo material").max(20),
+      }),
+    ]),
+  ),
   rateios: z.array(rateioSchema).min(1, "Defina o rateio entre obras"),
   parcelas: z.array(parcelaSchema).min(1, "A nota precisa de ao menos 1 parcela"),
 });
@@ -36,6 +55,16 @@ type ImportarNfeResult = ActionResult & {
 
 async function notaPorChave(chave: string) {
   return prisma.notaFiscal.findUnique({ where: { chaveNfe: chave }, select: { id: true, numero: true } });
+}
+
+// Liga cada item do XML ao catálogo: pelo código do produto do fornecedor, depois pelo texto.
+export async function sugerirMateriais(
+  documento: string,
+  itens: { descricao: string; codigo: string | null }[],
+): Promise<CorrespondenciaItem[]> {
+  await exigirPapel(...PAPEIS);
+  const [fornecedor, base] = await Promise.all([buscarFornecedorPorDocumento(documento), carregarBaseMateriais()]);
+  return itens.map((item) => correspondenciaItem(item, { ...base, fornecedorId: fornecedor?.id }));
 }
 
 export type SituacaoImportacao = {
@@ -68,7 +97,7 @@ export const importarNfe = acaoDeEscrita(
     if (!lido.ok) return { ok: false, erro: lido.erro };
     const nfe = lido.nfe;
 
-    if (d.tipos.length !== nfe.itens.length) {
+    if (d.tipos.length !== nfe.itens.length || d.materiais.length !== nfe.itens.length) {
       return { ok: false, erro: "Os itens enviados não conferem com o XML — recarregue o arquivo." };
     }
 
@@ -153,9 +182,33 @@ export const importarNfe = acaoDeEscrita(
           })),
         });
 
+        const materialIds: string[] = [];
+        for (const escolha of d.materiais) {
+          if (escolha.modo === "nenhum") {
+            materialIds.push("");
+          } else if (escolha.modo === "existente") {
+            const existe = await tx.material.findUnique({ where: { id: escolha.id }, select: { id: true } });
+            if (!existe) throw new Error("Um dos materiais escolhidos não existe mais — escolha de novo.");
+            materialIds.push(existe.id);
+          } else {
+            const igual = await buscarMaterialPorNome(escolha.nome, undefined, tx);
+            if (igual) {
+              materialIds.push(igual.id);
+              continue;
+            }
+            const criado = await criarMaterialValidado(
+              { nome: escolha.nome, unidade: normalizarUnidade(escolha.unidade), tipo: "MATERIAL" },
+              tx,
+            );
+            if (!criado.ok) throw new Error(criado.erro);
+            materialIds.push(criado.material.id);
+          }
+        }
+
         await tx.itemNota.createMany({
           data: nfe.itens.map((item, i) => ({
             notaId: nota.id,
+            materialId: materialIds[i] || null,
             descricao: item.descricao,
             tipo: d.tipos[i],
             qtde: item.qtde,
@@ -165,6 +218,17 @@ export const importarNfe = acaoDeEscrita(
             totalCents: item.totalCents,
           })),
         });
+
+        // texto e código do produto viram apelido: a próxima nota do fornecedor liga sozinha
+        for (const [i, item] of nfe.itens.entries()) {
+          if (!materialIds[i]) continue;
+          await registrarApelido(tx, {
+            materialId: materialIds[i],
+            descricao: item.descricao,
+            fornecedorId: fornecedorId!,
+            codigoProduto: item.codigo,
+          });
+        }
 
         await tx.parcela.createMany({
           data: d.parcelas.map((p) => ({
@@ -195,6 +259,7 @@ export const importarNfe = acaoDeEscrita(
     });
     revalidatePath("/notas");
     revalidatePath("/contas");
+    revalidatePath("/materiais");
     if (fornecedorCriado) revalidatePath("/fornecedores");
     redirect(`/notas/${notaId}`);
   },

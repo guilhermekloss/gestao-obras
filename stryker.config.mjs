@@ -9,7 +9,7 @@ const config = {
     "!src/services/**/__tests__/**",
     "!src/services/leitor-nativo/tipos.ts",
     "!src/services/leitor-nativo/extracao/{tesseract,pdf,imagem,vision,caminhos}.ts",
-    "!src/services/{fornecedores,obras}.ts",
+    "!src/services/{fornecedores,obras,materiais-db}.ts",
   ],
   ignoreStatic: true,
   incremental: true,

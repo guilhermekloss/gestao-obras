@@ -21,7 +21,9 @@ import {
 import { BP_TOTAL, dividirIgualmente, validarRateio } from "@/services/rateio";
 import { validarParcelas } from "@/services/parcelas";
 import { parcelasDaNfe, parseNfeXml, type Nfe } from "@/services/nfe-xml";
-import { consultarSituacaoImportacao, importarNfe, type SituacaoImportacao } from "./actions";
+import { errosDeVinculos, vinculoInicial, type MaterialCatalogo, type VinculoMaterial } from "@/services/materiais";
+import { vinculosParaAction } from "../nova/conferencia-model";
+import { consultarSituacaoImportacao, importarNfe, sugerirMateriais, type SituacaoImportacao } from "./actions";
 import { AvisoNotaExistente, PreviaCabecalho, PreviaItens, formatarDataXml } from "./previa-nfe";
 import { AlertTriangle, FileCode2, Plus, Trash2, Upload, Wand2 } from "lucide-react";
 
@@ -38,9 +40,11 @@ function bpDaLinha(r: RateioLinha): number {
 
 export function ImportarXmlForm({
   obras,
+  materiais = [],
   arquivoInicial,
 }: {
   obras: ObraRateio[];
+  materiais?: MaterialCatalogo[];
   arquivoInicial?: File;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +58,7 @@ export function ImportarXmlForm({
   const [existente, setExistente] = useState<{ id: string; mensagem: string } | null>(null);
 
   const [tipos, setTipos] = useState<TipoItem[]>([]);
+  const [vinculos, setVinculos] = useState<VinculoMaterial[]>([]);
   const [rateios, setRateios] = useState<RateioLinha[]>([
     { obraId: obras[0]?.id ?? "", etapaId: "", percent: "100" },
   ]);
@@ -65,6 +70,7 @@ export function ImportarXmlForm({
     setSituacao(null);
     setExistente(null);
     setTipos([]);
+    setVinculos([]);
     setParcelas([]);
   }
 
@@ -98,6 +104,7 @@ export function ImportarXmlForm({
       setArquivo({ nome: file.name, xml });
       setNfe(n);
       setTipos(n.itens.map((i) => i.tipoSugerido));
+      setVinculos(n.itens.map((i) => vinculoInicial(undefined, i.tipoSugerido)));
       setParcelas(
         parcelasDaNfe(n).map((p, i) => ({
           rotulo: n.duplicatas[i]?.numero ?? `${p.numero}ª`,
@@ -106,8 +113,12 @@ export function ImportarXmlForm({
         })),
       );
       setLendo(false);
-      const s = await consultarSituacaoImportacao(n.chave, n.emitente.documento);
+      const [s, correspondencias] = await Promise.all([
+        consultarSituacaoImportacao(n.chave, n.emitente.documento),
+        sugerirMateriais(n.emitente.documento, n.itens.map((i) => ({ descricao: i.descricao, codigo: i.codigo }))),
+      ]);
       setSituacao(s);
+      setVinculos(n.itens.map((i, idx) => vinculoInicial(correspondencias[idx], i.tipoSugerido)));
       if (s.notaExistente) {
         setExistente({
           id: s.notaExistente.id,
@@ -168,12 +179,19 @@ export function ImportarXmlForm({
       return;
     }
 
+    const pendentes = errosDeVinculos(vinculos);
+    if (pendentes.length > 0) {
+      toast.error(pendentes[0]);
+      return;
+    }
+
     startTransition(async () => {
       // no sucesso a action redireciona
       const res = await importarNfe({
         xml: arquivo.xml,
         nomeArquivo: arquivo.nome,
         tipos,
+        materiais: vinculosParaAction(vinculos),
         rateios: rateiosBp,
         parcelas: parcelasPayload,
       });
@@ -233,7 +251,20 @@ export function ImportarXmlForm({
           <PreviaItens
             nfe={nfe}
             tipos={tipos}
-            onTipo={(i, tipo) => setTipos((prev) => prev.map((t, j) => (j === i ? tipo : t)))}
+            onTipo={(i, tipo) => {
+              setTipos((prev) => prev.map((t, j) => (j === i ? tipo : t)));
+              // frete, serviço e encargo não têm material; ao voltar para material, o usuário decide de novo
+              setVinculos((prev) =>
+                prev.map((v, j) => {
+                  if (j !== i) return v;
+                  if (tipo !== "MATERIAL") return { modo: "nenhum" };
+                  return v.modo === "nenhum" ? { modo: "pendente", candidatos: [] } : v;
+                }),
+              );
+            }}
+            vinculos={vinculos}
+            catalogo={materiais}
+            onVinculo={(i, v) => setVinculos((prev) => prev.map((x, j) => (j === i ? v : x)))}
           />
 
           <Card>

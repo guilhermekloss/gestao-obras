@@ -11,9 +11,16 @@ import { NotaForm, type FornecedorOption, type ObraOption } from "../nota-form";
 import type { NotaFormValues } from "../nota-form-model";
 import { ImportarXmlForm } from "../importar-xml/importar-xml-form";
 import { AvisoNotaExistente } from "../importar-xml/previa-nfe";
-import { lerDocumento, type LerDocumentoResult } from "./actions";
+import type { MaterialCatalogo } from "@/services/materiais";
+import { lerDocumento, resolverMateriais, type LerDocumentoResult } from "./actions";
 import { ConferenciaDialog, type LeituraConferida } from "./conferencia-dialog";
-import { conferenciaDaReleitura, conferenciaInicial, type Conferencia } from "./conferencia-model";
+import {
+  comMaterialIds,
+  conferenciaDaReleitura,
+  conferenciaInicial,
+  vinculosParaAction,
+  type Conferencia,
+} from "./conferencia-model";
 import { ArrowLeft, Camera, ClipboardCheck, Loader2, Paperclip, ScanLine, Upload } from "lucide-react";
 
 // mesmo limite do /api/upload
@@ -39,15 +46,19 @@ function ehFotoOuPdf(f: File) {
 export function NovoLancamento({
   fornecedores,
   obras,
+  materiais: materiaisIniciais,
   leituraAutomatica,
   analiseIa,
 }: {
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
+  materiais: MaterialCatalogo[];
   leituraAutomatica: boolean;
   analiseIa: boolean;
 }) {
   const [estado, setEstado] = useState<Estado>({ etapa: "inicio" });
+  // materiais cadastrados durante a conferência entram aqui para aparecerem no formulário
+  const [materiais, setMateriais] = useState(materiaisIniciais);
   const [conferencia, setConferencia] = useState<Conferencia | null>(null);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [formulario, setFormulario] = useState<Formulario>({});
@@ -123,6 +134,7 @@ export function NovoLancamento({
         anexoNome: nome,
         hoje: dataParaInput(new Date()),
         obraPadrao: obras[0]?.id ?? "",
+        materiais: r.materiais,
       }),
     );
     setEstado({ etapa: "conferencia", dados, levadoAoFormulario: false });
@@ -139,17 +151,30 @@ export function NovoLancamento({
         anexoNome: arquivo.nome,
         hoje: dataParaInput(new Date()),
         obraPadrao: obras[0]?.id ?? "",
+        materiais: r.materiais,
       }),
     );
     setEstado({ ...estado, dados: { ...r, arquivo, origem: "ia" } });
   }
 
-  function levarParaFormulario() {
+  async function levarParaFormulario() {
     if (!conferencia || estado.etapa !== "conferencia") return;
     const f = conferencia.fornecedor;
     const lido = estado.dados.leitura.fornecedor;
+    // itens ainda pendentes seguem avulsos: no formulário o material pode ser escolhido item a item
+    const m = await resolverMateriais(vinculosParaAction(conferencia.vinculos));
+    if (!m.ok || !m.materialIds) {
+      toast.error(m.erro ?? "Não foi possível gravar os materiais.");
+      return;
+    }
+    if (m.criados?.length) {
+      setMateriais((prev) => [...prev, ...m.criados!].sort((a, b) => a.nome.localeCompare(b.nome)));
+    }
     preencherFormulario({
-      valores: { ...conferencia.valores, fornecedorId: f.modo === "existente" ? f.id : "" },
+      valores: {
+        ...comMaterialIds(conferencia.valores, m.materialIds),
+        fornecedorId: f.modo === "existente" ? f.id : "",
+      },
       sugerido:
         f.modo === "novo"
           ? { nome: f.nome, documento: f.documento.replace(/\D/g, "") || null }
@@ -194,7 +219,7 @@ export function NovoLancamento({
         <Button type="button" variant="ghost" size="sm" onClick={recomecar}>
           <ArrowLeft className="size-4" /> Voltar
         </Button>
-        <ImportarXmlForm obras={obras} arquivoInicial={estado.arquivo} />
+        <ImportarXmlForm obras={obras} materiais={materiais} arquivoInicial={estado.arquivo} />
       </div>
     );
   }
@@ -277,6 +302,7 @@ export function NovoLancamento({
             setConferencia={(acao) => setConferencia((c) => c && (typeof acao === "function" ? acao(c) : acao))}
             fornecedores={fornecedores}
             obras={obras}
+            materiais={materiais}
             onLevarParaFormulario={levarParaFormulario}
             analiseIa={analiseIa}
             onReleitura={aplicarReleitura}
@@ -330,6 +356,7 @@ export function NovoLancamento({
         key={versaoForm}
         fornecedores={fornecedores}
         obras={obras}
+        materiais={materiais}
         defaultValues={formulario.valores}
         fornecedorSugerido={formulario.sugerido}
       />

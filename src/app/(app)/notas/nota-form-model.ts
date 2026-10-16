@@ -19,6 +19,8 @@ import type { NotaInput } from "@/schemas/nota";
 import type { LeituraNormalizada } from "@/services/leitura-documento";
 
 export type ItemForm = {
+  /** Material do catálogo ("" = item avulso, sem material). */
+  materialId: string;
   descricao: string;
   tipo: TipoItem;
   qtde: string;
@@ -125,6 +127,7 @@ export function montarPayload(
     anexoNome: v.anexoNome || undefined,
     chaveNfe: notaId ? undefined : v.chaveNfe || undefined,
     itens: v.itens.map((i) => ({
+      materialId: i.materialId || undefined,
       descricao: i.descricao,
       tipo: i.tipo,
       qtde: parseQtde(i.qtde),
@@ -186,7 +189,8 @@ export function situacaoParcelasPagas(
 
 export function valoresDaLeitura(
   leitura: LeituraNormalizada,
-  opts: { fornecedorId: string; anexoUrl: string; anexoNome: string; hoje: string },
+  // materialIds: um por item da leitura ("" = sem material), na mesma ordem
+  opts: { fornecedorId: string; anexoUrl: string; anexoNome: string; hoje: string; materialIds?: string[] },
 ): Partial<NotaFormValues> {
   const dataCompra = leitura.dataEmissao ?? opts.hoje;
   const parcelas: ParcelaForm[] =
@@ -215,7 +219,8 @@ export function valoresDaLeitura(
     anexoUrl: opts.anexoUrl,
     anexoNome: opts.anexoNome,
     chaveNfe: leitura.chaveNfe ?? "",
-    itens: leitura.itens.map((i) => ({
+    itens: leitura.itens.map((i, idx) => ({
+      materialId: opts.materialIds?.[idx] ?? "",
       descricao: i.descricao,
       tipo: i.tipo,
       qtde: String(i.qtde).replace(".", ","),

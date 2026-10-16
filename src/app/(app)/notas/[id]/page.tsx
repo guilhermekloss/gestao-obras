@@ -5,6 +5,7 @@ import { NotaForm } from "../nota-form";
 import { ConfirmButton } from "@/components/confirm-button";
 import { excluirNota } from "../actions";
 import { listarObrasParaRateio } from "@/services/obras";
+import { listarMateriais } from "@/services/materiais-db";
 import { centsParaEditavel, dataParaInput, percentBpParaEditavel } from "@/lib/format";
 import { TIPO_DOCUMENTO_BADGE } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
@@ -28,10 +29,11 @@ export default async function EditarNotaPage({
   });
   if (!nota) notFound();
 
-  const [fornecedores, obras] = await Promise.all([
+  const [fornecedores, obras, materiais] = await Promise.all([
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, cnpj: true } }),
     // inclui as obras já usadas nesta nota, mesmo concluídas/pausadas depois
     listarObrasParaRateio(nota.rateios.map((r) => r.obraId)),
+    listarMateriais(nota.itens.map((i) => i.materialId).filter((m): m is string => !!m)),
   ]);
 
   const defaultValues = {
@@ -46,6 +48,7 @@ export default async function EditarNotaPage({
     anexoUrl: nota.anexoUrl ?? undefined,
     anexoNome: nota.anexoNome ?? undefined,
     itens: nota.itens.map((i) => ({
+      materialId: i.materialId ?? "",
       descricao: i.descricao,
       tipo: i.tipo,
       qtde: String(i.qtde).replace(".", ","),
@@ -106,6 +109,7 @@ export default async function EditarNotaPage({
         obras={obras}
         defaultValues={defaultValues}
         notaId={nota.id}
+        materiais={materiais}
         parcelasExistentes={parcelasExistentes}
       />
     </div>

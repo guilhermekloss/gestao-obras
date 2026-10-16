@@ -3,17 +3,19 @@ import { exigirPapel } from "@/lib/auth";
 import { listarObrasParaRateio } from "@/services/obras";
 import { leituraAutomaticaDisponivel } from "@/services/leitor-nativo";
 import { analiseIaDisponivel } from "@/services/leitor-gemini";
+import { listarMateriais } from "@/services/materiais-db";
 import { NovoLancamento } from "./novo-lancamento";
 
 export default async function NovaNotaPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");
 
-  const [fornecedores, obras] = await Promise.all([
+  const [fornecedores, obras, materiais] = await Promise.all([
     prisma.fornecedor.findMany({
       orderBy: { nome: "asc" },
       select: { id: true, nome: true, cnpj: true },
     }),
     listarObrasParaRateio(),
+    listarMateriais(),
   ]);
 
   return (
@@ -22,6 +24,7 @@ export default async function NovaNotaPage() {
       <NovoLancamento
         fornecedores={fornecedores}
         obras={obras}
+        materiais={materiais}
         leituraAutomatica={leituraAutomaticaDisponivel()}
         analiseIa={analiseIaDisponivel()}
       />

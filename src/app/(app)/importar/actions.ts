@@ -5,6 +5,8 @@ import { importarPlanilhas, normalizarChave } from "@/services/importacao";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
 import { formatarMoeda } from "@/lib/format";
+import { correspondenciaItem } from "@/services/materiais";
+import { carregarBaseMateriais } from "@/services/materiais-db";
 
 export type PreviewImportacao = ActionResult & {
   totalNotas?: number;
@@ -80,6 +82,8 @@ const processar = acaoDeEscrita(
       return resumo;
     }
 
+    // só liga ao catálogo quando a descrição já é conhecida; planilha não cadastra material
+    const baseMateriais = await carregarBaseMateriais();
     let importadas = 0;
     for (const n of novas) {
       await prisma.$transaction(async (tx) => {
@@ -109,6 +113,10 @@ const processar = acaoDeEscrita(
         await tx.itemNota.createMany({
           data: n.itens.map((item) => ({
             notaId: nota.id,
+            materialId:
+              item.tipo === "MATERIAL"
+                ? (correspondenciaItem({ descricao: item.descricao }, { ...baseMateriais, fornecedorId }).exato?.id ?? null)
+                : null,
             descricao: item.descricao,
             tipo: item.tipo,
             qtde: item.qtde,

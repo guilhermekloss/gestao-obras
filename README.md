@@ -43,7 +43,7 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 
 ## Estrutura
 
-- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, notas (lançamentos com envio único de foto/PDF/XML em `nova/` + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu)
+- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, materiais (catálogo + vínculo automático com os itens das notas), notas (lançamentos com envio único de foto/PDF/XML em `nova/` + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu)
 - `src/app/convite/[token]` — cadastro público pelo link de convite
 - `src/app/(app)/conta` — Minha conta: troca de senha, sair de todos os aparelhos, acessos recentes
 - `src/services/` — acesso (permissão por obra), senha (política), protecao-login (força bruta), arquivos (tipo pelo conteúdo, URLs aceitas), convite, atividade (catálogo do log, atuação por obra), parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), fornecedores, correspondencia-fornecedor, nfe-xml, leitura-documento (conferência da nota lida), leitor-nativo (foto/PDF → dados: texto do PDF, código de barras/QR, OCR) e leitor-gemini (Analisar com IA)

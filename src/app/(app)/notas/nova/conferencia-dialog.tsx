@@ -18,11 +18,18 @@ import { formatarDocumento } from "@/services/nfe-xml";
 import { MOTIVO_CANDIDATO_LABEL, palavrasDoNome } from "@/services/correspondencia-fornecedor";
 import type { LeituraNormalizada } from "@/services/leitura-documento";
 import { salvarNota } from "../actions";
+import { EscolhaMaterial } from "../escolha-material";
+import type { MaterialCatalogo } from "@/services/materiais";
 import type { FornecedorOption, ObraOption } from "../nota-form";
 import { montarPayload, somaItensForm, somaParcelasForm, somaRateioForm, totalItemForm } from "../nota-form-model";
-import { analisarDocumentoComIa, resolverFornecedor, type LerDocumentoResult } from "./actions";
+import { analisarDocumentoComIa, resolverFornecedor, resolverMateriais, type LerDocumentoResult } from "./actions";
 import {
+  adicionarItem,
+  comMaterialIds,
   errosConferencia,
+  escolherVinculo,
+  removerItem,
+  vinculosParaAction,
   escolhaParaAction,
   indiceAcerto,
   situacaoDocumento,
@@ -65,6 +72,7 @@ export function ConferenciaDialog({
   setConferencia,
   fornecedores,
   obras,
+  materiais,
   onLevarParaFormulario,
   analiseIa,
   onReleitura,
@@ -76,6 +84,7 @@ export function ConferenciaDialog({
   setConferencia: Dispatch<SetStateAction<Conferencia>>;
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
+  materiais: MaterialCatalogo[];
   onLevarParaFormulario: () => void;
   analiseIa: boolean;
   onReleitura: (r: Extract<LerDocumentoResult, { ok: true }>) => void;
@@ -134,7 +143,14 @@ export function ConferenciaDialog({
         if (r.info) toast.info(r.info);
       }
 
-      const res = await salvarNota(montarPayload({ ...conferencia.valores, fornecedorId }, undefined, forcar));
+      const m = await resolverMateriais(vinculosParaAction(conferencia.vinculos));
+      if (!m.ok || !m.materialIds) {
+        setErros([m.erro ?? "Não foi possível gravar os materiais."]);
+        return;
+      }
+
+      const valores = comMaterialIds({ ...conferencia.valores, fornecedorId }, m.materialIds);
+      const res = await salvarNota(montarPayload(valores, undefined, forcar));
       if (res.ok) {
         toast.success("Nota conferida e lançada");
         onAbertoChange(false);
@@ -322,19 +338,26 @@ export function ConferenciaDialog({
                       size="icon"
                       title="Remover item"
                       disabled={v.itens.length === 1}
-                      onClick={() => setLista("itens", (l) => l.filter((_, j) => j !== i))}
+                      onClick={() => setConferencia((c) => removerItem(c, i))}
                     >
                       <Trash2 className="size-4 text-muted-foreground" />
                     </Button>
+                    <div className="col-span-2 sm:col-span-full">
+                      <EscolhaMaterial
+                        vinculo={conferencia.vinculos[i] ?? { modo: "nenhum" }}
+                        descricao={it.descricao}
+                        unidade={it.unidade}
+                        catalogo={materiais}
+                        onChange={(vinculo) => setConferencia((c) => escolherVinculo(c, i, vinculo))}
+                      />
+                    </div>
                   </div>
                 ))}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    setLista("itens", (l) => [...l, { descricao: "", tipo: "MATERIAL", qtde: "1", unidade: "UN", unit: "", desconto: "" }])
-                  }
+                  onClick={() => setConferencia((c) => adicionarItem(c))}
                 >
                   <Plus className="size-4" /> Item
                 </Button>

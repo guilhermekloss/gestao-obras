@@ -5,6 +5,8 @@ import { calcularTotalItem } from "./rateio";
 
 type ItemNfe = {
   descricao: string;
+  /** Código do produto no fornecedor (cProd). */
+  codigo: string | null;
   ncm: string | null;
   qtde: number;
   unidade: string;
@@ -205,6 +207,7 @@ export function parseNfeXml(xml: string): ResultadoNfe {
     }
     itens.push({
       descricao,
+      codigo: texto(prod, "cProd") ?? null,
       ncm: texto(prod, "NCM") ?? null,
       qtde,
       unidade: (texto(prod, "uCom") ?? "UN").toUpperCase(),
@@ -253,6 +256,7 @@ function fecharNoTotal(itens: ItemNfe[], tot: No | undefined, totalCents: number
     if (valorCents > 0) {
       itens.push({
         descricao,
+        codigo: null,
         ncm: null,
         qtde: 1,
         unidade: "UN",

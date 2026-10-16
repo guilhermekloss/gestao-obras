@@ -130,12 +130,12 @@ describe("parseNfeXml: itens", () => {
   });
   it("lê descrição, NCM, unidade (maiúscula, padrão UN), quantidade e valores", () => {
     const n = ok({
-      dets: det("Areia", "2.5000", "100.0000", "250.00", "<NCM>25051000</NCM><uCom>m3</uCom>") + det("Brita", "1", "50", "50.00"),
+      dets: det("Areia", "2.5000", "100.0000", "250.00", "<cProd>AR-1</cProd><NCM>25051000</NCM><uCom>m3</uCom>") + det("Brita", "1", "50", "50.00"),
       total: "<total><ICMSTot><vNF>300.00</vNF></ICMSTot></total>",
     });
     expect(n.itens).toEqual([
-      { descricao: "Areia", ncm: "25051000", qtde: 2.5, unidade: "M3", unitCents: 10000, descontoCents: 0, totalCents: 25000, origem: "PRODUTO", tipoSugerido: "MATERIAL" },
-      { descricao: "Brita", ncm: null, qtde: 1, unidade: "UN", unitCents: 5000, descontoCents: 0, totalCents: 5000, origem: "PRODUTO", tipoSugerido: "MATERIAL" },
+      { descricao: "Areia", codigo: "AR-1", ncm: "25051000", qtde: 2.5, unidade: "M3", unitCents: 10000, descontoCents: 0, totalCents: 25000, origem: "PRODUTO", tipoSugerido: "MATERIAL" },
+      { descricao: "Brita", codigo: null, ncm: null, qtde: 1, unidade: "UN", unitCents: 5000, descontoCents: 0, totalCents: 5000, origem: "PRODUTO", tipoSugerido: "MATERIAL" },
     ]);
   });
   it("desconto do XML soma com o ajuste de fração de centavo", () => {
@@ -180,7 +180,7 @@ describe("parseNfeXml: fechamento no total da nota", () => {
   it("frete vira item próprio", () => {
     const n = ok({ dets: base, total: totalDe("110.00", "<vFrete>10.00</vFrete>") });
     expect(n.itens[1]).toEqual({
-      descricao: "Frete (NF-e)", ncm: null, qtde: 1, unidade: "UN", unitCents: 1000, descontoCents: 0, totalCents: 1000, origem: "ACESSORIO", tipoSugerido: "FRETE",
+      descricao: "Frete (NF-e)", codigo: null, ncm: null, qtde: 1, unidade: "UN", unitCents: 1000, descontoCents: 0, totalCents: 1000, origem: "ACESSORIO", tipoSugerido: "FRETE",
     });
     expect(n.itens).toHaveLength(2);
   });

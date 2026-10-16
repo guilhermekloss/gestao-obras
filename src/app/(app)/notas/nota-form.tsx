@@ -17,12 +17,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatarMoeda, moedaParaCents, dataParaInput, percentBpParaEditavel } from "@/lib/format";
+import { centsParaEditavel, formatarMoeda, moedaParaCents, dataParaInput, percentBpParaEditavel } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { BP_TOTAL } from "@/services/rateio";
 import { FORMA_PAGTO_LABELS, TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, exigeNumero } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
 import { salvarNota, criarFornecedorInline } from "./actions";
+import { consultarPrecoSugerido, criarMaterialInline } from "../materiais/actions";
+import type { MaterialCatalogo } from "@/services/materiais";
+import { UNIDADES_PADRAO } from "@/services/materiais";
 import {
   dividirIgualmenteForm,
   gerarParcelasForm,
@@ -46,6 +49,7 @@ export type ObraOption = {
 };
 
 const ITEM_VAZIO: ItemForm = {
+  materialId: "",
   descricao: "",
   tipo: "MATERIAL",
   qtde: "1",
@@ -70,7 +74,9 @@ export function NotaForm({
   notaId,
   parcelasExistentes = [],
   fornecedorSugerido,
+  materiais: materiaisIniciais = [],
 }: {
+  materiais?: MaterialCatalogo[];
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
   defaultValues?: Partial<NotaFormValues>;
@@ -83,8 +89,10 @@ export function NotaForm({
   const [fornecedores, setFornecedores] = useState(fornecedoresIniciais);
   const [dialogFornecedor, setDialogFornecedor] = useState(false);
   const [cadastrandoSugerido, startCadastroSugerido] = useTransition();
+  const [materiais, setMateriais] = useState(materiaisIniciais);
+  const [itemNovoMaterial, setItemNovoMaterial] = useState<number | null>(null);
 
-  const { register, control, handleSubmit, watch, setValue, getValues } =
+  const { register, control, handleSubmit, watch, setValue, getValues, setFocus } =
     useForm<NotaFormValues>({
       defaultValues: {
         fornecedorId: "",
@@ -151,6 +159,22 @@ export function NotaForm({
       setEnviandoAnexo(false);
       if (inputAnexoRef.current) inputAnexoRef.current.value = "";
     }
+  }
+
+  function aplicarMaterial(i: number, m: MaterialCatalogo | null) {
+    setValue(`itens.${i}.materialId`, m?.id ?? "");
+    if (!m) return;
+    setValue(`itens.${i}.descricao`, m.nome, { shouldValidate: true });
+    setValue(`itens.${i}.unidade`, m.unidade);
+    setValue(`itens.${i}.tipo`, m.tipo);
+    if (!getValues(`itens.${i}.unit`).trim()) {
+      consultarPrecoSugerido(m.id, getValues("fornecedorId") || undefined)
+        .then((cents) => {
+          if (cents !== null && !getValues(`itens.${i}.unit`).trim()) setValue(`itens.${i}.unit`, centsParaEditavel(cents));
+        })
+        .catch(() => {});
+    }
+    setFocus(`itens.${i}.qtde`);
   }
 
   function selecionarFornecedor(f: FornecedorOption) {
@@ -425,6 +449,39 @@ export function NotaForm({
             const subtotal = item ? totalItemForm(item) : 0;
             return (
               <div key={field.id} className="grid grid-cols-2 gap-2 rounded-md border p-3 md:grid-cols-[1fr_110px_80px_70px_110px_110px_100px_36px] md:items-end">
+                <div className="col-span-2 grid gap-1 md:col-span-full">
+                  <Label className="text-xs">Material</Label>
+                  <div className="flex gap-2">
+                    <Controller
+                      control={control}
+                      name={`itens.${i}.materialId`}
+                      render={({ field }) => (
+                        <Combobox
+                          options={materiais.map((m) => ({
+                            value: m.id,
+                            label: m.nome,
+                            descricao: [m.unidade, m.categoria].filter(Boolean).join(" · "),
+                          }))}
+                          value={field.value}
+                          onChange={(id) => aplicarMaterial(i, materiais.find((m) => m.id === id) ?? null)}
+                          onBlur={field.onBlur}
+                          limparLabel="Item avulso (sem material do catálogo)"
+                          placeholder="Escolher material do catálogo (opcional)..."
+                          vazio="Nenhum material encontrado"
+                        />
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      title="Novo material"
+                      onClick={() => setItemNovoMaterial(i)}
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                  </div>
+                </div>
                 <div className="col-span-2 grid gap-1 md:col-span-1">
                   <Label className="text-xs">Descrição</Label>
                   <Input {...register(`itens.${i}.descricao`, { required: true })} placeholder="CA50 8,00MM RETO 12M" />
@@ -438,12 +495,12 @@ export function NotaForm({
                   </SelectNativo>
                 </div>
                 <div className="grid gap-1">
-                  <Label className="text-xs">Qtde</Label>
+                  <Label className="text-xs">Qtde{item?.materialId && item.unidade ? ` (${item.unidade})` : ""}</Label>
                   <Input inputMode="decimal" {...register(`itens.${i}.qtde`, { required: true })} />
                 </div>
                 <div className="grid gap-1">
                   <Label className="text-xs">Und</Label>
-                  <Input {...register(`itens.${i}.unidade`, { required: true })} />
+                  <Input list="unidades-item" {...register(`itens.${i}.unidade`, { required: true })} />
                 </div>
                 <div className="grid gap-1">
                   <Label className="text-xs">Unitário (R$)</Label>
@@ -646,6 +703,29 @@ export function NotaForm({
         </Button>
       </div>
 
+      <datalist id="unidades-item">
+        {UNIDADES_PADRAO.map((u) => (
+          <option key={u} value={u} />
+        ))}
+      </datalist>
+
+      <Dialog open={itemNovoMaterial !== null} onOpenChange={(aberto) => !aberto && setItemNovoMaterial(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Novo material</DialogTitle>
+          </DialogHeader>
+          <NovoMaterialInline
+            nomeInicial={itemNovoMaterial !== null ? (itens[itemNovoMaterial]?.descricao ?? "") : ""}
+            unidadeInicial={itemNovoMaterial !== null ? (itens[itemNovoMaterial]?.unidade ?? "PC") : "PC"}
+            onCriado={(m) => {
+              setMateriais((prev) => [...prev, m].sort((a, b) => a.nome.localeCompare(b.nome)));
+              if (itemNovoMaterial !== null) aplicarMaterial(itemNovoMaterial, m);
+              setItemNovoMaterial(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={dialogFornecedor} onOpenChange={setDialogFornecedor}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -710,6 +790,50 @@ function NovoFornecedorInline({
         }
       >
         {pendente ? "Criando..." : "Criar fornecedor"}
+      </Button>
+    </div>
+  );
+}
+
+function NovoMaterialInline({
+  onCriado,
+  nomeInicial = "",
+  unidadeInicial = "PC",
+}: {
+  onCriado: (m: MaterialCatalogo) => void;
+  nomeInicial?: string;
+  unidadeInicial?: string;
+}) {
+  const [nome, setNome] = useState(nomeInicial);
+  const [unidade, setUnidade] = useState(unidadeInicial);
+  const [pendente, startTransition] = useTransition();
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-2">
+        <Label>Nome do material *</Label>
+        <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Unidade *</Label>
+        <Input value={unidade} list="unidades-item" onChange={(e) => setUnidade(e.target.value)} />
+      </div>
+      <Button
+        type="button"
+        disabled={pendente || !nome.trim() || !unidade.trim()}
+        onClick={() =>
+          startTransition(async () => {
+            const res = await criarMaterialInline({ nome, unidade });
+            if (res.ok && res.material) {
+              toast.success("Material cadastrado");
+              onCriado(res.material);
+            } else {
+              toast.error(res.erro ?? "Erro ao cadastrar material");
+            }
+          })
+        }
+      >
+        {pendente ? "Cadastrando..." : "Cadastrar e usar"}
       </Button>
     </div>
   );

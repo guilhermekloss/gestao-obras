@@ -17,6 +17,7 @@ import { dataParaInput, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
 import { erroEtapasDoRateio } from "@/services/obras";
+import { registrarApelido } from "@/services/materiais-db";
 
 type SalvarNotaResult = ActionResult & { id?: string };
 
@@ -63,6 +64,14 @@ export const salvarNota = acaoDeEscrita(
         select: { tipoDocumento: true },
       });
       if (repetida) return { ok: false, erro: mensagemNumeroRepetido(tipoDocumento, d.numero) };
+    }
+
+    const materialIds = [...new Set(d.itens.map((i) => i.materialId).filter((m): m is string => !!m))];
+    if (materialIds.length > 0) {
+      const existentes = await prisma.material.count({ where: { id: { in: materialIds } } });
+      if (existentes !== materialIds.length) {
+        return { ok: false, erro: "Um dos materiais escolhidos não existe mais — escolha de novo." };
+      }
     }
 
     const chaveNfe = d.id ? undefined : d.chaveNfe;
@@ -141,6 +150,7 @@ export const salvarNota = acaoDeEscrita(
       await tx.itemNota.createMany({
         data: d.itens.map((item) => ({
           notaId: notaId!,
+          materialId: item.materialId || null,
           descricao: item.descricao,
           tipo: item.tipo,
           qtde: item.qtde,
@@ -178,6 +188,17 @@ export const salvarNota = acaoDeEscrita(
             vencimento: new Date(p.vencimento),
           })),
         });
+      }
+
+      // o texto digitado nesta nota vira apelido do material: da próxima vez liga sozinho
+      for (const item of d.itens) {
+        if (item.materialId) {
+          await registrarApelido(tx, {
+            materialId: item.materialId,
+            descricao: item.descricao,
+            fornecedorId: d.fornecedorId,
+          });
+        }
       }
 
       return { notaId, numero };

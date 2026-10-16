@@ -19,6 +19,10 @@ export const TIPOS_ATIVIDADE = {
   "fornecedor.criar": { rotulo: "Cadastrou um fornecedor", categoria: "cadastro" },
   "fornecedor.editar": { rotulo: "Editou um fornecedor", categoria: "cadastro" },
   "fornecedor.excluir": { rotulo: "Excluiu um fornecedor", categoria: "cadastro" },
+  "material.criar": { rotulo: "Cadastrou um material", categoria: "cadastro" },
+  "material.editar": { rotulo: "Editou um material", categoria: "cadastro" },
+  "material.excluir": { rotulo: "Excluiu um material", categoria: "cadastro" },
+  "material.mesclar": { rotulo: "Juntou dois materiais", categoria: "cadastro" },
   "rdo.criar": { rotulo: "Registrou um RDO", categoria: "campo" },
   "rdo.editar": { rotulo: "Editou um RDO", categoria: "campo" },
   "rdo.excluir": { rotulo: "Excluiu um RDO", categoria: "campo" },
@@ -57,7 +61,7 @@ export function tiposDaCategoria(categoria: CategoriaAtividade): TipoAtividade[]
 
 export type DetalheAtividade = {
   descricao?: string;
-  entidade?: "nota" | "rdo" | "obra" | "fornecedor" | "usuario" | "convite" | "medicao";
+  entidade?: "nota" | "rdo" | "obra" | "fornecedor" | "material" | "usuario" | "convite" | "medicao";
   entidadeId?: string;
   obraIds?: string[];
   valorCents?: number;
@@ -80,6 +84,8 @@ export function linkAtividade(a: {
       return id ? `/obras/${id}` : null;
     case "fornecedor":
       return id ? `/fornecedores/${id}` : null;
+    case "material":
+      return id ? `/materiais/${id}` : null;
     case "usuario":
       return id ? `/usuarios/${id}` : null;
     case "convite":

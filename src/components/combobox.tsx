@@ -65,7 +65,7 @@ export function Combobox({
     return options
       .filter((o) => {
         const alvo = normalizar(`${o.label} ${o.descricao ?? ""}`);
-        if (alvo.includes(termo)) return true;
+        if (termo.split(/\s+/).every((p) => alvo.includes(p))) return true;
         if (digitos.length > 0) {
           const alvoDigitos = `${o.label}${o.descricao ?? ""}`.replace(/\D/g, "");
           if (alvoDigitos.includes(digitos)) return true;

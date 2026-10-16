@@ -1,10 +1,11 @@
 import { exigirPapel } from "@/lib/auth";
 import { listarObrasParaRateio } from "@/services/obras";
+import { listarMateriais } from "@/services/materiais-db";
 import { ImportarXmlForm } from "./importar-xml-form";
 
 export default async function ImportarXmlPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");
-  const obras = await listarObrasParaRateio();
+  const [obras, materiais] = await Promise.all([listarObrasParaRateio(), listarMateriais()]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
@@ -15,7 +16,7 @@ export default async function ImportarXmlPage() {
           parcelas são preenchidos a partir dele; você só define o rateio entre as obras.
         </p>
       </div>
-      <ImportarXmlForm obras={obras} />
+      <ImportarXmlForm obras={obras} materiais={materiais} />
     </div>
   );
 }
