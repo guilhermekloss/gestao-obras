@@ -17,7 +17,8 @@ import {
   podeAlterarRdo,
   resumoClima,
 } from "@/services/rdo";
-import { ChevronRight, Images, Plus, Trash2, Users } from "lucide-react";
+import { ChevronRight, Images, NotebookPen, Plus, Trash2, Users } from "lucide-react";
+import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 
 export default async function DiarioPage({
   searchParams,
@@ -45,9 +46,11 @@ export default async function DiarioPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl">Diário de obra</h1>
-        <Button render={<Link href={obra ? `/diario/novo?obra=${obra}` : "/diario/novo"} />}>
-          <Plus className="size-4" /> Registrar RDO
-        </Button>
+        {rdos.length > 0 && (
+          <Button render={<Link href={obra ? `/diario/novo?obra=${obra}` : "/diario/novo"} />}>
+            <Plus className="size-4" /> Registrar RDO
+          </Button>
+        )}
       </div>
 
       <form method="get" className="flex items-end gap-2">
@@ -67,7 +70,23 @@ export default async function DiarioPage({
       </form>
 
       {rdos.length === 0 ? (
-        <p className="text-muted-foreground">Nenhum RDO registrado ainda.</p>
+        obras.length === 0 ? (
+          <EstadoVazio icone={NotebookPen} titulo="Nenhuma obra liberada para você">
+            O diário é registrado por obra. Peça ao administrador para liberar o seu acesso.
+          </EstadoVazio>
+        ) : (
+          <EstadoVazio
+            icone={NotebookPen}
+            titulo={obra ? "Nenhum RDO nesta obra" : "Nenhum RDO registrado"}
+            acao={
+              <AcaoVazio href={obra ? `/diario/novo?obra=${obra}` : "/diario/novo"} icone={Plus}>
+                Registrar primeiro RDO
+              </AcaoVazio>
+            }
+          >
+            O RDO guarda o que aconteceu na obra no dia: atividades, equipe, clima e fotos.
+          </EstadoVazio>
+        )
       ) : (
         <div className="space-y-3">
           {rdos.map((rdo) => {

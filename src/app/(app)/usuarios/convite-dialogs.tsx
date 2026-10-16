@@ -17,7 +17,7 @@ import { Ban, Link2, RefreshCw } from "lucide-react";
 
 type LinkGerado = Required<Pick<ConviteGerado, "link" | "mensagem">> & { email?: string | null };
 
-export function NovoConviteDialog({ obras }: { obras: ObraOpcao[] }) {
+export function NovoConviteDialog({ obras, grande = false }: { obras: ObraOpcao[]; grande?: boolean }) {
   const [aberto, setAberto] = useState(false);
   const [gerado, setGerado] = useState<LinkGerado | null>(null);
   const [pendente, startTransition] = useTransition();
@@ -47,7 +47,7 @@ export function NovoConviteDialog({ obras }: { obras: ObraOpcao[] }) {
         nativeButton={false}
         render={
           <span>
-            <Button>
+            <Button size={grande ? "lg" : "default"}>
               <Link2 className="size-4" /> Convidar por link
             </Button>
           </span>
