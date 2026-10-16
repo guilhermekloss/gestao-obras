@@ -11,7 +11,7 @@ import { exigirAcessoObra } from "@/lib/auth";
 import { anotarAtividade } from "@/lib/atividade";
 import { formatarData } from "@/lib/format";
 import { dataIso, id, texto } from "@/schemas/comum";
-import { nomeDaUrlArquivo } from "@/services/arquivos";
+import { arquivosSaoDoUsuario, descartarArquivosSemUso } from "@/services/arquivos-db";
 import {
   CLIMAS,
   dataDoRdo,
@@ -85,15 +85,6 @@ async function anotarRdo(verbo: string, rdo: { id: string; obraId: string; data:
   });
 }
 
-// só fotos do próprio usuário: ligar ao RDO um arquivo alheio (ex.: anexo de lançamento)
-// o exporia a quem vê o RDO (ver api/fotos)
-async function fotosSaoDoUsuario(usuarioId: string, urls: string[]): Promise<boolean> {
-  const nomes = [...new Set(urls.map((u) => nomeDaUrlArquivo(u)).filter((n) => n !== null))];
-  if (nomes.length === 0) return true;
-  const proprios = await prisma.arquivo.count({ where: { nome: { in: nomes }, enviadoPorId: usuarioId } });
-  return proprios === nomes.length;
-}
-
 const MSG_FOTO_ALHEIA = "Foto inválida: envie as fotos de novo por este formulário.";
 
 // @@unique([obraId, data]): corrida entre a checagem e a gravação
@@ -108,7 +99,7 @@ export const criarRdo = acaoDeEscrita(
     const p = prepararRdo(input);
     if (!p.ok) return p;
     exigirAcessoObra(user, p.dados.obraId);
-    if (!(await fotosSaoDoUsuario(user.id, p.fotos.map((f) => f.url)))) return { ok: false, erro: MSG_FOTO_ALHEIA };
+    if (!(await arquivosSaoDoUsuario(user.id, p.fotos.map((f) => f.url)))) return { ok: false, erro: MSG_FOTO_ALHEIA };
 
     const existente = await prisma.diarioObra.findUnique({
       where: { obraId_data: { obraId: p.dados.obraId, data: p.dados.data } },
@@ -165,7 +156,7 @@ export const atualizarRdo = acaoDeEscrita(
     if (conflito) return { ok: false, erro: MSG_DUPLICADO };
 
     const { removerIds, criar } = diffFotos(rdo.fotos, p.fotos);
-    if (!(await fotosSaoDoUsuario(user.id, criar.map((f) => f.url)))) return { ok: false, erro: MSG_FOTO_ALHEIA };
+    if (!(await arquivosSaoDoUsuario(user.id, criar.map((f) => f.url)))) return { ok: false, erro: MSG_FOTO_ALHEIA };
     try {
       await prisma.diarioObra.update({
         where: { id },
@@ -182,6 +173,7 @@ export const atualizarRdo = acaoDeEscrita(
       throw erro;
     }
 
+    await descartarArquivosSemUso(rdo.fotos.filter((f) => removerIds.includes(f.id)).map((f) => f.url));
     await anotarRdo("Editou", { id, obraId: p.dados.obraId, data: p.dados.data });
     if (rdo.obraId !== p.dados.obraId) revalidatePath(`/obras/${rdo.obraId}`);
     return { ok: true };
@@ -194,7 +186,7 @@ export const excluirRdo = acaoDeEscrita(
   async (user, id: string, destino?: string): Promise<ActionResult> => {
     const rdo = await prisma.diarioObra.findUnique({
       where: { id },
-      select: { obraId: true, data: true, autorId: true, createdAt: true },
+      select: { obraId: true, data: true, autorId: true, createdAt: true, fotos: { select: { url: true } } },
     });
     if (!rdo) return { ok: false, erro: "RDO não encontrado" };
     exigirAcessoObra(user, rdo.obraId, "RDO não encontrado");
@@ -203,6 +195,7 @@ export const excluirRdo = acaoDeEscrita(
     if (!permissao.ok) return permissao;
 
     await prisma.diarioObra.delete({ where: { id } });
+    await descartarArquivosSemUso(rdo.fotos.map((f) => f.url));
     await anotarRdo("Excluiu", { id, obraId: rdo.obraId, data: rdo.data });
     revalidatePath("/diario");
     revalidatePath(`/obras/${rdo.obraId}`);

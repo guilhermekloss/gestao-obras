@@ -2,6 +2,7 @@ import { mkdir, writeFile, readFile, rm } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { Storage } from "@google-cloud/storage";
+import { urlDoArquivo } from "@/services/arquivos";
 
 interface StorageDriver {
   salvar(buffer: Buffer, extensao: string): Promise<string>;
@@ -21,7 +22,7 @@ const storageLocal: StorageDriver = {
     await mkdir(UPLOADS_DIR, { recursive: true });
     const nome = novoNome(extensao);
     await writeFile(path.join(UPLOADS_DIR, nome), buffer);
-    return `/api/fotos/${nome}`;
+    return urlDoArquivo(nome);
   },
   async ler(nomeArquivo) {
     // impede path traversal
@@ -41,7 +42,7 @@ export function storageGcs(bucketName: string): StorageDriver {
       const nome = novoNome(extensao);
       // ifGenerationMatch: 0 — nunca sobrescreve um objeto existente
       await bucket.file(PREFIXO + nome).save(buffer, { resumable: false, preconditionOpts: { ifGenerationMatch: 0 } });
-      return `/api/fotos/${nome}`;
+      return urlDoArquivo(nome);
     },
     async ler(nomeArquivo) {
       const [conteudo] = await bucket.file(PREFIXO + path.basename(nomeArquivo)).download();

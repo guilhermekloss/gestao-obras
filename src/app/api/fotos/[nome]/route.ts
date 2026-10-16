@@ -1,28 +1,9 @@
 import { NextResponse } from "next/server";
-import { usuarioAtual, type UsuarioAtual } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { usuarioAtual } from "@/lib/auth";
 import { storage } from "@/lib/storage";
 import { eventoSeguranca } from "@/lib/log-seguranca";
-import { veFinanceiro } from "@/services/acesso";
-import { TIPO_MIME, extensaoDoNome, urlDoArquivo } from "@/services/arquivos";
-
-// ADMIN/ESCRITORIO: tudo. CAMPO: o que enviou e fotos de RDO das suas obras,
-// nunca anexos de lançamentos (valores financeiros).
-async function podeVer(usuario: UsuarioAtual, nome: string): Promise<boolean> {
-  if (veFinanceiro(usuario.role)) return true;
-
-  const enviado = await prisma.arquivo.findUnique({ where: { nome }, select: { enviadoPorId: true } });
-  if (enviado?.enviadoPorId === usuario.id) return true;
-
-  const foto = await prisma.foto.findFirst({
-    where: {
-      url: urlDoArquivo(nome),
-      ...(usuario.obrasPermitidas === null ? {} : { diario: { obraId: { in: usuario.obrasPermitidas } } }),
-    },
-    select: { id: true },
-  });
-  return foto !== null;
-}
+import { TIPO_MIME, extensaoDoNome } from "@/services/arquivos";
+import { usuarioPodeVerArquivo } from "@/services/arquivos-db";
 
 export async function GET(
   _req: Request,
@@ -36,7 +17,7 @@ export async function GET(
   if (!extensao) return new NextResponse(null, { status: 404 });
 
   // sem acesso = 404: não revela que o arquivo existe
-  if (!(await podeVer(usuario, nome))) {
+  if (!(await usuarioPodeVerArquivo(usuario, nome))) {
     eventoSeguranca("acesso_negado_arquivo", { usuarioId: usuario.id, arquivo: nome });
     return new NextResponse(null, { status: 404 });
   }
