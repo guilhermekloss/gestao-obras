@@ -40,6 +40,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-nav-ativo: var(--nav-ativo);
   --color-estado-no-prazo: var(--estado-no-prazo);
   --color-estado-no-prazo-fg: var(--estado-no-prazo-fg);
   --color-estado-no-prazo-borda: var(--estado-no-prazo-borda);
@@ -129,6 +130,76 @@
   --estado-neutro: #f3f5f6;
   --estado-neutro-fg: #4a5967;
   --estado-neutro-borda: #c5cfd6;
+
+  /* Casca: item ativo do menu e cor da barra do navegador */
+  --nav-ativo: #d6e4f2;
+  --barra-navegador: #ffffff;
+  color-scheme: light;
+}
+
+/* Prancheta noturna: planta de fundo azul-marinho, linhas claras. Escolha do usuário (cookie "tema").
+   Só em tela: a impressão (RDO) é sempre clara. */
+@media screen {
+  .dark {
+    --background: #0d1821;
+    --foreground: #e8eef3;
+    --card: #132330;
+    --card-foreground: #e8eef3;
+    --popover: #132330;
+    --popover-foreground: #e8eef3;
+    --primary: #6db3f2;
+    --primary-foreground: #08131c;
+    --secondary: #1b2e3d;
+    --secondary-foreground: #e8eef3;
+    --muted: #1b2e3d;
+    --muted-foreground: #a3b4c1;
+    --accent: #213749;
+    --accent-foreground: #e8eef3;
+    --destructive: #ff8a80;
+    --border: #2c4153;
+    --input: #6a8296;
+    --ring: #6db3f2;
+    --chart-1: #6db3f2;
+    --chart-2: #4cc48c;
+    --chart-3: #e0b43c;
+    --chart-4: #a99be0;
+    --chart-5: #8fa3b3;
+    --chart-6: #5ac0e6;
+    --sidebar: #132330;
+    --sidebar-foreground: #e8eef3;
+    --sidebar-primary: #6db3f2;
+    --sidebar-primary-foreground: #08131c;
+    --sidebar-accent: #213749;
+    --sidebar-accent-foreground: #e8eef3;
+    --sidebar-border: #2c4153;
+    --sidebar-ring: #6db3f2;
+
+    --estado-no-prazo: #0f2e22;
+    --estado-no-prazo-fg: #8fdcb3;
+    --estado-no-prazo-borda: #3aa876;
+    --estado-atencao: #3a2c08;
+    --estado-atencao-fg: #f3d27a;
+    --estado-atencao-borda: #c99a1b;
+    --estado-atrasado: #3d1f0b;
+    --estado-atrasado-fg: #ffb987;
+    --estado-atrasado-borda: #e0782e;
+    --estado-vencido: #3d1411;
+    --estado-vencido-fg: #ffaba3;
+    --estado-vencido-borda: #e0554b;
+    --estado-pago: #1c2a34;
+    --estado-pago-fg: #b5c6d2;
+    --estado-pago-borda: #5c7384;
+    --estado-andamento: #11283d;
+    --estado-andamento-fg: #8cc4f4;
+    --estado-andamento-borda: #4a9de0;
+    --estado-neutro: #132330;
+    --estado-neutro-fg: #a3b4c1;
+    --estado-neutro-borda: #2c4153;
+
+    --nav-ativo: #1d3a54;
+    --barra-navegador: #132330;
+    color-scheme: dark;
+  }
 }
 
 @layer base {

@@ -45,4 +45,10 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 - Foco de teclado: anel de 3 px em azul-planta, nunca removido.
 - Movimento só em resposta a ação do usuário; `prefers-reduced-motion` zera animações e transições.
 - Botão com verbo: "Salvar lançamento", "Registrar RDO", "Marcar como pagas".
-- Só tema claro: o modo escuro nunca esteve ativo e foi removido do CSS.
+- Tema claro (padrão) e escuro ("Prancheta noturna"): botão no cabeçalho. A escolha vai no cookie `tema` e o servidor já entrega o `<html>` com a classe `dark` (sem piscar e sem script inline, por causa do CSP). A cor da barra do navegador (`generateViewport`) acompanha o tema. O bloco `.dark` só vale em tela: a impressão do RDO é sempre clara.
+
+## Casca (menu e cabeçalho)
+- Cabeçalho fixo com o nome da seção atual (`TituloDaPagina`), botão de tema, Minha conta e Sair.
+- Menu lateral (desktop): item ativo com fundo `nav-ativo`, marca lateral e `aria-current="page"`; nome e papel do usuário no rodapé.
+- Barra inferior (celular): 4 itens + "Mais" com as demais telas, em folha que sobe da base. Perfil com até 4 telas (campo) não mostra "Mais". Rótulos completos, em até 2 linhas. Quais itens ficam na barra: campo `fixo` em `src/components/nav-itens.ts`.
+- Permissões por papel ficam em `nav-itens.ts` (`papeis`) e têm teste em `src/components/__tests__/nav-itens.test.ts`.

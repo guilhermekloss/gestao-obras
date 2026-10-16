@@ -13,6 +13,15 @@ import {
 
 export type PontoCurvaSChart = { mes: string; previsto: number; realizado: number | null };
 
+// segue o tema (claro/escuro): sem isso o balão fica branco no escuro
+const TOOLTIP = {
+  borderRadius: 6,
+  fontSize: 13,
+  backgroundColor: "var(--popover)",
+  color: "var(--popover-foreground)",
+  borderColor: "var(--border)",
+};
+
 const eixoTick = { fontSize: 12, fill: "var(--muted-foreground)" };
 
 const COR_PREVISTO = "var(--chart-5)";
@@ -38,7 +47,7 @@ export function CurvaSChart({ data, altura = 280 }: { data: PontoCurvaSChart[]; 
           tickFormatter={(v) => `${v}%`}
           width={44}
         />
-        <Tooltip formatter={(v) => pct(v)} contentStyle={{ borderRadius: 8, fontSize: 13 }} />
+        <Tooltip formatter={(v) => pct(v)} contentStyle={TOOLTIP} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Line
           type="monotone"

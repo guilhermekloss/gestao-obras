@@ -274,7 +274,7 @@ export function RdoForm({
                 type="button"
                 aria-label="Remover foto"
                 onClick={() => setFotos((prev) => prev.filter((_, j) => j !== i))}
-                className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-white"
+                className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-background"
               >
                 <X className="size-3.5" />
               </button>

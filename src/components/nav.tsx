@@ -1,104 +1,174 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@prisma/client";
-import {
-  LayoutDashboard,
-  Building2,
-  Truck,
-  Package,
-  ReceiptText,
-  CalendarClock,
-  NotebookPen,
-  ChartGantt,
-  PiggyBank,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Ellipsis, DraftingCompass } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { dividirBarra, itensPara, naRota, TITULOS } from "@/components/nav-itens";
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  papeis: Role[];
-  mobile?: boolean;
-};
+const ATIVO = "bg-nav-ativo font-semibold text-primary";
 
-const ITENS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, papeis: ["ADMIN", "ESCRITORIO"], mobile: true },
-  { href: "/obras", label: "Obras", icon: Building2, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"], mobile: true },
-  { href: "/fornecedores", label: "Fornecedores", icon: Truck, papeis: ["ADMIN", "ESCRITORIO"] },
-  { href: "/materiais", label: "Materiais", icon: Package, papeis: ["ADMIN", "ESCRITORIO"] },
-  { href: "/notas", label: "Lançamentos", icon: ReceiptText, papeis: ["ADMIN", "ESCRITORIO"], mobile: true },
-  { href: "/contas", label: "Contas a pagar", icon: CalendarClock, papeis: ["ADMIN", "ESCRITORIO"], mobile: true },
-  { href: "/diario", label: "Diário de obra", icon: NotebookPen, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"], mobile: true },
-  { href: "/cronograma", label: "Cronograma", icon: ChartGantt, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"], mobile: true },
-  { href: "/orcamento", label: "Orçamento", icon: PiggyBank, papeis: ["ADMIN", "ESCRITORIO"] },
-  { href: "/usuarios", label: "Usuários", icon: Users, papeis: ["ADMIN"] },
-];
-
-function itensPara(role: Role, apenasMobile = false) {
-  return ITENS.filter(
-    (i) => i.papeis.includes(role) && (!apenasMobile || i.mobile),
+export function Sidebar({
+  role,
+  usuario,
+}: {
+  role: Role;
+  usuario: { nome: string; papel: string };
+}) {
+  const pathname = usePathname();
+  return (
+    <nav
+      aria-label="Menu principal"
+      className="hidden w-60 shrink-0 flex-col border-r bg-sidebar md:sticky md:top-0 md:flex md:h-svh"
+    >
+      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-4">
+        <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
+          <DraftingCompass aria-hidden className="size-4.5" />
+        </span>
+        <span className="text-lg font-semibold [font-stretch:112%]">Gestão de Obras</span>
+      </div>
+      <ul className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
+        {itensPara(role).map((item) => {
+          const ativo = naRota(pathname, item.href);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={ativo ? "page" : undefined}
+                className={cn(
+                  "flex min-h-11 items-center gap-3 rounded-md border-l-4 px-3 py-2 text-sm transition-colors",
+                  ativo
+                    ? cn("border-primary", ATIVO)
+                    : "border-transparent font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                )}
+              >
+                <item.icon aria-hidden className="size-4.5 shrink-0" />
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="shrink-0 border-t p-4">
+        <p className="truncate text-sm font-semibold">{usuario.nome}</p>
+        <p className="text-sm text-muted-foreground">{usuario.papel}</p>
+      </div>
+    </nav>
   );
 }
 
-export function Sidebar({ role }: { role: Role }) {
-  const pathname = usePathname();
+const TAB =
+  "flex min-h-16 flex-col items-center justify-start gap-0.5 px-0.5 pt-2 pb-1.5 text-center text-[13px] leading-tight text-balance [font-stretch:88%] transition-colors";
+
+function Marca({ ativo, children }: { ativo: boolean; children: React.ReactNode }) {
   return (
-    <nav className="hidden w-56 shrink-0 border-r bg-sidebar md:flex md:flex-col">
-      <div className="flex h-14 items-center border-b px-4 text-lg font-semibold [font-stretch:112%]">
-        Gestão de Obras
-      </div>
-      <div className="flex flex-1 flex-col gap-1 p-2">
-        {itensPara(role).map((item) => {
-          const ativo = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex min-h-11 items-center gap-3 rounded-sm border-l-4 px-3 py-2 text-sm font-medium transition-colors",
-                ativo
-                  ? "border-primary bg-accent font-semibold text-foreground"
-                  : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-              )}
-            >
-              <item.icon aria-hidden className="size-4" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+    <span
+      className={cn(
+        "grid h-7 w-12 place-items-center rounded-md transition-colors",
+        ativo ? "bg-nav-ativo" : "",
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
 export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
-  const itens = itensPara(role, true).slice(0, 5);
+  const [aberto, setAberto] = useState(false);
+  const { barra, mais } = dividirBarra(itensPara(role));
+  const maisAtivo = mais.some((i) => naRota(pathname, i.href));
+  const colunas = barra.length + (mais.length > 0 ? 1 : 0);
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
-      {itens.map((item) => {
-        const ativo = pathname.startsWith(item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-4 px-0.5 text-[13px] [font-stretch:88%]",
-              ativo
-                ? "border-primary font-semibold text-primary"
-                : "border-transparent text-muted-foreground",
-            )}
-          >
-            <item.icon aria-hidden className="size-5" />
-            {item.label.split(" ")[0]}
-          </Link>
-        );
-      })}
+    <nav
+      aria-label="Menu principal"
+      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
+    >
+      <ul className="grid" style={{ gridTemplateColumns: `repeat(${colunas}, minmax(0, 1fr))` }}>
+        {barra.map((item) => {
+          const ativo = naRota(pathname, item.href);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={ativo ? "page" : undefined}
+                className={cn(TAB, ativo ? "font-semibold text-primary" : "text-muted-foreground")}
+              >
+                <Marca ativo={ativo}>
+                  <item.icon aria-hidden className="size-5" />
+                </Marca>
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+        {mais.length > 0 && (
+          <li>
+            <button
+              type="button"
+              onClick={() => setAberto(true)}
+              aria-haspopup="dialog"
+              aria-expanded={aberto}
+              className={cn(
+                TAB,
+                "w-full",
+                maisAtivo ? "font-semibold text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Marca ativo={maisAtivo}>
+                <Ellipsis aria-hidden className="size-5" />
+              </Marca>
+              Mais
+            </button>
+          </li>
+        )}
+      </ul>
+
+      <Dialog open={aberto} onOpenChange={setAberto}>
+        <DialogContent
+          className="top-auto bottom-0 left-0 max-w-none translate-x-0 translate-y-0 gap-3 rounded-b-none rounded-t-xl pb-[calc(1rem+env(safe-area-inset-bottom))] data-open:zoom-in-100 data-open:slide-in-from-bottom data-closed:zoom-out-100 data-closed:slide-out-to-bottom sm:max-w-none"
+        >
+          <DialogTitle className="text-base">Mais telas</DialogTitle>
+          <ul className="grid grid-cols-2 gap-2">
+            {mais.map((item) => {
+              const ativo = naRota(pathname, item.href);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setAberto(false)}
+                    aria-current={ativo ? "page" : undefined}
+                    className={cn(
+                      "flex min-h-12 items-center gap-2.5 rounded-md border px-3 py-2 text-sm",
+                      ativo ? cn("border-primary", ATIVO) : "bg-card font-medium hover:bg-accent/60",
+                    )}
+                  >
+                    <item.icon aria-hidden className="size-4.5 shrink-0" />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </DialogContent>
+      </Dialog>
     </nav>
+  );
+}
+
+/** Nome da seção atual no cabeçalho: fica à vista quando o título da página sai da tela. */
+export function TituloDaPagina() {
+  const pathname = usePathname();
+  const atual = TITULOS.find((i) => naRota(pathname, i.href));
+  const Icone = atual?.icon ?? DraftingCompass;
+  return (
+    <p className="flex min-w-0 items-center gap-2 text-lg font-semibold [font-stretch:112%]">
+      <Icone aria-hidden className="size-5 shrink-0 text-primary" />
+      <span className="truncate">{atual?.label ?? "Gestão de Obras"}</span>
+    </p>
   );
 }
