@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ErroDePagina } from "../erro-de-pagina";
@@ -7,10 +9,10 @@ import ErroRaiz from "../../app/error";
 import NotFoundApp from "../../app/(app)/not-found";
 import NotFoundRaiz from "../../app/not-found";
 import LoadingDashboard from "../../app/(app)/dashboard/loading";
-import LoadingNotas from "../../app/(app)/notas/loading";
+import LoadingNotas from "../../app/(app)/notas/(lista)/loading";
 import LoadingContas from "../../app/(app)/contas/loading";
-import LoadingObras from "../../app/(app)/obras/loading";
-import LoadingDiario from "../../app/(app)/diario/loading";
+import LoadingObras from "../../app/(app)/obras/(lista)/loading";
+import LoadingDiario from "../../app/(app)/diario/(lista)/loading";
 import LoadingCronograma from "../../app/(app)/cronograma/loading";
 
 const SEGREDO = "connection refused postgres://obras:senha@db:5432 (digest 1234567890)";
@@ -91,4 +93,18 @@ describe("loading.tsx", () => {
     expect(html).toContain("hidden md:table-cell");
     expect(html).toContain("hidden lg:table-cell");
   });
+});
+
+describe("onde ficam os loading.tsx", () => {
+  // Um loading.tsx envolve também as rotas filhas. Se a resposta começa a ser enviada com o esqueleto,
+  // o notFound() de uma tela de detalhe já não consegue devolver HTTP 404 (o e2e do convite cobre isso).
+  const raiz = join(__dirname, "../../app/(app)");
+
+  for (const secao of ["obras", "notas", "diario"]) {
+    it(`${secao}: o esqueleto é só da lista, para o detalhe continuar respondendo 404`, () => {
+      expect(existsSync(join(raiz, secao, "loading.tsx"))).toBe(false);
+      expect(existsSync(join(raiz, secao, "(lista)", "loading.tsx"))).toBe(true);
+      expect(existsSync(join(raiz, secao, "(lista)", "page.tsx"))).toBe(true);
+    });
+  }
 });
