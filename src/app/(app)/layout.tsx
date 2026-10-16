@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { signOut, usuarioAtual } from "@/lib/auth";
+import { COOKIE_TEMA, lerTema } from "@/lib/tema";
 import { ROLE_LABELS } from "@/services/acesso";
-import { Sidebar, BottomNav } from "@/components/nav";
+import { Sidebar, BottomNav, TituloDaPagina } from "@/components/nav";
+import { BotaoTema } from "@/components/botao-tema";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { LogOut, UserRound } from "lucide-react";
@@ -16,6 +19,8 @@ export default async function AppLayout({
   const user = await usuarioAtual();
   if (!user) redirect("/login");
 
+  const tema = lerTema((await cookies()).get(COOKIE_TEMA)?.value);
+
   async function sair() {
     "use server";
     await signOut({ redirectTo: "/login" });
@@ -23,14 +28,18 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-svh">
-      <Sidebar role={user.role} />
+      <a
+        href="#conteudo"
+        className="sr-only rounded-md bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+      >
+        Ir para o conteúdo
+      </a>
+      <Sidebar role={user.role} usuario={{ nome: user.nome, papel: ROLE_LABELS[user.role] }} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b bg-card px-4">
-          <span className="text-lg font-semibold [font-stretch:112%] md:hidden">Gestão de Obras</span>
-          <span className="hidden text-sm text-muted-foreground md:block">
-            {user.nome} · {ROLE_LABELS[user.role]}
-          </span>
-          <div className="flex items-center gap-1">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b bg-card px-4">
+          <TituloDaPagina />
+          <div className="flex shrink-0 items-center gap-1">
+            <BotaoTema inicial={tema} />
             <Button variant="ghost" size="sm" render={<Link href="/conta" />} aria-label="Minha conta">
               <UserRound className="size-4" />
               <span className="hidden md:inline">Minha conta</span>
@@ -43,7 +52,9 @@ export default async function AppLayout({
             </form>
           </div>
         </header>
-        <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+        <main id="conteudo" tabIndex={-1} className="flex-1 p-4 pb-28 outline-none md:p-6 md:pb-6">
+          {children}
+        </main>
       </div>
       <BottomNav role={user.role} />
       <Toaster />

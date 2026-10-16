@@ -23,6 +23,15 @@ const CORES_SERIES = [
   "var(--chart-5)",
 ];
 
+// segue o tema (claro/escuro): sem isso o balão fica branco no escuro
+const TOOLTIP = {
+  borderRadius: 6,
+  fontSize: 13,
+  backgroundColor: "var(--popover)",
+  color: "var(--popover-foreground)",
+  borderColor: "var(--border)",
+};
+
 const eixoTick = { fontSize: 12, fill: "var(--muted-foreground)" };
 
 function moedaCompacta(cents: number): string {
@@ -48,7 +57,7 @@ export function GastoMensalChart({
         <YAxis tick={eixoTick} tickLine={false} axisLine={false} tickFormatter={moedaCompacta} width={72} />
         <Tooltip
           formatter={(v) => formatarMoeda(Number(v ?? 0))}
-          contentStyle={{ borderRadius: 6, fontSize: 13, borderColor: "var(--border)" }}
+          contentStyle={TOOLTIP}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         {obras.map((nome, i) => (
@@ -80,7 +89,7 @@ export function OrcadoRealizadoChart({
         <YAxis tick={eixoTick} tickLine={false} axisLine={false} tickFormatter={moedaCompacta} width={72} />
         <Tooltip
           formatter={(v) => formatarMoeda(Number(v ?? 0))}
-          contentStyle={{ borderRadius: 6, fontSize: 13, borderColor: "var(--border)" }}
+          contentStyle={TOOLTIP}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Bar dataKey="Orçado" fill="var(--chart-5)" radius={[2, 2, 0, 0]}>

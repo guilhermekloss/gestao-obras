@@ -6,7 +6,7 @@ import { whereObrasPermitidas } from "@/services/acesso";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusObraBadge } from "@/components/status-obra-badge";
-import { NovaObraDialog } from "./obra-dialogs";
+import { NovaObraDialog } from "../obra-dialogs";
 import { formatarData } from "@/lib/format";
 
 export default async function ObrasPage() {

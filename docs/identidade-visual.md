@@ -45,4 +45,17 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 - Foco de teclado: anel de 3 px em azul-planta, nunca removido.
 - Movimento só em resposta a ação do usuário; `prefers-reduced-motion` zera animações e transições.
 - Botão com verbo: "Salvar lançamento", "Registrar RDO", "Marcar como pagas".
-- Só tema claro: o modo escuro nunca esteve ativo e foi removido do CSS.
+- Tema claro (padrão) e escuro ("Prancheta noturna"): botão no cabeçalho. A escolha vai no cookie `tema` e o servidor já entrega o `<html>` com a classe `dark` (sem piscar e sem script inline, por causa do CSP). A cor da barra do navegador (`generateViewport`) acompanha o tema. O bloco `.dark` só vale em tela: a impressão do RDO é sempre clara.
+
+## Casca (menu e cabeçalho)
+- Cabeçalho fixo com o nome da seção atual (`TituloDaPagina`), botão de tema, Minha conta e Sair.
+- Menu lateral (desktop): item ativo com fundo `nav-ativo`, marca lateral e `aria-current="page"`; nome e papel do usuário no rodapé.
+- Barra inferior (celular): 4 itens + "Mais" com as demais telas, em folha que sobe da base. Perfil com até 4 telas (campo) não mostra "Mais". Rótulos completos, em até 2 linhas. Quais itens ficam na barra: campo `fixo` em `src/components/nav-itens.ts`.
+- Permissões por papel ficam em `nav-itens.ts` (`papeis`) e têm teste em `src/components/__tests__/nav-itens.test.ts`.
+
+## Carregando, erro e página não encontrada
+- **Carregando:** cada tela de lista tem `loading.tsx` (dashboard, notas, contas, obras, diário, cronograma) com esqueleto no desenho da tela, sem spinner. Use o `Skeleton` de `src/components/ui/skeleton.tsx` e os blocos de `src/components/carregando.tsx` (`Carregando`, `CabecalhoSkeleton`, `FiltrosSkeleton`, `TabelaSkeleton`). O pulso some com `prefers-reduced-motion`.
+- **Atenção ao colocar um `loading.tsx`:** ele envolve também as rotas filhas, e uma resposta que já começou a ser enviada não consegue mais devolver HTTP 404 no `notFound()` (o teste e2e do convite depende desse 404). Por isso, em obras, notas e diário o `page.tsx` da lista e o `loading.tsx` ficam no grupo `(lista)`, que não muda o endereço, e as telas de detalhe (`[id]`) ficam de fora. Há um teste que garante isso.
+- **Erro:** `src/app/(app)/error.tsx` (dentro da casca) e `src/app/error.tsx` (fora dela e falha do próprio layout) usam `ErroDePagina`. Nada do erro vai para a tela. O texto cobre falha do sistema e falta de acesso, porque `exigirPapel` lança erro e em produção o Next esconde a mensagem. Esta versão do Next entrega `retry` (não `reset`).
+- **Não encontrado:** `not-found.tsx` com casca (`notFound()` nas telas) e sem casca (endereço que não existe). Também cobre "sem acesso", porque o app responde igual para registro inexistente e registro proibido.
+- Limitação: em dashboard, contas e cronograma, as telas filhas (`/dashboard/alertas`, `/contas/fluxo`) mostram o esqueleto da seção até ganharem o próprio `loading.tsx`.

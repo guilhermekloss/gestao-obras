@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
+import { cookies } from "next/headers";
+import { BARRA_NAVEGADOR, COOKIE_TEMA, lerTema } from "@/lib/tema";
 import "./globals.css";
 
 // Uma família só: a largura (wdth) separa títulos (112), texto (100) e números (80).
@@ -19,21 +21,27 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: "#0f4c81",
-};
+// a barra do navegador acompanha o tema escolhido (cookie), não o do sistema
+export async function generateViewport(): Promise<Viewport> {
+  const tema = lerTema((await cookies()).get(COOKIE_TEMA)?.value);
+  return {
+    width: "device-width",
+    initialScale: 1,
+    themeColor: BARRA_NAVEGADOR[tema],
+    colorScheme: tema === "escuro" ? "dark" : "light",
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const tema = lerTema((await cookies()).get(COOKIE_TEMA)?.value);
   return (
     <html
       lang="pt-BR"
-      className={`${archivo.variable} h-full antialiased`}
+      className={`${archivo.variable} h-full antialiased${tema === "escuro" ? " dark" : ""}`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

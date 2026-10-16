@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/diario",
     display: "standalone",
     background_color: "#f3f5f6",
-    theme_color: "#0f4c81",
+    theme_color: "#ffffff",
     orientation: "portrait",
     icons: [
       {
