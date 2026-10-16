@@ -341,7 +341,7 @@ export function NotaForm({
             />
           </div>
           {fornecedorSugerido && !fornecedorId && (
-            <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4 rounded-md border border-estado-atencao-borda bg-estado-atencao p-2 text-sm text-estado-atencao-fg">
               <span className="min-w-0 flex-1">
                 Lido no documento: <b>{fornecedorSugerido.nome}</b>
                 {fornecedorSugerido.documento && ` · ${formatarCnpj(fornecedorSugerido.documento)}`} — ainda
@@ -436,7 +436,7 @@ export function NotaForm({
           <span
             className={
               totalCents > 0 && somaItensCents !== totalCents
-                ? "text-sm font-medium text-amber-600"
+                ? "text-sm font-medium text-estado-atencao-fg"
                 : "text-sm text-muted-foreground"
             }
           >
@@ -546,7 +546,7 @@ export function NotaForm({
           <span
             className={
               somaRateioBp === BP_TOTAL
-                ? "text-sm text-green-600"
+                ? "text-sm text-estado-no-prazo-fg"
                 : "text-sm font-medium text-destructive"
             }
           >
@@ -676,7 +676,7 @@ export function NotaForm({
                         {situacao === "paga" ? (
                           <Badge variant="secondary">Paga</Badge>
                         ) : (
-                          <span className="font-medium text-amber-600">Paga · volta a abrir</span>
+                          <span className="font-medium text-estado-atencao-fg">Paga · volta a abrir</span>
                         )}
                       </span>
                     )}
@@ -686,7 +686,7 @@ export function NotaForm({
             </div>
           )}
           {situacaoPagas.pagasRemovidas.length > 0 && (
-            <p className="text-xs font-medium text-amber-600">
+            <p className="text-xs font-medium text-estado-atencao-fg">
               Parcela(s) paga(s) removida(s): {situacaoPagas.pagasRemovidas.map((n) => `${n}ª`).join(", ")}.
               O registro do pagamento será perdido ao salvar.
             </p>

@@ -22,9 +22,9 @@ const FUNCOES = ["Pedreiro", "Servente", "Eletricista", "Encanador", "Pintor", "
 const EQUIPAMENTOS = ["Betoneira", "Andaime", "Vibrador de concreto", "Martelete", "Serra circular"];
 
 const ESTILO_CONDICAO: Record<CondicaoTrabalho, string> = {
-  PRATICAVEL: "border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
-  PARCIAL: "border-amber-600 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  IMPRATICAVEL: "border-red-600 bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-200",
+  PRATICAVEL: "border-estado-no-prazo-borda bg-estado-no-prazo text-estado-no-prazo-fg",
+  PARCIAL: "border-estado-atencao-borda bg-estado-atencao text-estado-atencao-fg",
+  IMPRATICAVEL: "border-estado-vencido-borda bg-estado-vencido text-estado-vencido-fg",
 };
 
 type FotoLocal = { url: string; preview: string };
@@ -202,8 +202,8 @@ export function RdoForm({
               aria-pressed={condicao === c}
               onClick={() => setCondicao(condicao === c ? "" : c)}
               className={cn(
-                "rounded-md border px-2 py-2 text-sm leading-tight",
-                condicao === c ? cn("font-medium", ESTILO_CONDICAO[c]) : "text-muted-foreground",
+                "min-h-12 rounded-md border-2 px-2 py-2 text-sm leading-tight",
+                condicao === c ? cn("font-semibold", ESTILO_CONDICAO[c]) : "border-input bg-card text-muted-foreground",
               )}
             >
               {c === "PARCIAL" ? "Parcial" : rotuloCondicao(c)}
@@ -287,7 +287,7 @@ export function RdoForm({
             className="flex size-20 flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed text-muted-foreground"
           >
             <Camera className="size-6" />
-            <span className="text-[10px]">{enviandoFoto ? "Enviando..." : "Foto"}</span>
+            <span className="text-xs">{enviandoFoto ? "Enviando..." : "Foto"}</span>
           </button>
         </div>
       </div>

@@ -21,7 +21,7 @@ export function CampoAjuda({
         type="button"
         aria-label={titulo ? `Ajuda: ${titulo}` : "Ajuda sobre o campo"}
         className={cn(
-          "inline-flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "relative inline-flex size-4 shrink-0 items-center justify-center rounded-full before:absolute before:-inset-3.5 before:content-[''] pointer-coarse:before:-inset-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           className,
         )}
       >

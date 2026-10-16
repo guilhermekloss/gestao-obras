@@ -35,7 +35,7 @@ export default async function FornecedoresPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Fornecedores</h1>
+        <h1 className="text-2xl md:text-3xl">Fornecedores</h1>
         <NovoFornecedorDialog />
       </div>
 

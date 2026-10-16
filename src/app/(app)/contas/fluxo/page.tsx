@@ -50,7 +50,7 @@ export default async function FluxoMensalPage() {
         <Button variant="ghost" size="icon" render={<Link href="/contas" />}>
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="text-2xl font-semibold">Fluxo mensal por obra</h1>
+        <h1 className="text-2xl md:text-3xl">Fluxo mensal por obra</h1>
       </div>
 
       {fluxo.meses.length === 0 ? (

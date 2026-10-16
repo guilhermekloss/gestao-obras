@@ -18,7 +18,7 @@ export default async function MateriaisPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Materiais</h1>
+          <h1 className="text-2xl md:text-3xl">Materiais</h1>
           <p className="text-sm text-muted-foreground">
             Catálogo usado nos lançamentos. As notas lidas automaticamente se ligam aqui; o que o sistema não reconhece, você decide.
           </p>

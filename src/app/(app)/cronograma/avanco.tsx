@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/confirm-button";
 import { NovaMedicaoDialog } from "./medicao-dialog";
 import { excluirMedicao } from "./actions";
+import { ReguaCota } from "@/components/regua-cota";
 import { SituacaoBadge } from "./situacao";
 import type { Cronograma } from "./dados";
 import { Trash2 } from "lucide-react";
@@ -48,13 +49,8 @@ export async function SecaoAvanco({
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${e.realizadoBp / 100}%` }}
-                    />
-                  </div>
-                  <span className="w-14 text-right text-sm font-semibold">
+                  <ReguaCota percent={e.realizadoBp / 100} rotulo={`Avanço de ${e.nome}`} />
+                  <span className="w-14 text-right text-lg num">
                     {formatarPercentBp(e.realizadoBp)}
                   </span>
                 </div>

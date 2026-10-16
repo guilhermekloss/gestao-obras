@@ -28,7 +28,7 @@ export default async function ContaPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Minha conta</h1>
+        <h1 className="text-2xl md:text-3xl">Minha conta</h1>
         <p className="text-sm text-muted-foreground">
           {usuario.nome} · {usuario.email} · <Badge variant="secondary">{ROLE_LABELS[usuario.role]}</Badge>
         </p>

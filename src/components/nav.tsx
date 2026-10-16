@@ -49,7 +49,7 @@ export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
   return (
     <nav className="hidden w-56 shrink-0 border-r bg-sidebar md:flex md:flex-col">
-      <div className="flex h-14 items-center border-b px-4 font-semibold">
+      <div className="flex h-14 items-center border-b px-4 text-lg font-semibold [font-stretch:112%]">
         Gestão de Obras
       </div>
       <div className="flex flex-1 flex-col gap-1 p-2">
@@ -60,13 +60,13 @@ export function Sidebar({ role }: { role: Role }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "flex min-h-11 items-center gap-3 rounded-sm border-l-4 px-3 py-2 text-sm font-medium transition-colors",
                 ativo
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ? "border-primary bg-accent font-semibold text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
               )}
             >
-              <item.icon className="size-4" />
+              <item.icon aria-hidden className="size-4" />
               {item.label}
             </Link>
           );
@@ -80,7 +80,7 @@ export function BottomNav({ role }: { role: Role }) {
   const pathname = usePathname();
   const itens = itensPara(role, true).slice(0, 5);
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
       {itens.map((item) => {
         const ativo = pathname.startsWith(item.href);
         return (
@@ -88,11 +88,13 @@ export function BottomNav({ role }: { role: Role }) {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex flex-1 flex-col items-center gap-1 py-2 text-[11px]",
-              ativo ? "text-primary" : "text-muted-foreground",
+              "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-4 px-0.5 text-[13px] [font-stretch:88%]",
+              ativo
+                ? "border-primary font-semibold text-primary"
+                : "border-transparent text-muted-foreground",
             )}
           >
-            <item.icon className="size-5" />
+            <item.icon aria-hidden className="size-5" />
             {item.label.split(" ")[0]}
           </Link>
         );

@@ -33,7 +33,7 @@ export default async function EditarRdoPage({
   if (!permissao.ok) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Editar RDO</h1>
+        <h1 className="text-2xl md:text-3xl">Editar RDO</h1>
         <p className="text-muted-foreground">{permissao.erro}.</p>
         <Button variant="outline" render={<Link href={`/diario/${rdo.id}`} />}>
           Voltar ao RDO
@@ -61,7 +61,7 @@ export default async function EditarRdoPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Editar RDO</h1>
+      <h1 className="text-2xl md:text-3xl">Editar RDO</h1>
       <RdoForm obras={obras} rdo={{ id: rdo.id, valores }} />
     </div>
   );

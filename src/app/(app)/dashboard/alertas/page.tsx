@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { exigirPapel } from "@/lib/auth";
 import { carregarAlertas } from "@/services/analises";
-import { Card, CardContent } from "@/components/ui/card";
 import { AlertasLista } from "../alertas-lista";
 
 export default async function AlertasPage() {
@@ -19,18 +18,14 @@ export default async function AlertasPage() {
         >
           <ArrowLeft className="size-3.5" /> Dashboard
         </Link>
-        <h1 className="text-2xl font-semibold">Alertas</h1>
+        <h1 className="text-2xl md:text-3xl">Alertas</h1>
         <p className="text-sm text-muted-foreground">
           {alertas.length} alerta(s) · {criticos} crítico(s). Estouro de orçamento por etapa,
           etapas com 90% ou mais consumido, parcelas vencidas em aberto e notas com divergência
           itens × total.
         </p>
       </div>
-      <Card>
-        <CardContent className="pt-2">
-          <AlertasLista alertas={alertas} />
-        </CardContent>
-      </Card>
+      <AlertasLista alertas={alertas} />
     </div>
   );
 }

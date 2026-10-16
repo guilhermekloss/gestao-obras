@@ -77,7 +77,7 @@ export default async function CurvaAbcPage({
         >
           <ArrowLeft className="size-3.5" /> Orçamento
         </Link>
-        <h1 className="text-2xl font-semibold">Curva ABC de insumos</h1>
+        <h1 className="text-2xl md:text-3xl">Curva ABC de insumos</h1>
         <p className="text-sm text-muted-foreground">
           Itens de nota agrupados por descrição e unidade, do maior custo para o menor.
           Com obra selecionada, entra só a parte rateada para ela.
@@ -126,7 +126,7 @@ export default async function CurvaAbcPage({
                 <Badge variant={CLASSE_INFO[c].badge}>Classe {c}</Badge>
                 <span className="text-xs text-muted-foreground">{CLASSE_INFO[c].descricao}</span>
               </div>
-              <p className="mt-2 text-2xl font-semibold">
+              <p className="mt-2 text-2xl num">
                 {resumo[c].itens} <span className="text-sm font-normal text-muted-foreground">insumo(s)</span>
               </p>
               <p className="text-xs text-muted-foreground">

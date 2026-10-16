@@ -25,18 +25,18 @@ export default async function AppLayout({
     <div className="flex min-h-svh">
       <Sidebar role={user.role} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b px-4">
-          <span className="font-semibold md:hidden">Gestão de Obras</span>
+        <header className="flex h-14 items-center justify-between border-b bg-card px-4">
+          <span className="text-lg font-semibold [font-stretch:112%] md:hidden">Gestão de Obras</span>
           <span className="hidden text-sm text-muted-foreground md:block">
             {user.nome} · {ROLE_LABELS[user.role]}
           </span>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" render={<Link href="/conta" />}>
+            <Button variant="ghost" size="sm" render={<Link href="/conta" />} aria-label="Minha conta">
               <UserRound className="size-4" />
               <span className="hidden md:inline">Minha conta</span>
             </Button>
             <form action={sair}>
-              <Button variant="ghost" size="sm" type="submit">
+              <Button variant="ghost" size="sm" type="submit" aria-label="Sair">
                 <LogOut className="size-4" />
                 <span className="hidden md:inline">Sair</span>
               </Button>

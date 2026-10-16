@@ -23,7 +23,7 @@ export default async function ObrasPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Obras</h1>
+        <h1 className="text-2xl md:text-3xl">Obras</h1>
         {podeEditar && <NovaObraDialog />}
       </div>
 

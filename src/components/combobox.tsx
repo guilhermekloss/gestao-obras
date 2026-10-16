@@ -170,7 +170,7 @@ export function Combobox({
           aria-invalid={mostrarErro}
         />
         {selecionado && !aberto ? (
-          <Check className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-green-600" />
+          <Check className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-estado-no-prazo-fg" />
         ) : (
           <ChevronsUpDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         )}

@@ -66,7 +66,7 @@ export default async function NotasPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Lançamentos</h1>
+        <h1 className="text-2xl md:text-3xl">Lançamentos</h1>
         <div className="flex gap-2">
           <Button variant="outline" render={<Link href="/notas/importar-xml" />}>
             <FileCode2 className="size-4" /> Importar XML
@@ -144,7 +144,7 @@ export default async function NotasPage({
                 <TableRow key={n.id}>
                   <TableCell>{formatarData(n.dataCompra)}</TableCell>
                   <TableCell className="max-w-40 truncate font-medium md:max-w-none">
-                    <Link href={`/notas/${n.id}`} className="hover:underline">
+                    <Link href={`/notas/${n.id}`} className="hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center">
                       {n.fornecedor.nome}
                     </Link>
                   </TableCell>

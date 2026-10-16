@@ -234,7 +234,7 @@ export function ConferenciaDialog({
               onAnalisar={analisarComIa}
             />
             {leitura.avisos.length > 0 && (
-              <ul className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              <ul className="space-y-1 rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
                 {leitura.avisos.map((a, i) => (
                   <li key={i} className="flex gap-2">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {a}
@@ -260,7 +260,7 @@ export function ConferenciaDialog({
                     aria-label="Número"
                     value={v.numero}
                     onChange={(e) => setValores({ numero: e.target.value })}
-                    className={cn(!v.numero && v.tipoDocumento === "NF" && "border-amber-500")}
+                    className={cn(!v.numero && v.tipoDocumento === "NF" && "border-estado-atencao-borda")}
                   />
                 </Campo>
                 <Campo label="Data de emissão *">
@@ -272,7 +272,7 @@ export function ConferenciaDialog({
               </div>
               {leitura.chaveNfe && (
                 <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <CheckCircle2 className="size-3.5 text-green-600" /> Chave de acesso (dígito verificador confere):
+                  <CheckCircle2 className="size-3.5 text-estado-no-prazo-fg" /> Chave de acesso (dígito verificador confere):
                   <span className="break-all font-mono">{leitura.chaveNfe}</span>
                 </p>
               )}
@@ -439,7 +439,7 @@ export function ConferenciaDialog({
                         onChange={(e) =>
                           setLista("rateios", (l) => l.map((x, j) => (j === i ? { ...x, obraId: e.target.value, etapaId: "" } : x)))
                         }
-                        className={cn(!r.obraId && "border-amber-500")}
+                        className={cn(!r.obraId && "border-estado-atencao-borda")}
                       >
                         <option value="">Selecione a obra...</option>
                         {obras.map((o) => (
@@ -707,7 +707,7 @@ function Destinatario({
         <SeloDocumento valor={doc} />
       </div>
       {ehEmpresa === true && (
-        <p className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
+        <p className="flex items-center gap-1.5 text-estado-no-prazo-fg">
           <CheckCircle2 className="size-4" /> É um CNPJ da empresa.
         </p>
       )}
@@ -754,7 +754,7 @@ function Campo({ label, className, children }: { label: React.ReactNode; classNa
 
 function Soma({ ok, texto }: { ok: boolean; texto: string }) {
   return (
-    <span className={cn("flex items-center gap-1 text-xs font-medium", ok ? "text-green-700 dark:text-green-400" : "text-destructive")}>
+    <span className={cn("flex items-center gap-1 text-xs font-medium", ok ? "text-estado-no-prazo-fg" : "text-destructive")}>
       {ok ? <CheckCircle2 className="size-3.5" /> : <XCircle className="size-3.5" />} {texto}
     </span>
   );
@@ -766,7 +766,7 @@ function SeloDocumento({ valor }: { valor: string }) {
   const d = valor.replace(/\D/g, "");
   const tipo = d.length === 11 ? "CPF" : "CNPJ";
   return s === "valido" ? (
-    <span className="flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400">
+    <span className="flex items-center gap-1 text-xs font-medium text-estado-no-prazo-fg">
       <CheckCircle2 className="size-3.5" /> {tipo} {formatarDocumento(d)} válido
     </span>
   ) : (
@@ -816,9 +816,9 @@ function Opcao({
 }
 
 const NIVEL_ESTILO = {
-  alto: "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200",
-  medio: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200",
-  baixo: "border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200",
+  alto: "border-estado-no-prazo-borda bg-estado-no-prazo text-estado-no-prazo-fg",
+  medio: "border-estado-atencao-borda bg-estado-atencao text-estado-atencao-fg",
+  baixo: "border-estado-vencido-borda bg-estado-vencido text-estado-vencido-fg",
 } as const;
 
 const NIVEL_LABEL = { alto: "alto", medio: "médio", baixo: "baixo" } as const;
@@ -877,7 +877,7 @@ function Alerta({ tom, children }: { tom: "erro" | "aviso"; children: React.Reac
         "flex gap-2 rounded-md border p-2.5 text-sm",
         tom === "erro"
           ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200",
+          : "border-estado-atencao-borda bg-estado-atencao text-estado-atencao-fg",
       )}
     >
       <AlertTriangle className="mt-0.5 size-4 shrink-0" />

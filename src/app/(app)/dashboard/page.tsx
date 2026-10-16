@@ -9,17 +9,15 @@ import { carregarAlertas, carregarCurvaAbc } from "@/services/analises";
 import { avancoDaObra, orcamentoTotal } from "@/services/obra";
 import { chaveMes, formatarMoeda, rotuloChaveMes } from "@/lib/format";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  GastoMensalChart,
-  OrcadoRealizadoChart,
-  AvancoChart,
-} from "./dashboard-charts";
+import { GastoMensalChart, OrcadoRealizadoChart } from "./dashboard-charts";
+import { AvancoLotes } from "./avanco-lotes";
 import { CurvaSWidget } from "./widgets/curva-s";
 import { AlertasLista } from "./alertas-lista";
 import { TopInsumos } from "./top-insumos";
 
 const MAX_ALERTAS = 8;
-const LINK_CARD = "text-sm text-muted-foreground hover:text-foreground hover:underline";
+const LINK_CARD =
+  "inline-flex min-h-10 items-center text-sm text-primary underline-offset-4 hover:underline";
 
 export default async function DashboardPage() {
   const user = await usuarioAtual();
@@ -99,44 +97,60 @@ export default async function DashboardPage() {
   const obrasAtivas = obras.filter((o) => o.status === "ANDAMENTO").length;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+    <div className="space-y-8">
+      <h1 className="text-2xl md:text-3xl">Dashboard</h1>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <CardStat
-          titulo="Gasto no mês"
-          valor={formatarMoeda(gastoNoMes)}
-          rodape="itens rateados às obras"
-        />
-        <CardStat
-          titulo="A vencer em 7 dias"
-          valor={formatarMoeda(aVencer7._sum.valorCents ?? 0)}
-          rodape={`${aVencer7._count} parcela(s)`}
-          href="/contas?visao=7dias"
-        />
-        <CardStat titulo="Obras ativas" valor={String(obrasAtivas)} href="/obras" />
-        <CardStat
-          titulo="Divergências itens × nota"
-          valor={String(divergencias)}
-          alerta={divergencias > 0}
-          href="/notas"
-        />
-      </div>
+      <section aria-labelledby="pede-acao" className="space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="pede-acao" className="text-xl">
+            Pede ação hoje
+          </h2>
+          {alertas.length > MAX_ALERTAS && (
+            <Link href="/dashboard/alertas" className={LINK_CARD}>
+              Ver todos ({alertas.length})
+            </Link>
+          )}
+        </div>
+        <AlertasLista alertas={alertas.slice(0, MAX_ALERTAS)} />
+      </section>
+
+      <section aria-labelledby="em-numeros" className="space-y-3">
+        <h2 id="em-numeros" className="text-xl">
+          Em números
+        </h2>
+        <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Cota
+            titulo="Gasto no mês"
+            valor={formatarMoeda(gastoNoMes)}
+            rodape="itens rateados às obras"
+          />
+          <Cota
+            titulo="A vencer em 7 dias"
+            valor={formatarMoeda(aVencer7._sum.valorCents ?? 0)}
+            rodape={`${aVencer7._count} parcela(s)`}
+            href="/contas?visao=7dias"
+          />
+          <Cota titulo="Obras ativas" valor={String(obrasAtivas)} href="/obras" />
+          <Cota
+            titulo="Divergências itens × nota"
+            valor={String(divergencias)}
+            alerta={divergencias > 0}
+            href="/notas"
+          />
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Alertas</CardTitle>
-            {alertas.length > MAX_ALERTAS && (
-              <CardAction>
-                <Link href="/dashboard/alertas" className={LINK_CARD}>
-                  Ver todos ({alertas.length})
-                </Link>
-              </CardAction>
-            )}
+            <CardTitle>Avanço físico por obra</CardTitle>
           </CardHeader>
           <CardContent>
-            <AlertasLista alertas={alertas.slice(0, MAX_ALERTAS)} />
+            {avancoData.length === 0 ? (
+              <Vazio texto="Registre o avanço das etapas em Cronograma → Avanço." />
+            ) : (
+              <AvancoLotes data={avancoData} />
+            )}
           </CardContent>
         </Card>
 
@@ -184,26 +198,14 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Avanço físico</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {avancoData.length === 0 ? (
-              <Vazio texto="Lance o avanço das etapas em Cronograma → Avanço." />
-            ) : (
-              <AvancoChart data={avancoData} />
-            )}
-          </CardContent>
-        </Card>
-
         <CurvaSWidget />
       </div>
     </div>
   );
 }
 
-function CardStat({
+// linha de cota: ├──── título ────┤ com o valor embaixo
+function Cota({
   titulo,
   valor,
   rodape,
@@ -217,17 +219,21 @@ function CardStat({
   alerta?: boolean;
 }) {
   const conteudo = (
-    <Card className={href ? "transition-colors hover:bg-accent/50" : undefined}>
-      <CardContent className="pt-4">
-        <p className="text-xs text-muted-foreground">{titulo}</p>
-        <p className={`mt-1 text-2xl font-semibold ${alerta ? "text-destructive" : ""}`}>
-          {valor}
-        </p>
-        {rodape && <p className="mt-0.5 text-xs text-muted-foreground">{rodape}</p>}
-      </CardContent>
-    </Card>
+    <div className="relative border-t border-foreground/60 pt-2">
+      <span aria-hidden className="absolute -top-1.5 left-0 h-3 w-px bg-foreground/60" />
+      <span aria-hidden className="absolute -top-1.5 right-0 h-3 w-px bg-foreground/60" />
+      <p className="text-sm text-muted-foreground">{titulo}</p>
+      <p className={`mt-0.5 text-3xl num ${alerta ? "text-estado-vencido-fg" : ""}`}>{valor}</p>
+      {rodape && <p className="mt-0.5 text-sm text-muted-foreground">{rodape}</p>}
+    </div>
   );
-  return href ? <Link href={href}>{conteudo}</Link> : conteudo;
+  return href ? (
+    <Link href={href} className="block rounded-sm hover:bg-accent/60">
+      {conteudo}
+    </Link>
+  ) : (
+    conteudo
+  );
 }
 
 function Vazio({ texto }: { texto: string }) {

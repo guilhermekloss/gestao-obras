@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 import type { AtividadeDoFeed } from "./dados";
 
 const ICONE: Record<CategoriaAtividade, { Icone: LucideIcon; cor: string }> = {
-  financeiro: { Icone: ReceiptText, cor: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
-  cadastro: { Icone: Building2, cor: "bg-sky-500/10 text-sky-700 dark:text-sky-400" },
-  campo: { Icone: HardHat, cor: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
-  acesso: { Icone: KeyRound, cor: "bg-violet-500/10 text-violet-700 dark:text-violet-400" },
+  financeiro: { Icone: ReceiptText, cor: "bg-estado-no-prazo text-estado-no-prazo-fg" },
+  cadastro: { Icone: Building2, cor: "bg-estado-andamento text-estado-andamento-fg" },
+  campo: { Icone: HardHat, cor: "bg-estado-atencao text-estado-atencao-fg" },
+  acesso: { Icone: KeyRound, cor: "bg-estado-neutro text-estado-neutro-fg" },
 };
 
 export function FeedAtividades({

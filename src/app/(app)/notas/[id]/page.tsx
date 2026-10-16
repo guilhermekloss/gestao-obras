@@ -82,7 +82,7 @@ export default async function EditarNotaPage({
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Editar {documento}</h1>
+        <h1 className="text-2xl md:text-3xl">Editar {documento}</h1>
         {!temParcelaPaga && (
           <ConfirmButton
             action={excluirNota.bind(null, nota.id)}
@@ -98,7 +98,7 @@ export default async function EditarNotaPage({
         </p>
       )}
       {temParcelaPaga && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        <p className="rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
           Este lançamento tem parcelas pagas. Elas continuam pagas se o valor e o vencimento não
           mudarem; se você alterar ou remover uma parcela paga, o sistema pede confirmação antes de
           reabri-la.

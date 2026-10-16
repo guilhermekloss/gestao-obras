@@ -45,7 +45,7 @@ export default async function ObraPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{obra.nome}</h1>
+          <h1 className="text-2xl md:text-3xl">{obra.nome}</h1>
           <StatusObraBadge status={obra.status} />
         </div>
         {podeEditar && (
