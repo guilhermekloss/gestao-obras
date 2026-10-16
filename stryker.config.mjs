@@ -1,5 +1,5 @@
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
-export default {
+const config = {
   testRunner: "vitest",
   vitest: { configFile: "vitest.config.ts" },
   coverageAnalysis: "perTest",
@@ -22,3 +22,5 @@ export default {
   timeoutMS: 10000,
   thresholds: { high: 90, low: 80, break: null },
 };
+
+export default config;
