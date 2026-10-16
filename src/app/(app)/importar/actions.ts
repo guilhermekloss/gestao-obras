@@ -1,10 +1,12 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { importarPlanilhas, normalizarChave } from "@/services/importacao";
+import { importarPlanilhas, normalizarChave, type NotaImportada } from "@/services/importacao";
+import { erroDeRegras, gravarLancamento, type Lancamento } from "@/services/lancamento";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
-import { formatarMoeda } from "@/lib/format";
+import { dataParaInput, formatarMoeda } from "@/lib/format";
 import { correspondenciaItem } from "@/services/materiais";
 import { carregarBaseMateriais } from "@/services/materiais-db";
 
@@ -16,8 +18,37 @@ export type PreviewImportacao = ActionResult & {
   notasJaExistentes?: number;
   valorTotalCents?: number;
   inconsistencias?: string[];
+  // notas que quebram uma regra do lançamento (rateio, parcelas): não entram
+  notasRecusadas?: string[];
   importadas?: number;
 };
+
+// A planilha antiga traz parcelas que não fecham com o total (já listadas como inconsistência): só essa regra é tolerada.
+function paraLancamento(
+  n: NotaImportada,
+  obraPorCodigo: Map<string, string>,
+  fornecedorId: string,
+  userId: string,
+  materialDoItem: (item: NotaImportada["itens"][number]) => string | undefined = () => undefined,
+): { lancamento: Lancamento; obraDesconhecida: boolean } {
+  const rateios = n.rateios.map((r) => ({ codigoObra: r.codigoObra, obraId: obraPorCodigo.get(normalizarChave(r.codigoObra)), fracaoBp: r.fracaoBp }));
+  return {
+    obraDesconhecida: rateios.some((r) => !r.obraId),
+    lancamento: {
+      fornecedor: { id: fornecedorId },
+      tipoDocumento: "NF",
+      numero: n.numero,
+      dataCompra: dataParaInput(n.dataCompra),
+      totalCents: n.totalCents,
+      formaPagto: n.formaPagto,
+      obs: "Importado das planilhas",
+      itens: n.itens.map((item) => ({ ...item, materialId: materialDoItem(item) })),
+      rateios: rateios.filter((r) => r.obraId).map((r) => ({ obraId: r.obraId!, fracaoBp: r.fracaoBp })),
+      parcelas: n.parcelas.map((p) => ({ ...p, vencimento: dataParaInput(p.vencimento) })),
+      criadoPor: userId,
+    },
+  };
+}
 
 const processar = acaoDeEscrita(
   {
@@ -57,15 +88,26 @@ const processar = acaoDeEscrita(
       if (!existe) fornecedoresNovos.add(normalizarChave(n.fornecedor));
     }
 
+    const idDoFornecedor = (n: NotaImportada) =>
+      (n.cnpj ? porCnpj.get(n.cnpj) : undefined) ?? porNome.get(normalizarChave(n.fornecedor));
+
+    // mesma regra do banco: (fornecedor, número). O nome só cobre fornecedor que ainda não existe.
     const existentes = await prisma.notaFiscal.findMany({
-      select: { numero: true, fornecedor: { select: { nome: true, cnpj: true } } },
+      select: { numero: true, fornecedorId: true },
     });
-    const chavesExistentes = new Set(
-      existentes.map((e) => `${normalizarChave(e.fornecedor.nome)}::${e.numero}`),
-    );
-    const novas = notas.filter(
-      (n) => !chavesExistentes.has(`${normalizarChave(n.fornecedor)}::${n.numero}`),
-    );
+    const numerosPorFornecedor = new Set(existentes.map((e) => `${e.fornecedorId}::${e.numero}`));
+    const novas = notas.filter((n) => {
+      const fornecedorId = idDoFornecedor(n);
+      return !(fornecedorId && numerosPorFornecedor.has(`${fornecedorId}::${n.numero}`));
+    });
+
+    const recusadas = new Map<NotaImportada, string>();
+    for (const n of novas) {
+      const { lancamento, obraDesconhecida } = paraLancamento(n, obraPorCodigo, "", user.id);
+      const erro = obraDesconhecida ? "rateio com obra que não está cadastrada" : erroDeRegras(lancamento, { somaParcelas: false });
+      if (erro) recusadas.set(n, erro);
+    }
+    const aImportar = novas.filter((n) => !recusadas.has(n));
 
     const resumo: PreviewImportacao = {
       ok: true,
@@ -76,6 +118,7 @@ const processar = acaoDeEscrita(
       notasJaExistentes: notas.length - novas.length,
       valorTotalCents: notas.reduce((a, n) => a + n.totalCents, 0),
       inconsistencias,
+      notasRecusadas: [...recusadas].map(([n, erro]) => `${n.fornecedor} NF ${n.numero}: ${erro}`),
     };
     if (!executar) {
       ignorarAtividade(); // a prévia não grava nada
@@ -85,82 +128,50 @@ const processar = acaoDeEscrita(
     // só liga ao catálogo quando a descrição já é conhecida; planilha não cadastra material
     const baseMateriais = await carregarBaseMateriais();
     let importadas = 0;
-    for (const n of novas) {
-      await prisma.$transaction(async (tx) => {
-        let fornecedorId =
-          (n.cnpj ? porCnpj.get(n.cnpj) : undefined) ?? porNome.get(normalizarChave(n.fornecedor));
-        if (!fornecedorId) {
-          const f = await tx.fornecedor.create({
-            data: { nome: n.fornecedor, cnpj: n.cnpj },
-          });
-          fornecedorId = f.id;
-          if (n.cnpj) porCnpj.set(n.cnpj, f.id);
-          porNome.set(normalizarChave(n.fornecedor), f.id);
-        }
-
-        const nota = await tx.notaFiscal.create({
-          data: {
+    const importadasLista: NotaImportada[] = [];
+    for (const n of aImportar) {
+      const fornecedorExistente = idDoFornecedor(n);
+      try {
+        const criado = await prisma.$transaction(async (tx) => {
+          let fornecedorId = fornecedorExistente;
+          let fornecedorCriado: { id: string } | null = null;
+          if (!fornecedorId) {
+            fornecedorCriado = await tx.fornecedor.create({ data: { nome: n.fornecedor, cnpj: n.cnpj } });
+            fornecedorId = fornecedorCriado.id;
+          }
+          const { lancamento } = paraLancamento(
+            n,
+            obraPorCodigo,
             fornecedorId,
-            numero: n.numero,
-            dataCompra: n.dataCompra,
-            totalCents: n.totalCents,
-            formaPagto: n.formaPagto,
-            obs: "Importado das planilhas",
-            createdBy: user.id,
-          },
-        });
-
-        await tx.itemNota.createMany({
-          data: n.itens.map((item) => ({
-            notaId: nota.id,
-            materialId:
+            user.id,
+            (item) =>
               item.tipo === "MATERIAL"
-                ? (correspondenciaItem({ descricao: item.descricao }, { ...baseMateriais, fornecedorId }).exato?.id ?? null)
-                : null,
-            descricao: item.descricao,
-            tipo: item.tipo,
-            qtde: item.qtde,
-            unidade: item.unidade,
-            unitCents: item.unitCents,
-            descontoCents: item.descontoCents,
-            totalCents: item.totalCents,
-          })),
+                ? correspondenciaItem({ descricao: item.descricao }, { ...baseMateriais, fornecedorId }).exato?.id
+                : undefined,
+          );
+          await gravarLancamento(tx, lancamento);
+          return fornecedorCriado;
         });
-
-        const rateiosValidos = n.rateios.filter((r) => obraPorCodigo.has(normalizarChave(r.codigoObra)));
-        if (rateiosValidos.length > 0) {
-          await tx.rateioNota.createMany({
-            data: rateiosValidos.map((r) => ({
-              notaId: nota.id,
-              obraId: obraPorCodigo.get(normalizarChave(r.codigoObra))!,
-              fracaoBp: r.fracaoBp,
-            })),
-          });
+        // o mapa só aprende o fornecedor depois do commit: um rollback não deixa id fantasma
+        if (criado) {
+          if (n.cnpj) porCnpj.set(n.cnpj, criado.id);
+          porNome.set(normalizarChave(n.fornecedor), criado.id);
         }
-
-        if (n.parcelas.length > 0) {
-          await tx.parcela.createMany({
-            data: n.parcelas.map((p) => ({
-              notaId: nota.id,
-              numero: p.numero,
-              valorCents: p.valorCents,
-              vencimento: p.vencimento,
-              pagaEm: p.pagaEm,
-              status: p.pagaEm ? ("PAGA" as const) : ("ABERTA" as const),
-            })),
-          });
-        }
-      });
-      importadas++;
+        importadas++;
+        importadasLista.push(n);
+      } catch (erro) {
+        if (!(erro instanceof Prisma.PrismaClientKnownRequestError) || erro.code !== "P2002") throw erro;
+        resumo.notasRecusadas!.push(`${n.fornecedor} NF ${n.numero}: já existe uma nota com este número para o fornecedor`);
+      }
     }
 
     if (importadas === 0) ignorarAtividade();
     else anotarAtividade({
-      descricao: `Importou ${importadas} lançamento${importadas === 1 ? "" : "s"} das planilhas (${formatarMoeda(novas.reduce((a, n) => a + n.totalCents, 0))})`,
-      obraIds: [...new Set(novas.flatMap((n) => n.rateios.map((r) => obraPorCodigo.get(normalizarChave(r.codigoObra)))))].filter(
+      descricao: `Importou ${importadas} lançamento${importadas === 1 ? "" : "s"} das planilhas (${formatarMoeda(importadasLista.reduce((a, n) => a + n.totalCents, 0))})`,
+      obraIds: [...new Set(importadasLista.flatMap((n) => n.rateios.map((r) => obraPorCodigo.get(normalizarChave(r.codigoObra)))))].filter(
         (id): id is string => !!id,
       ),
-      valorCents: novas.reduce((a, n) => a + n.totalCents, 0),
+      valorCents: importadasLista.reduce((a, n) => a + n.totalCents, 0),
     });
     return { ...resumo, importadas };
   },

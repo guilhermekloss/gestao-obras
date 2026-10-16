@@ -19,7 +19,7 @@ type ParcelaImportada = {
   pagaEm: Date | null;
 };
 
-type NotaImportada = {
+export type NotaImportada = {
   fornecedor: string;
   cnpj: string | null;
   numero: string;

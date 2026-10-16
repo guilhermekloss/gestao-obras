@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Fornecedor } from "@prisma/client";
+import type { Fornecedor, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { variantesDocumento } from "./nfe-xml";
 import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
@@ -12,9 +12,10 @@ export const fornecedorSchema = z.object({
 });
 
 type FornecedorInput = z.infer<typeof fornecedorSchema>;
+type Db = Prisma.TransactionClient | typeof prisma;
 
-export async function buscarFornecedorPorDocumento(documento: string, ignorarId?: string) {
-  return prisma.fornecedor.findFirst({
+export async function buscarFornecedorPorDocumento(documento: string, ignorarId?: string, db: Db = prisma) {
+  return db.fornecedor.findFirst({
     where: { cnpj: { in: variantesDocumento(documento) }, ...(ignorarId ? { NOT: { id: ignorarId } } : {}) },
     select: { id: true, nome: true, cnpj: true },
   });
@@ -24,6 +25,7 @@ export async function buscarFornecedorPorDocumento(documento: string, ignorarId?
 export async function validarDocumentoFornecedor(
   cnpj: string | undefined,
   opts: { ignorarId?: string; atual?: string | null } = {},
+  db: Db = prisma,
 ): Promise<{ ok: true; cnpj: string | null } | { ok: false; erro: string }> {
   const valor = cnpj?.trim();
   if (!valor) return { ok: true, cnpj: null };
@@ -34,16 +36,17 @@ export async function validarDocumentoFornecedor(
   if (normalizado.ok) gravar = normalizado.valor;
   else if (!igualAoAtual) return normalizado;
 
-  const repetido = await buscarFornecedorPorDocumento(gravar, opts.ignorarId);
+  const repetido = await buscarFornecedorPorDocumento(gravar, opts.ignorarId, db);
   if (repetido) return { ok: false, erro: `CNPJ/CPF já cadastrado para "${repetido.nome}"` };
   return { ok: true, cnpj: gravar };
 }
 
 export async function criarFornecedorValidado(
   dados: FornecedorInput,
+  db: Db = prisma,
 ): Promise<{ ok: true; fornecedor: Fornecedor } | { ok: false; erro: string }> {
-  const doc = await validarDocumentoFornecedor(dados.cnpj);
+  const doc = await validarDocumentoFornecedor(dados.cnpj, {}, db);
   if (!doc.ok) return doc;
-  const fornecedor = await prisma.fornecedor.create({ data: { ...dados, cnpj: doc.cnpj } });
+  const fornecedor = await db.fornecedor.create({ data: { ...dados, cnpj: doc.cnpj } });
   return { ok: true, fornecedor };
 }

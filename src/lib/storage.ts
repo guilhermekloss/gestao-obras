@@ -1,4 +1,4 @@
-import { mkdir, writeFile, readFile } from "fs/promises";
+import { mkdir, writeFile, readFile, rm } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { Storage } from "@google-cloud/storage";
@@ -6,6 +6,8 @@ import { Storage } from "@google-cloud/storage";
 interface StorageDriver {
   salvar(buffer: Buffer, extensao: string): Promise<string>;
   ler(nomeArquivo: string): Promise<Buffer>;
+  // ausente não é erro: serve para desfazer um salvar cuja gravação no banco falhou
+  excluir(nomeArquivo: string): Promise<void>;
 }
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
@@ -26,6 +28,9 @@ const storageLocal: StorageDriver = {
     const seguro = path.basename(nomeArquivo);
     return readFile(path.join(UPLOADS_DIR, seguro));
   },
+  async excluir(nomeArquivo) {
+    await rm(path.join(UPLOADS_DIR, path.basename(nomeArquivo)), { force: true });
+  },
 };
 
 export function storageGcs(bucketName: string): StorageDriver {
@@ -41,6 +46,9 @@ export function storageGcs(bucketName: string): StorageDriver {
     async ler(nomeArquivo) {
       const [conteudo] = await bucket.file(PREFIXO + path.basename(nomeArquivo)).download();
       return conteudo;
+    },
+    async excluir(nomeArquivo) {
+      await bucket.file(PREFIXO + path.basename(nomeArquivo)).delete({ ignoreNotFound: true });
     },
   };
 }

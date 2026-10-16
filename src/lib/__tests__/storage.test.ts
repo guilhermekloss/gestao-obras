@@ -14,6 +14,9 @@ vi.mock("@google-cloud/storage", () => ({
           return {
             nome,
             save,
+            async delete() {
+              objetos.delete(nome);
+            },
             async download() {
               const conteudo = objetos.get(nome);
               if (!conteudo) throw new Error("No such object");
@@ -47,6 +50,16 @@ describe("storageGcs", () => {
     const url = await driver.salvar(Buffer.from("conteúdo"), "pdf");
     const lido = await driver.ler(url.replace("/api/fotos/", ""));
     expect(lido.toString()).toBe("conteúdo");
+  });
+
+  it("exclui só o objeto pedido, sob uploads/", async () => {
+    const driver = storageGcs("bucket-teste");
+    const url = await driver.salvar(Buffer.from("x"), "xml");
+    const nome = url.replace("/api/fotos/", "");
+    objetos.set("fora.xml", Buffer.from("fora de uploads/"));
+    await driver.excluir(`../${nome}`);
+    expect(objetos.has(`uploads/${nome}`)).toBe(false);
+    expect(objetos.has("fora.xml")).toBe(true);
   });
 
   it("impede path traversal na leitura", async () => {

@@ -3,26 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { storage } from "@/lib/storage";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
-import { formatarMoeda, formatarPercentBp, inputParaData } from "@/lib/format";
 import { parcelaSchema, rateioSchema } from "@/schemas/nota";
-import { validarParcelas } from "@/services/parcelas";
-import { validarRateio } from "@/services/rateio";
-import { buscarFornecedorPorDocumento, criarFornecedorValidado, fornecedorSchema } from "@/services/fornecedores";
+import { nomeDaUrlArquivo } from "@/services/arquivos";
+import { descricaoDoLancamento, registrarLancamento, type FornecedorDoLancamento } from "@/services/lancamento";
+import { buscarFornecedorPorDocumento, fornecedorSchema } from "@/services/fornecedores";
 import { formatarDocumento, parseNfeXml } from "@/services/nfe-xml";
-import { erroEtapasDoRateio } from "@/services/obras";
-import { correspondenciaItem, normalizarUnidade, type CorrespondenciaItem } from "@/services/materiais";
-import {
-  buscarMaterialPorNome,
-  carregarBaseMateriais,
-  criarMaterialValidado,
-  registrarApelido,
-} from "@/services/materiais-db";
+import { correspondenciaItem, type CorrespondenciaItem } from "@/services/materiais";
+import { carregarBaseMateriais } from "@/services/materiais-db";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -30,7 +22,7 @@ const importarSchema = z.object({
   xml: z.string().min(1, "Selecione o arquivo XML"),
   nomeArquivo: z.string().optional(),
   // na mesma ordem dos itens do XML
-  tipos: z.array(z.enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"])),
+  tipos: z.array(z.enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"])).max(500),
   // na mesma ordem dos itens do XML; "pendente" não passa: o usuário decide antes de importar
   materiais: z.array(
     z.discriminatedUnion("modo", [
@@ -42,9 +34,9 @@ const importarSchema = z.object({
         unidade: z.string().trim().min(1, "Informe a unidade do novo material").max(20),
       }),
     ]),
-  ),
-  rateios: z.array(rateioSchema).min(1, "Defina o rateio entre obras"),
-  parcelas: z.array(parcelaSchema).min(1, "A nota precisa de ao menos 1 parcela"),
+  ).max(500),
+  rateios: z.array(rateioSchema).min(1, "Defina o rateio entre obras").max(100),
+  parcelas: z.array(parcelaSchema).min(1, "A nota precisa de ao menos 1 parcela").max(360),
 });
 
 type ImportarNfeInput = z.infer<typeof importarSchema>;
@@ -101,166 +93,83 @@ export const importarNfe = acaoDeEscrita(
       return { ok: false, erro: "Os itens enviados não conferem com o XML — recarregue o arquivo." };
     }
 
-    const rateio = validarRateio(d.rateios);
-    if (!rateio.ok) {
-      return { ok: false, erro: `Rateio deve somar 100% (atual: ${formatarPercentBp(rateio.somaBp)})` };
-    }
-    const erroEtapa = await erroEtapasDoRateio(d.rateios);
-    if (erroEtapa) return { ok: false, erro: erroEtapa };
-    const parcelas = validarParcelas(d.parcelas, nfe.totalCents);
-    if (!parcelas.ok) {
-      return {
-        ok: false,
-        erro: `Soma das parcelas difere do total da nota em ${formatarMoeda(parcelas.diferencaCents)}`,
-      };
-    }
-
-    const existente = await notaPorChave(nfe.chave);
+    const existente = await buscarFornecedorPorDocumento(nfe.emitente.documento);
+    let fornecedor: FornecedorDoLancamento;
     if (existente) {
-      return {
-        ok: false,
-        erro: `Esta NF-e já foi importada (NF ${existente.numero}).`,
-        notaExistenteId: existente.id,
-      };
-    }
-
-    let fornecedorId = (await buscarFornecedorPorDocumento(nfe.emitente.documento))?.id;
-    let fornecedorCriado = false;
-    if (!fornecedorId) {
-      const dadosFornecedor = fornecedorSchema.safeParse({
+      fornecedor = { id: existente.id };
+    } else {
+      const dados = fornecedorSchema.safeParse({
         nome: nfe.emitente.razaoSocial,
         cnpj: formatarDocumento(nfe.emitente.documento),
         fone: nfe.emitente.fone ?? undefined,
       });
-      if (!dadosFornecedor.success) return { ok: false, erro: dadosFornecedor.error.issues[0].message };
-      const criado = await criarFornecedorValidado(dadosFornecedor.data);
-      if (!criado.ok) return { ok: false, erro: criado.erro };
-      fornecedorId = criado.fornecedor.id;
-      fornecedorCriado = true;
+      if (!dados.success) return { ok: false, erro: dados.error.issues[0].message };
+      fornecedor = { novo: dados.data };
     }
 
-    // mesma NF lançada à mão antes (sem chave): o @@unique(fornecedor, número) recusaria
-    const manual = await prisma.notaFiscal.findFirst({
-      where: { fornecedorId, numero: nfe.numero },
-      select: { id: true },
-    });
-    if (manual) {
-      return {
-        ok: false,
-        erro: `A NF ${nfe.numero} deste fornecedor já foi lançada manualmente.`,
-        notaExistenteId: manual.id,
-      };
-    }
-
+    // o arquivo é gravado antes (a nota guarda o endereço) e sai de novo se o lançamento não acontecer
     const anexoUrl = await storage.salvar(Buffer.from(d.xml, "utf8"), "xml");
+    const desfazerAnexo = async () => {
+      const nome = nomeDaUrlArquivo(anexoUrl);
+      if (nome) await storage.excluir(nome).catch(() => undefined);
+    };
 
-    let notaId: string;
+    let r: Awaited<ReturnType<typeof registrarLancamento>>;
     try {
-      notaId = await prisma.$transaction(async (tx) => {
-        const nota = await tx.notaFiscal.create({
-          data: {
-            fornecedorId: fornecedorId!,
-            numero: nfe.numero,
-            tipoDocumento: "NF",
-            chaveNfe: nfe.chave,
-            dataCompra: inputParaData(nfe.dataEmissao),
-            totalCents: nfe.totalCents,
-            formaPagto: nfe.formaPagto,
-            obs: `Importada do XML da NF-e${nfe.serie ? ` (série ${nfe.serie})` : ""}`,
-            anexoUrl,
-            anexoNome: d.nomeArquivo || `NFe${nfe.chave}.xml`,
-            createdBy: user.id,
-          },
-        });
-
-        await tx.rateioNota.createMany({
-          data: d.rateios.map((r) => ({
-            notaId: nota.id,
-            obraId: r.obraId,
-            etapaId: r.etapaId || null,
-            fracaoBp: r.fracaoBp,
-          })),
-        });
-
-        const materialIds: string[] = [];
-        for (const escolha of d.materiais) {
-          if (escolha.modo === "nenhum") {
-            materialIds.push("");
-          } else if (escolha.modo === "existente") {
-            const existe = await tx.material.findUnique({ where: { id: escolha.id }, select: { id: true } });
-            if (!existe) throw new Error("Um dos materiais escolhidos não existe mais — escolha de novo.");
-            materialIds.push(existe.id);
-          } else {
-            const igual = await buscarMaterialPorNome(escolha.nome, undefined, tx);
-            if (igual) {
-              materialIds.push(igual.id);
-              continue;
-            }
-            const criado = await criarMaterialValidado(
-              { nome: escolha.nome, unidade: normalizarUnidade(escolha.unidade), tipo: "MATERIAL" },
-              tx,
-            );
-            if (!criado.ok) throw new Error(criado.erro);
-            materialIds.push(criado.material.id);
-          }
-        }
-
-        await tx.itemNota.createMany({
-          data: nfe.itens.map((item, i) => ({
-            notaId: nota.id,
-            materialId: materialIds[i] || null,
-            descricao: item.descricao,
-            tipo: d.tipos[i],
-            qtde: item.qtde,
-            unidade: item.unidade,
-            unitCents: item.unitCents,
-            descontoCents: item.descontoCents,
-            totalCents: item.totalCents,
-          })),
-        });
-
-        // texto e código do produto viram apelido: a próxima nota do fornecedor liga sozinha
-        for (const [i, item] of nfe.itens.entries()) {
-          if (!materialIds[i]) continue;
-          await registrarApelido(tx, {
-            materialId: materialIds[i],
-            descricao: item.descricao,
-            fornecedorId: fornecedorId!,
-            codigoProduto: item.codigo,
-          });
-        }
-
-        await tx.parcela.createMany({
-          data: d.parcelas.map((p) => ({
-            notaId: nota.id,
-            numero: p.numero,
-            valorCents: p.valorCents,
-            vencimento: inputParaData(p.vencimento),
-          })),
-        });
-
-        return nota.id;
-      });
-    } catch (e) {
-      // corrida: outra importação da mesma chave terminou entre a checagem e a gravação
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-        const outra = await notaPorChave(nfe.chave);
-        return { ok: false, erro: "Esta NF-e acabou de ser importada.", notaExistenteId: outra?.id };
-      }
-      throw e;
+      r = await registrarLancamento(
+        {
+          fornecedor,
+          tipoDocumento: "NF",
+          numero: nfe.numero,
+          dataCompra: nfe.dataEmissao,
+          totalCents: nfe.totalCents,
+          formaPagto: nfe.formaPagto,
+          obs: `Importada do XML da NF-e${nfe.serie ? ` (série ${nfe.serie})` : ""}`,
+          anexoUrl,
+          anexoNome: d.nomeArquivo || `NFe${nfe.chave}.xml`,
+          chaveNfe: nfe.chave,
+          itens: nfe.itens.map((item, i) => {
+            const escolha = d.materiais[i];
+            return {
+              materialId: escolha.modo === "existente" ? escolha.id : undefined,
+              materialNovo: escolha.modo === "novo" ? { nome: escolha.nome, unidade: escolha.unidade } : undefined,
+              codigoProduto: item.codigo,
+              descricao: item.descricao,
+              tipo: d.tipos[i],
+              qtde: item.qtde,
+              unidade: item.unidade,
+              unitCents: item.unitCents,
+              descontoCents: item.descontoCents,
+              totalCents: item.totalCents,
+            };
+          }),
+          rateios: d.rateios,
+          parcelas: d.parcelas,
+          criadoPor: user.id,
+        },
+        // o leitor do XML já ajusta os itens ao total da nota: não há o que confirmar
+        { forcar: true },
+      );
+    } catch (erro) {
+      await desfazerAnexo();
+      throw erro;
+    }
+    if (!r.ok) {
+      await desfazerAnexo();
+      return { ok: false, erro: r.erro, notaExistenteId: r.notaExistenteId };
     }
 
     anotarAtividade({
-      descricao: `Importou a NF ${nfe.numero} — ${nfe.emitente.razaoSocial} (${formatarMoeda(nfe.totalCents)})${fornecedorCriado ? " e cadastrou o fornecedor" : ""}`,
+      descricao: `${descricaoDoLancamento("Importou", { tipoDocumento: "NF", numero: r.numero, totalCents: nfe.totalCents }, r.fornecedorNome)}${r.fornecedorCriado ? " e cadastrou o fornecedor" : ""}`,
       entidade: "nota",
-      entidadeId: notaId,
-      obraIds: d.rateios.map((r) => r.obraId),
+      entidadeId: r.notaId,
+      obraIds: d.rateios.map((x) => x.obraId),
       valorCents: nfe.totalCents,
     });
     revalidatePath("/notas");
     revalidatePath("/contas");
     revalidatePath("/materiais");
-    if (fornecedorCriado) revalidatePath("/fornecedores");
-    redirect(`/notas/${notaId}`);
+    if (r.fornecedorCriado) revalidatePath("/fornecedores");
+    redirect(`/notas/${r.notaId}`);
   },
 );
