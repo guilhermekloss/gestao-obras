@@ -47,6 +47,17 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 - Botão com verbo: "Salvar lançamento", "Registrar RDO", "Marcar como pagas".
 - Tema claro (padrão) e escuro ("Prancheta noturna"): botão no cabeçalho. A escolha vai no cookie `tema` e o servidor já entrega o `<html>` com a classe `dark` (sem piscar e sem script inline, por causa do CSP). A cor da barra do navegador (`generateViewport`) acompanha o tema. O bloco `.dark` só vale em tela: a impressão do RDO é sempre clara.
 
+## Dashboard: hierarquia e gráficos
+- Três blocos, nesta ordem: **Pede ação hoje** (parcelas a vencer e notas divergentes em destaque, alertas logo abaixo), **Como estão as obras** (gasto no mês, obras ativas, avanço físico, top insumos) e **Gráficos**. Os indicadores não têm o mesmo peso: o de maior peso é o dinheiro a vencer (número grande e botão cheio), depois as divergências, depois o gasto do mês; "Obras ativas" fica discreto.
+- `Pendencia` (em `dashboard/page.tsx`): faixa e selo de estado só quando há o que fazer; em dia, o cartão recua e o botão some.
+- Gráficos (Recharts) ficam em `dashboard-charts.tsx` e `cronograma/curva-s-chart.tsx`, com peças comuns em `src/components/grafico.tsx`:
+  - cores só dos tokens `--chart-*`; vermelho é estado, nunca série;
+  - **rótulo direto no lugar da legenda** (nome ao lado da última coluna, no fim da linha). Onde não cabe (contêiner abaixo de 560 px) vira lista de cores (`ChavesDeSerie`);
+  - valores em R$ abreviado nos eixos e rótulos (`formatarMoedaAbreviada`: "R$ 48,2 mil"); o valor completo fica no balão e na tabela;
+  - série planejada (orçado, previsto) é tracejada: a diferença não depende só da cor;
+  - balão (`TooltipGrafico`): abre com mouse, toque ou setas (Tab foca o gráfico) e fecha com Esc;
+  - `TabelaDoGrafico`: os mesmos números em tabela recolhida, o caminho para leitor de tela.
+
 ## Casca (menu e cabeçalho)
 - Cabeçalho fixo com o nome da seção atual (`TituloDaPagina`), botão de tema, Minha conta e Sair.
 - Menu lateral (desktop): item ativo com fundo `nav-ativo`, marca lateral e `aria-current="page"`; nome e papel do usuário no rodapé.

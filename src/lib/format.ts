@@ -10,6 +10,18 @@ export function formatarMoeda(cents: number): string {
   return moedaBR.format(cents / 100);
 }
 
+// R$ abreviado para eixos e rótulos de gráfico: "R$ 850", "R$ 48,2 mil", "R$ 1,3 mi".
+// Entrada em centavos. No máximo uma casa decimal, para o rótulo caber; espaço sem quebra para não separar "R$" do número.
+export function formatarMoedaAbreviada(cents: number): string {
+  const reais = cents / 100;
+  const abs = Math.abs(reais);
+  const sinal = reais < 0 ? "-" : "";
+  const num = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  if (abs >= 1_000_000) return `${sinal}R$\u00a0${num(abs / 1_000_000)}\u00a0mi`;
+  if (abs >= 1_000) return `${sinal}R$\u00a0${num(abs / 1_000)}\u00a0mil`;
+  return `${sinal}R$\u00a0${num(abs)}`;
+}
+
 export function moedaParaCents(valor: string): number {
   const limpo = valor.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
   const num = parseFloat(limpo);

@@ -65,7 +65,7 @@ export async function CurvaSWidget() {
   );
 
   return (
-    <Card className="lg:col-span-2">
+    <Card>
       <CardHeader>
         <CardTitle>Curva S — obras em andamento</CardTitle>
         <CardDescription>
