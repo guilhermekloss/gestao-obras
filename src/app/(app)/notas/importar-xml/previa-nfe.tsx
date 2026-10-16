@@ -6,15 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectNativo } from "@/components/select-nativo";
 import { CampoAjuda } from "@/components/campo-ajuda";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { formatarDocumento, type Nfe } from "@/services/nfe-xml";
 import type { SituacaoImportacao } from "./actions";
@@ -123,6 +115,61 @@ export function PreviaItens({
   catalogo: MaterialCatalogo[];
   onVinculo: (indice: number, vinculo: VinculoMaterial) => void;
 }) {
+  const colunas: ColunaDados<{ item: Nfe["itens"][number]; i: number }>[] = [
+    {
+      id: "descricao",
+      titulo: "Descrição",
+      papel: "titulo",
+      classe: "tabela:whitespace-normal",
+      celula: ({ item }) => (
+        <>
+          <p className={item.origem === "PRODUTO" ? "font-medium" : "italic"}>{item.descricao}</p>
+          {item.ncm && <p className="text-xs font-normal text-muted-foreground">NCM {item.ncm}</p>}
+        </>
+      ),
+    },
+    {
+      id: "tipo",
+      titulo: "Tipo",
+      papel: "estado",
+      classeCabecalho: "w-32",
+      celula: ({ i }) => (
+        <SelectNativo
+          aria-label={`Tipo do item ${i + 1}`}
+          className="h-8 text-sm pointer-coarse:h-10 cartao:h-10 cartao:w-40"
+          value={tipos[i]}
+          onChange={(e) => onTipo(i, e.target.value as TipoItem)}
+        >
+          {TIPOS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </SelectNativo>
+      ),
+    },
+    {
+      id: "qtde",
+      titulo: "Qtde",
+      numerica: true,
+      celula: ({ item }) => `${formatarQtde(item.qtde)} ${item.unidade}`,
+    },
+    { id: "unitario", titulo: "Unitário", numerica: true, celula: ({ item }) => formatarMoeda(item.unitCents) },
+    {
+      id: "desconto",
+      titulo: "Desconto",
+      numerica: true,
+      celula: ({ item }) => (item.descontoCents ? formatarMoeda(item.descontoCents) : null),
+    },
+    {
+      id: "total",
+      titulo: "Total",
+      papel: "valor",
+      numerica: true,
+      celula: ({ item }) => formatarMoeda(item.totalCents),
+    },
+  ];
+
   return (
     <Card>
       <CardHeader>
@@ -135,81 +182,31 @@ export function PreviaItens({
           </CampoAjuda>
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-0 sm:px-4">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="w-28 sm:w-32">Tipo</TableHead>
-              <TableHead className="hidden text-right sm:table-cell">Qtde</TableHead>
-              <TableHead className="hidden text-right md:table-cell">Unitário</TableHead>
-              <TableHead className="hidden text-right md:table-cell">Desconto</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {nfe.itens.flatMap((item, i) => [
-              <TableRow key={i} className={vinculos[i] ? "border-b-0" : undefined}>
-                <TableCell className="max-w-56 whitespace-normal md:max-w-none">
-                  <p className={item.origem === "PRODUTO" ? "font-medium" : "italic"}>{item.descricao}</p>
-                  <p className="text-xs text-muted-foreground">
-                    <span className="sm:hidden">
-                      {formatarQtde(item.qtde)} {item.unidade}
-                      {item.ncm && " · "}
-                    </span>
-                    {item.ncm && `NCM ${item.ncm}`}
-                  </p>
-                </TableCell>
-                <TableCell>
-                  <SelectNativo
-                    aria-label={`Tipo do item ${i + 1}`}
-                    className="h-8 text-sm"
-                    value={tipos[i]}
-                    onChange={(e) => onTipo(i, e.target.value as TipoItem)}
-                  >
-                    {TIPOS.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </SelectNativo>
-                </TableCell>
-                <TableCell className="hidden text-right whitespace-nowrap sm:table-cell">
-                  {formatarQtde(item.qtde)} {item.unidade}
-                </TableCell>
-                <TableCell className="hidden text-right md:table-cell">{formatarMoeda(item.unitCents)}</TableCell>
-                <TableCell className="hidden text-right md:table-cell">
-                  {item.descontoCents ? formatarMoeda(item.descontoCents) : "—"}
-                </TableCell>
-                <TableCell className="text-right font-medium">{formatarMoeda(item.totalCents)}</TableCell>
-              </TableRow>,
-              vinculos[i] && (
-                <TableRow key={`material-${i}`}>
-                  <TableCell colSpan={6} className="pt-0 whitespace-normal">
-                    <EscolhaMaterial
-                      vinculo={vinculos[i]}
-                      descricao={item.descricao}
-                      unidade={item.unidade}
-                      catalogo={catalogo}
-                      onChange={(v) => onVinculo(i, v)}
-                    />
-                  </TableCell>
-                </TableRow>
-              ),
-            ])}
-          </TableBody>
-          <TableFooter>
-            <TableRow>
-              {/* colSpan cobre todas as colunas, visíveis ou não, em qualquer largura */}
-              <TableCell colSpan={6}>
-                <div className="flex justify-between">
-                  <span>Total da nota</span>
-                  <span>{formatarMoeda(nfe.totalCents)}</span>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableFooter>
-        </Table>
+      <CardContent>
+        <ListaDeDados
+          legenda="Itens da NF-e"
+          linhas={nfe.itens.map((item, i) => ({ item, i }))}
+          chave={({ i }) => String(i)}
+          colunas={colunas}
+          classeDaLinha={({ i }) => (vinculos[i] ? "tabela:border-b-0" : undefined)}
+          linhaExtra={({ item, i }) =>
+            vinculos[i] && (
+              <EscolhaMaterial
+                vinculo={vinculos[i]}
+                descricao={item.descricao}
+                unidade={item.unidade}
+                catalogo={catalogo}
+                onChange={(v) => onVinculo(i, v)}
+              />
+            )
+          }
+          rodape={
+            <div className="flex justify-between">
+              <span>Total da nota</span>
+              <span className="num">{formatarMoeda(nfe.totalCents)}</span>
+            </div>
+          }
+        />
       </CardContent>
     </Card>
   );

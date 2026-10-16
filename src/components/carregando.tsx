@@ -59,32 +59,50 @@ export type ColunaSkeleton = {
   direita?: boolean;
 };
 
-/** Tabela com a mesma estrutura das telas: cabeçalho e linhas de verdade, traços no lugar do texto. */
+/**
+ * Lista com a mesma estrutura das telas: tabela quando cabe e, no celular, cartões
+ * (o mesmo corte de `ListaDeDados`), com traços no lugar do texto.
+ */
 export function TabelaSkeleton({ colunas, linhas = 8 }: { colunas: ColunaSkeleton[]; linhas?: number }) {
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {colunas.map((c, i) => (
-              <TableHead key={i} className={c.classe}>
-                <Skeleton className={cn("h-4 w-16", c.direita && "ml-auto")} />
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Array.from({ length: linhas }, (_, r) => (
-            <TableRow key={r} className="hover:bg-transparent">
+    <div className="@container">
+      <div aria-hidden className="hidden gap-2 cartao:grid">
+        {Array.from({ length: Math.min(linhas, 6) }, (_, r) => (
+          <div key={r} className="space-y-2 rounded-md border bg-card p-3">
+            <div className="flex items-start justify-between gap-3">
+              <Skeleton className="h-5 w-40 max-w-full" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-4 w-48 max-w-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-md border cartao:hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {colunas.map((c, i) => (
-                <TableCell key={i} className={c.classe}>
-                  <Skeleton className={cn("h-5 max-w-full", c.largura, c.direita && "ml-auto")} />
-                </TableCell>
+                <TableHead key={i} className={c.classe}>
+                  <Skeleton className={cn("h-4 w-16", c.direita && "ml-auto")} />
+                </TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: linhas }, (_, r) => (
+              <TableRow key={r} className="hover:bg-transparent">
+                {colunas.map((c, i) => (
+                  <TableCell key={i} className={c.classe}>
+                    <Skeleton className={cn("h-5 max-w-full", c.largura, c.direita && "ml-auto")} />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

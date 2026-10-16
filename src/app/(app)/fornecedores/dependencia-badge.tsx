@@ -1,13 +1,10 @@
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge, type Estado } from "@/components/status-badge";
 import type { NivelDependencia } from "@/services/dependencia";
 
-const CONFIG: Record<
-  NivelDependencia,
-  { label: string; variant: "destructive" | "default" | "secondary" }
-> = {
-  ALTA: { label: "Alta", variant: "destructive" },
-  MEDIA: { label: "Média", variant: "default" },
-  BAIXA: { label: "Baixa", variant: "secondary" },
+const CONFIG: Record<NivelDependencia, { label: string; estado: Estado }> = {
+  ALTA: { label: "Alta", estado: "vencido" },
+  MEDIA: { label: "Média", estado: "atencao" },
+  BAIXA: { label: "Baixa", estado: "no-prazo" },
 };
 
 export function DependenciaBadge({
@@ -21,8 +18,8 @@ export function DependenciaBadge({
 }) {
   const cfg = CONFIG[nivel];
   return (
-    <Badge variant={cfg.variant} className={className}>
+    <StatusBadge estado={cfg.estado} className={className}>
       {cfg.label} · {score}
-    </Badge>
+    </StatusBadge>
   );
 }

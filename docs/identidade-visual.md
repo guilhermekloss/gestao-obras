@@ -53,6 +53,21 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 - Barra inferior (celular): 4 itens + "Mais" com as demais telas, em folha que sobe da base. Perfil com até 4 telas (campo) não mostra "Mais". Rótulos completos, em até 2 linhas. Quais itens ficam na barra: campo `fixo` em `src/components/nav-itens.ts`.
 - Permissões por papel ficam em `nav-itens.ts` (`papeis`) e têm teste em `src/components/__tests__/nav-itens.test.ts`.
 
+## Listas e tabelas no celular
+Use `ListaDeDados` (`src/components/lista-de-dados.tsx`) em vez de `<Table>` solto. Há um único DOM; o CSS troca o desenho conforme a **largura do contêiner** (variantes `tabela:` e `cartao:` em `globals.css`, corte em 800 px). Isso vale também para colunas estreitas, como a equipe da obra.
+
+| Modo | Quando usar | Telas |
+|---|---|---|
+| `cartoes` (padrão) | Cada linha é um registro que se lê sozinho | Lançamentos, Contas, Fornecedores, Materiais, prévia da NF-e, usuários, convites, diário e equipe da obra, últimas notas/compras, acessos recentes |
+| `rolagem` | Comparar colunas importa (matriz ou análise) | Curva ABC, Fluxo mensal |
+
+- **Cartão:** cada coluna tem um `papel`: `titulo` (link que identifica a linha), `valor` (canto direito do título), `estado` (`StatusBadge`), `acao`, `selecao` e `detalhe` ("Rótulo: valor"). `semCartao` deixa a coluna só na tabela. Célula vazia vira "—" na tabela e some do cartão.
+- **Rolagem:** a primeira coluna fica fixa; a região rola com o teclado (`tabindex=0`, `role="region"`) e mostra a dica "Role para o lado…" quando estreita.
+- **Valores** (R$, quantidade, %): `numerica` → à direita, `num` (algarismos tabulares).
+- **Estado** sempre em `StatusBadge` (parcela, convite, situação do usuário, dependência do fornecedor, condição do RDO). **Categoria** (tipo de documento, papel do usuário, classe ABC) fica no `Badge`.
+- Link de linha: use `LINK_DA_LINHA` (44 px no celular). Botões de ícone da linha ganham texto no cartão.
+- Orçamento vs. realizado não usa `ListaDeDados`: é um formulário com campos editáveis e já vira cartão no celular.
+
 ## Carregando, erro e página não encontrada
 - **Carregando:** cada tela de lista tem `loading.tsx` (dashboard, notas, contas, obras, diário, cronograma) com esqueleto no desenho da tela, sem spinner. Use o `Skeleton` de `src/components/ui/skeleton.tsx` e os blocos de `src/components/carregando.tsx` (`Carregando`, `CabecalhoSkeleton`, `FiltrosSkeleton`, `TabelaSkeleton`). O pulso some com `prefers-reduced-motion`.
 - **Atenção ao colocar um `loading.tsx`:** ele envolve também as rotas filhas, e uma resposta que já começou a ser enviada não consegue mais devolver HTTP 404 no `notFound()` (o teste e2e do convite depende desse 404). Por isso, em obras, notas e diário o `page.tsx` da lista e o `loading.tsx` ficam no grupo `(lista)`, que não muda o endereço, e as telas de detalhe (`[id]`) ficam de fora. Há um teste que garante isso.

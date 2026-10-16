@@ -2,14 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { formatarData } from "@/lib/format";
 import { dataDoRdo, resumoClima, totalPessoas } from "@/services/rdo";
 import { CondicaoBadge } from "@/app/(app)/diario/condicao-badge";
@@ -50,6 +43,30 @@ export async function AbaDiario({ obra }: AbaObraProps) {
   const impraticaveis = dias("IMPRATICAVEL");
   const parciais = dias("PARCIAL");
 
+  const colunas: ColunaDados<(typeof rdos)[number]>[] = [
+    {
+      id: "data",
+      titulo: "Data",
+      papel: "titulo",
+      classe: "tabela:font-medium",
+      celula: (rdo) => (
+        <Link href={`/diario/${rdo.id}`} className={LINK_DA_LINHA}>
+          {formatarData(dataDoRdo(rdo.data))}
+        </Link>
+      ),
+    },
+    { id: "clima", titulo: "Clima", classe: "tabela:text-muted-foreground", celula: (rdo) => resumoClima(rdo) },
+    {
+      id: "condicao",
+      titulo: "Condição",
+      papel: "estado",
+      celula: (rdo) => (rdo.condicao ? <CondicaoBadge condicao={rdo.condicao} curto /> : null),
+    },
+    { id: "efetivo", titulo: "Efetivo", numerica: true, celula: (rdo) => totalPessoas(rdo.efetivo) || null },
+    { id: "fotos", titulo: "Fotos", numerica: true, celula: (rdo) => rdo._count.fotos || null },
+    { id: "autor", titulo: "Autor", classe: "tabela:text-muted-foreground", celula: (rdo) => rdo.autor?.nome },
+  ];
+
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
@@ -85,36 +102,12 @@ export async function AbaDiario({ obra }: AbaObraProps) {
           </EstadoVazio>
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Clima</TableHead>
-                  <TableHead>Condição</TableHead>
-                  <TableHead className="text-right">Efetivo</TableHead>
-                  <TableHead className="text-right">Fotos</TableHead>
-                  <TableHead>Autor</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rdos.map((rdo) => (
-                  <TableRow key={rdo.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/diario/${rdo.id}`} className="hover:underline">
-                        {formatarData(dataDoRdo(rdo.data))}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{resumoClima(rdo) ?? "—"}</TableCell>
-                    <TableCell>
-                      {rdo.condicao ? <CondicaoBadge condicao={rdo.condicao} curto /> : "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{totalPessoas(rdo.efetivo) || "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{rdo._count.fotos || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{rdo.autor?.nome ?? "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ListaDeDados
+              legenda="Diário de obra"
+              linhas={rdos}
+              chave={(rdo) => rdo.id}
+              colunas={colunas}
+            />
             {total > rdos.length && (
               <p className="mt-3 text-xs text-muted-foreground">
                 Mostrando os {rdos.length} mais recentes.{" "}

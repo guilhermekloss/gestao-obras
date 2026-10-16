@@ -12,14 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 
 const TIPOS: { value: TipoItem; label: string }[] = [
   { value: "MATERIAL", label: "Material" },
@@ -31,7 +24,7 @@ const TIPO_LABEL = Object.fromEntries(TIPOS.map((t) => [t.value, t.label])) as R
 
 const CLASSE_INFO: Record<ClasseAbc, { descricao: string; badge: "default" | "secondary" | "outline"; linha?: string }> = {
   // o insumo que cruza a linha fica na classe de cima (ver `classeAbc`)
-  A: { descricao: "primeiros ~80% do custo", badge: "default", linha: "bg-primary/5" },
+  A: { descricao: "primeiros ~80% do custo", badge: "default", linha: "bg-[color-mix(in_oklab,var(--card),var(--primary)_6%)]" },
   B: { descricao: "próximos ~15%", badge: "secondary" },
   C: { descricao: "restante (~5%)", badge: "outline" },
 };
@@ -67,6 +60,48 @@ export default async function CurvaAbcPage({
     }),
   ]);
   const { insumos, resumo, totalCents } = curva;
+  const linhas = insumos.map((i, idx) => ({ ...i, ordem: idx + 1 }));
+
+  // A primeira coluna (fixa ao rolar) leva posição, classe e nome: identifica o insumo sozinha.
+  const colunas: ColunaDados<(typeof linhas)[number]>[] = [
+    {
+      id: "insumo",
+      titulo: "Insumo",
+      classe: "w-40 min-w-40 whitespace-normal tabela:w-64 tabela:min-w-64",
+      celula: (i) => (
+        // celular: nome em cima, posição e classe embaixo; tabela larga: tudo numa linha
+        <span className="flex flex-col gap-1 tabela:flex-row tabela:items-start tabela:gap-2">
+          <span className={cn("order-1 min-w-0 tabela:order-2", i.classe === "A" && "font-medium")}>
+            {i.descricao}
+          </span>
+          <span className="order-2 flex items-center gap-2 tabela:order-1">
+            <span className="num min-w-5 text-muted-foreground tabela:text-right">{i.ordem}º</span>
+            <Badge variant={CLASSE_INFO[i.classe].badge} title={`Classe ${i.classe}`}>
+              {i.classe}
+            </Badge>
+          </span>
+        </span>
+      ),
+    },
+    { id: "tipo", titulo: "Tipo", celula: (i) => TIPO_LABEL[i.tipo] },
+    { id: "qtde", titulo: "Qtde", numerica: true, celula: (i) => `${formatarQtde(i.qtde)} ${i.unidade}` },
+    {
+      id: "preco",
+      titulo: "Preço médio",
+      numerica: true,
+      celula: (i) => (i.precoMedioCents !== null ? `${formatarMoeda(i.precoMedioCents)}/${i.unidade}` : "—"),
+    },
+    { id: "fornecedores", titulo: "Fornec.", numerica: true, celula: (i) => i.numFornecedores },
+    { id: "custo", titulo: "Custo", numerica: true, classe: "font-medium", celula: (i) => formatarMoeda(i.custoCents) },
+    { id: "part", titulo: "Part.", numerica: true, celula: (i) => formatarPercentBp(i.participacaoBp) },
+    {
+      id: "acum",
+      titulo: "Acum.",
+      numerica: true,
+      classe: "text-muted-foreground",
+      celula: (i) => formatarPercentBp(i.acumuladoBp),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -141,57 +176,15 @@ export default async function CurvaAbcPage({
         {insumos.length} insumo(s) · custo total {formatarMoeda(totalCents)}
       </p>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">#</TableHead>
-              <TableHead>Classe</TableHead>
-              <TableHead>Insumo</TableHead>
-              <TableHead className="hidden md:table-cell">Tipo</TableHead>
-              <TableHead className="hidden text-right md:table-cell">Qtde</TableHead>
-              <TableHead className="hidden text-right md:table-cell">Preço médio</TableHead>
-              <TableHead className="hidden text-right lg:table-cell">Fornec.</TableHead>
-              <TableHead className="text-right">Custo</TableHead>
-              <TableHead className="text-right">Part.</TableHead>
-              <TableHead className="hidden text-right sm:table-cell">Acum.</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {insumos.map((i, idx) => (
-              <TableRow key={i.chave} className={CLASSE_INFO[i.classe].linha}>
-                <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                <TableCell>
-                  <Badge variant={CLASSE_INFO[i.classe].badge}>{i.classe}</Badge>
-                </TableCell>
-                <TableCell className={cn("max-w-48 truncate md:max-w-none", i.classe === "A" && "font-medium")}>
-                  {i.descricao}
-                </TableCell>
-                <TableCell className="hidden md:table-cell">{TIPO_LABEL[i.tipo]}</TableCell>
-                <TableCell className="hidden text-right md:table-cell">
-                  {formatarQtde(i.qtde)} {i.unidade}
-                </TableCell>
-                <TableCell className="hidden text-right md:table-cell">
-                  {i.precoMedioCents !== null ? `${formatarMoeda(i.precoMedioCents)}/${i.unidade}` : "—"}
-                </TableCell>
-                <TableCell className="hidden text-right lg:table-cell">{i.numFornecedores}</TableCell>
-                <TableCell className="text-right font-medium">{formatarMoeda(i.custoCents)}</TableCell>
-                <TableCell className="text-right">{formatarPercentBp(i.participacaoBp)}</TableCell>
-                <TableCell className="hidden text-right text-muted-foreground sm:table-cell">
-                  {formatarPercentBp(i.acumuladoBp)}
-                </TableCell>
-              </TableRow>
-            ))}
-            {insumos.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground">
-                  Nenhum item de nota no filtro escolhido.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ListaDeDados
+        modo="rolagem"
+        legenda="Curva ABC de insumos"
+        linhas={linhas}
+        chave={(i) => i.chave}
+        colunas={colunas}
+        classeDaLinha={(i) => CLASSE_INFO[i.classe].linha}
+        vazio="Nenhum item de nota no filtro escolhido."
+      />
     </div>
   );
 }
