@@ -1,14 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { ConfirmButton } from "@/components/confirm-button";
 import { NovoFornecedorDialog, EditarFornecedorDialog } from "./fornecedor-dialogs";
 import { DependenciaBadge } from "./dependencia-badge";
@@ -32,9 +25,66 @@ export default async function FornecedoresPage() {
     .map((f) => ({ f, dep: dependencia.get(f.id) ?? null }))
     .sort((a, b) => (b.dep?.score ?? -1) - (a.dep?.score ?? -1));
 
+  const colunas: ColunaDados<(typeof linhas)[number]>[] = [
+    {
+      id: "nome",
+      titulo: "Nome",
+      papel: "titulo",
+      classe: "tabela:font-medium",
+      celula: ({ f }) => (
+        <Link href={`/fornecedores/${f.id}`} className={`${LINK_DA_LINHA} gap-1`}>
+          {f.nome}
+          <ChevronRight className="size-3.5 text-muted-foreground" />
+        </Link>
+      ),
+    },
+    { id: "cnpj", titulo: "CNPJ", classe: "cartao:empty:hidden", celula: ({ f }) => f.cnpj },
+    {
+      id: "gasto",
+      titulo: "Gasto total",
+      papel: "valor",
+      numerica: true,
+      celula: ({ dep }) => (dep ? formatarMoeda(dep.gastoCents) : "—"),
+    },
+    { id: "nfs", titulo: "NFs", numerica: true, celula: ({ f }) => f._count.notas },
+    {
+      id: "dependencia",
+      titulo: "Dependência",
+      papel: "estado",
+      celula: ({ dep }) =>
+        dep ? (
+          <DependenciaBadge nivel={dep.nivel} score={dep.score} />
+        ) : (
+          <span className="text-xs text-muted-foreground">sem compras</span>
+        ),
+    },
+    {
+      id: "acoes",
+      titulo: "Ações",
+      papel: "acao",
+      tituloOculto: true,
+      classeCabecalho: "w-24",
+      celula: ({ f }) => (
+        <div className="flex justify-end gap-1">
+          <EditarFornecedorDialog fornecedor={f} />
+          {user.role === "ADMIN" && (
+            <ConfirmButton
+              action={excluirFornecedor.bind(null, f.id)}
+              mensagem={`Excluir o fornecedor "${f.nome}"?`}
+              variant="ghost"
+              size="icon"
+            >
+              <Trash2 className="size-4 text-muted-foreground" />
+            </ConfirmButton>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl md:text-3xl">Fornecedores</h1>
         <NovoFornecedorDialog />
       </div>
@@ -42,62 +92,12 @@ export default async function FornecedoresPage() {
       {fornecedores.length === 0 ? (
         <p className="text-muted-foreground">Nenhum fornecedor cadastrado ainda.</p>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead className="hidden md:table-cell">CNPJ</TableHead>
-                <TableHead className="hidden lg:table-cell text-right">Gasto total</TableHead>
-                <TableHead className="text-right">NFs</TableHead>
-                <TableHead>Dependência</TableHead>
-                <TableHead className="w-24"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {linhas.map(({ f, dep }) => (
-                <TableRow key={f.id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/fornecedores/${f.id}`}
-                      className="inline-flex items-center gap-1 hover:underline"
-                    >
-                      {f.nome}
-                      <ChevronRight className="size-3.5 text-muted-foreground" />
-                    </Link>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">{f.cnpj ?? "—"}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-right">
-                    {dep ? formatarMoeda(dep.gastoCents) : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">{f._count.notas}</TableCell>
-                  <TableCell>
-                    {dep ? (
-                      <DependenciaBadge nivel={dep.nivel} score={dep.score} />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">sem compras</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <EditarFornecedorDialog fornecedor={f} />
-                      {user.role === "ADMIN" && (
-                        <ConfirmButton
-                          action={excluirFornecedor.bind(null, f.id)}
-                          mensagem={`Excluir o fornecedor "${f.nome}"?`}
-                          variant="ghost"
-                          size="icon"
-                        >
-                          <Trash2 className="size-4 text-muted-foreground" />
-                        </ConfirmButton>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ListaDeDados
+          legenda="Fornecedores"
+          linhas={linhas}
+          chave={({ f }) => f.id}
+          colunas={colunas}
+        />
       )}
     </div>
   );

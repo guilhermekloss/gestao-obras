@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Listas de dados (ListaDeDados): tabela ou cartões conforme a largura do contêiner, não da tela. */
+@custom-variant tabela (@container (min-width: 800px));
+@custom-variant cartao (@container (max-width: 799.98px));
 
 @theme inline {
   --color-background: var(--background);

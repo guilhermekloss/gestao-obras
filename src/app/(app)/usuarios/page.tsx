@@ -6,7 +6,8 @@ import { CATEGORIA_LABELS, situacaoDeUso, type CategoriaAtividade } from "@/serv
 import { STATUS_CONVITE_LABELS, type StatusConvite } from "@/services/convite";
 import { formatarData, formatarTempoRelativo } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
+import { StatusBadge, type Estado } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -133,7 +134,7 @@ function Indicador({
 
 function UltimoAcesso({ u, agora }: { u: UsuarioDaLista; agora: Date }) {
   const situacao = situacaoDeUso(u, agora);
-  if (situacao === "nunca") return <Badge variant="outline">Nunca entrou</Badge>;
+  if (situacao === "nunca") return <StatusBadge estado="neutro">Nunca entrou</StatusBadge>;
   if (!u.ultimoAcessoEm) return <span className="text-muted-foreground">—</span>;
   return (
     <span
@@ -171,59 +172,75 @@ function AbaPessoas({
   obras: { id: string; nome: string }[];
   agora: Date;
 }) {
+  const colunas: ColunaDados<UsuarioDaLista>[] = [
+    {
+      id: "usuario",
+      titulo: "Usuário",
+      papel: "titulo",
+      celula: (u) => (
+        <>
+          <Link href={`/usuarios/${u.id}`} className={`${LINK_DA_LINHA} font-medium`}>
+            {u.nome}
+          </Link>
+          <span className="block text-xs text-muted-foreground">{u.email}</span>
+        </>
+      ),
+    },
+    {
+      id: "papel",
+      titulo: "Papel",
+      papel: "estado",
+      celula: (u) => (
+        <div className="flex flex-wrap gap-1">
+          <Badge variant="secondary">{ROLE_LABELS[u.role]}</Badge>
+          {!u.ativo && <StatusBadge estado="neutro">Desativado</StatusBadge>}
+        </div>
+      ),
+    },
+    {
+      id: "obras",
+      titulo: "Obras",
+      classe: "text-sm",
+      celula: (u) => descreverAcessoObras(u.role, u.todasObras, u.nomesObras),
+    },
+    {
+      id: "acesso",
+      titulo: "Último acesso",
+      classe: "text-sm",
+      celula: (u) => <UltimoAcesso u={u} agora={agora} />,
+    },
+    {
+      id: "producao",
+      titulo: "Últimos 30 dias",
+      classe: "text-sm",
+      celula: (u) => <ResumoProducao u={u} />,
+    },
+    {
+      id: "editar",
+      titulo: "Editar",
+      papel: "acao",
+      tituloOculto: true,
+      classeCabecalho: "w-12",
+      celula: (u) => <EditarUsuarioDialog usuario={paraEdicao(u)} obras={obras} />,
+    },
+  ];
+
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Usuário</TableHead>
-            <TableHead>Papel</TableHead>
-            <TableHead className="hidden lg:table-cell">Obras</TableHead>
-            <TableHead className="hidden md:table-cell">Último acesso</TableHead>
-            <TableHead className="hidden md:table-cell">Últimos 30 dias</TableHead>
-            <TableHead className="w-12"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {usuarios.map((u) => (
-            <TableRow key={u.id} className={cn(!u.ativo && "opacity-60")}>
-              <TableCell>
-                <Link href={`/usuarios/${u.id}`} className="font-medium hover:underline">
-                  {u.nome}
-                </Link>
-                <span className="block text-xs text-muted-foreground">{u.email}</span>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  <Badge variant="secondary">{ROLE_LABELS[u.role]}</Badge>
-                  {!u.ativo && <Badge variant="outline">Desativado</Badge>}
-                </div>
-              </TableCell>
-              <TableCell className="hidden text-sm lg:table-cell">
-                {descreverAcessoObras(u.role, u.todasObras, u.nomesObras)}
-              </TableCell>
-              <TableCell className="hidden text-sm md:table-cell">
-                <UltimoAcesso u={u} agora={agora} />
-              </TableCell>
-              <TableCell className="hidden text-sm md:table-cell">
-                <ResumoProducao u={u} />
-              </TableCell>
-              <TableCell>
-                <EditarUsuarioDialog usuario={paraEdicao(u)} obras={obras} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <ListaDeDados
+      legenda="Pessoas com acesso"
+      linhas={usuarios}
+      chave={(u) => u.id}
+      colunas={colunas}
+      classeDaLinha={(u) => (u.ativo ? undefined : "opacity-60")}
+    />
   );
 }
 
-const COR_STATUS: Record<StatusConvite, "default" | "secondary" | "outline" | "destructive"> = {
-  PENDENTE: "default",
-  ACEITO: "secondary",
-  EXPIRADO: "outline",
-  REVOGADO: "outline",
+const ESTADO_CONVITE: Record<StatusConvite, Estado> = {
+  PENDENTE: "neutro",
+  ACEITO: "pago",
+  EXPIRADO: "atrasado",
+  REVOGADO: "neutro",
 };
 
 async function AbaConvites() {
@@ -235,61 +252,85 @@ async function AbaConvites() {
       </p>
     );
   }
+  const colunas: ColunaDados<(typeof convites)[number]>[] = [
+    {
+      id: "convidado",
+      titulo: "Convidado",
+      papel: "titulo",
+      celula: (c) => (
+        <>
+          {c.usuario ? (
+            <Link href={`/usuarios/${c.usuario.id}`} className={`${LINK_DA_LINHA} font-medium`}>
+              {c.usuario.nome}
+            </Link>
+          ) : (
+            <span className="font-medium">{c.nome ?? c.email ?? "Qualquer pessoa com o link"}</span>
+          )}
+          {c.email && <span className="block text-xs text-muted-foreground">{c.email}</span>}
+        </>
+      ),
+    },
+    {
+      id: "papel",
+      titulo: "Papel e obras",
+      classe: "text-sm",
+      celula: (c) => (
+        <>
+          <Badge variant="secondary">{ROLE_LABELS[c.role]}</Badge>
+          <span className="block text-xs text-muted-foreground">
+            {descreverAcessoObras(c.role, c.todasObras, c.nomesObras)}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: "situacao",
+      titulo: "Situação",
+      papel: "estado",
+      classe: "text-sm",
+      celula: (c) => (
+        <>
+          <StatusBadge estado={ESTADO_CONVITE[c.status]}>{STATUS_CONVITE_LABELS[c.status]}</StatusBadge>
+          <span className="block text-xs text-muted-foreground">
+            {c.status === "ACEITO" && c.usadoEm
+              ? `em ${formatarData(c.usadoEm)}`
+              : c.status === "PENDENTE"
+                ? `vale até ${formatarData(c.expiraEm)}`
+                : c.status === "EXPIRADO"
+                  ? `expirou em ${formatarData(c.expiraEm)}`
+                  : ""}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: "criadoPor",
+      titulo: "Criado por",
+      classe: "text-sm",
+      celula: (c) => (
+        <>
+          {c.criadoPor?.nome ?? "—"}
+          <span className="block text-xs text-muted-foreground">{formatarData(c.criadoEm)}</span>
+        </>
+      ),
+    },
+    {
+      id: "acoes",
+      titulo: "Ações",
+      papel: "acao",
+      tituloOculto: true,
+      celula: (c) =>
+        c.status !== "ACEITO" ? <AcoesConvite id={c.id} podeCancelar={c.status === "PENDENTE"} /> : null,
+    },
+  ];
+
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Convidado</TableHead>
-            <TableHead>Papel e obras</TableHead>
-            <TableHead className="hidden md:table-cell">Situação</TableHead>
-            <TableHead className="hidden lg:table-cell">Criado por</TableHead>
-            <TableHead className="text-right"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {convites.map((c) => (
-            <TableRow key={c.id}>
-              <TableCell>
-                {c.usuario ? (
-                  <Link href={`/usuarios/${c.usuario.id}`} className="font-medium hover:underline">
-                    {c.usuario.nome}
-                  </Link>
-                ) : (
-                  <span className="font-medium">{c.nome ?? c.email ?? "Qualquer pessoa com o link"}</span>
-                )}
-                {c.email && <span className="block text-xs text-muted-foreground">{c.email}</span>}
-              </TableCell>
-              <TableCell className="text-sm">
-                <Badge variant="secondary">{ROLE_LABELS[c.role]}</Badge>
-                <span className="block text-xs text-muted-foreground">
-                  {descreverAcessoObras(c.role, c.todasObras, c.nomesObras)}
-                </span>
-              </TableCell>
-              <TableCell className="hidden text-sm md:table-cell">
-                <Badge variant={COR_STATUS[c.status]}>{STATUS_CONVITE_LABELS[c.status]}</Badge>
-                <span className="block text-xs text-muted-foreground">
-                  {c.status === "ACEITO" && c.usadoEm
-                    ? `em ${formatarData(c.usadoEm)}`
-                    : c.status === "PENDENTE"
-                      ? `vale até ${formatarData(c.expiraEm)}`
-                      : c.status === "EXPIRADO"
-                        ? `expirou em ${formatarData(c.expiraEm)}`
-                        : ""}
-                </span>
-              </TableCell>
-              <TableCell className="hidden text-sm lg:table-cell">
-                {c.criadoPor?.nome ?? "—"}
-                <span className="block text-xs text-muted-foreground">{formatarData(c.criadoEm)}</span>
-              </TableCell>
-              <TableCell>
-                {c.status !== "ACEITO" && <AcoesConvite id={c.id} podeCancelar={c.status === "PENDENTE"} />}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <ListaDeDados
+      legenda="Convites"
+      linhas={convites}
+      chave={(c) => c.id}
+      colunas={colunas}
+    />
   );
 }
 

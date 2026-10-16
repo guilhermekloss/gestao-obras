@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
+import { StatusBadge, type Estado } from "@/components/status-badge";
 import { ConfirmButton } from "@/components/confirm-button";
 import { EditarUsuarioDialog } from "../usuario-dialogs";
 import { encerrarSessoesUsuario } from "../actions";
@@ -20,11 +21,11 @@ import { AlertTriangle, ArrowLeft, LogOut } from "lucide-react";
 
 const SEMANAS = 12;
 
-const SITUACAO: Record<ReturnType<typeof situacaoDeUso>, { rotulo: string; variante: "secondary" | "outline" | "destructive" }> = {
-  em_uso: { rotulo: "Em uso", variante: "secondary" },
-  nunca: { rotulo: "Nunca entrou", variante: "outline" },
-  parado: { rotulo: "Parado há 30+ dias", variante: "outline" },
-  inativo: { rotulo: "Desativado", variante: "destructive" },
+const SITUACAO: Record<ReturnType<typeof situacaoDeUso>, { rotulo: string; estado: Estado }> = {
+  em_uso: { rotulo: "Em uso", estado: "no-prazo" },
+  nunca: { rotulo: "Nunca entrou", estado: "neutro" },
+  parado: { rotulo: "Parado há 30+ dias", estado: "atencao" },
+  inativo: { rotulo: "Desativado", estado: "neutro" },
 };
 
 export default async function UsuarioPerfilPage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,6 +56,39 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
   const maxSemana = Math.max(1, ...semanas.map((s) => s.lancamentos + s.rdos + s.avancos));
   const totalPeriodo = semanas.reduce((acc, s) => acc + s.lancamentos + s.rdos + s.avancos, 0);
 
+  const colunasObras: ColunaDados<(typeof porObra)[number]>[] = [
+    {
+      id: "obra",
+      titulo: "Obra",
+      papel: "titulo",
+      celula: (p) => (
+        <span className="flex flex-wrap items-center gap-x-2">
+          <Link href={`/obras/${p.obraId}`} className={`${LINK_DA_LINHA} font-medium`}>
+            {p.nome}
+          </Link>
+          {!podeVerObra(restricao, p.obraId) && <StatusBadge estado="atencao">Sem acesso hoje</StatusBadge>}
+        </span>
+      ),
+    },
+    { id: "rdos", titulo: "RDOs", numerica: true, celula: (p) => p.rdos || null },
+    { id: "avancos", titulo: "Avanços", numerica: true, celula: (p) => p.medicoes || null },
+    { id: "lancamentos", titulo: "Lançamentos", numerica: true, celula: (p) => p.lancamentos || null },
+    {
+      id: "valor",
+      titulo: "Valor lançado",
+      papel: "valor",
+      numerica: true,
+      celula: (p) => (p.valorCents ? formatarMoeda(p.valorCents) : null),
+    },
+    {
+      id: "ultimo",
+      titulo: "Último registro",
+      numerica: true,
+      classe: "tabela:text-muted-foreground",
+      celula: (p) => formatarTempoRelativo(p.ultimaEm, agora),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <Button variant="ghost" size="sm" render={<Link href="/usuarios" />}>
@@ -66,7 +100,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl md:text-3xl">{usuario.nome}</h1>
             <Badge variant="secondary">{ROLE_LABELS[usuario.role]}</Badge>
-            <Badge variant={situacao.variante}>{situacao.rotulo}</Badge>
+            <StatusBadge estado={situacao.estado}>{situacao.rotulo}</StatusBadge>
           </div>
           <p className="text-sm text-muted-foreground">{usuario.email}</p>
           <p className="text-xs text-muted-foreground">
@@ -191,43 +225,12 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
           {porObra.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum registro em obras ainda.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Obra</TableHead>
-                  <TableHead className="text-right">RDOs</TableHead>
-                  <TableHead className="text-right">Avanços</TableHead>
-                  <TableHead className="text-right">Lançamentos</TableHead>
-                  <TableHead className="hidden text-right md:table-cell">Valor lançado</TableHead>
-                  <TableHead className="hidden text-right sm:table-cell">Último registro</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {porObra.map((p) => (
-                  <TableRow key={p.obraId}>
-                    <TableCell>
-                      <Link href={`/obras/${p.obraId}`} className="font-medium hover:underline">
-                        {p.nome}
-                      </Link>
-                      {!podeVerObra(restricao, p.obraId) && (
-                        <Badge variant="outline" className="ml-2">
-                          sem acesso hoje
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">{p.rdos || "—"}</TableCell>
-                    <TableCell className="text-right">{p.medicoes || "—"}</TableCell>
-                    <TableCell className="text-right">{p.lancamentos || "—"}</TableCell>
-                    <TableCell className="hidden text-right md:table-cell">
-                      {p.valorCents ? formatarMoeda(p.valorCents) : "—"}
-                    </TableCell>
-                    <TableCell className="hidden text-right text-muted-foreground sm:table-cell">
-                      {formatarTempoRelativo(p.ultimaEm, agora)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ListaDeDados
+              legenda="Atuação por obra"
+              linhas={porObra}
+              chave={(p) => p.obraId}
+              colunas={colunasObras}
+            />
           )}
         </CardContent>
       </Card>

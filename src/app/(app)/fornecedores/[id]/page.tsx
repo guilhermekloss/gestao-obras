@@ -4,14 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { EditarFornecedorDialog } from "../fornecedor-dialogs";
 import { DependenciaBadge } from "../dependencia-badge";
 import { calcularDependencia, PESOS } from "@/services/dependencia";
@@ -86,6 +79,28 @@ export default async function FornecedorDetalhePage({
   const tipos = [...gastoPorTipo.entries()].sort((a, b) => b[1] - a[1]);
   const obras = [...gastoPorObra.values()].sort((a, b) => b.cents - a.cents);
   const exclusivos = [...itensExclusivos.values()].sort((a, b) => b.cents - a.cents);
+
+  const colunasNotas: ColunaDados<(typeof fornecedor.notas)[number]>[] = [
+    { id: "data", titulo: "Data", celula: (n) => formatarData(n.dataCompra) },
+    {
+      id: "documento",
+      titulo: "Documento",
+      papel: "titulo",
+      celula: (n) => (
+        <Link href={`/notas/${n.id}`} className={LINK_DA_LINHA}>
+          {n.numero}
+        </Link>
+      ),
+    },
+    { id: "itens", titulo: "Itens", numerica: true, celula: (n) => n._count.itens },
+    {
+      id: "total",
+      titulo: "Total",
+      papel: "valor",
+      numerica: true,
+      celula: (n) => formatarMoeda(n.totalCents),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -258,36 +273,12 @@ export default async function FornecedorDetalhePage({
               {fornecedor.notas.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhuma nota fiscal.</p>
               ) : (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Documento</TableHead>
-                        <TableHead className="hidden md:table-cell text-right">Itens</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {fornecedor.notas.map((n) => (
-                        <TableRow key={n.id}>
-                          <TableCell>{formatarData(n.dataCompra)}</TableCell>
-                          <TableCell>
-                            <Link href={`/notas/${n.id}`} className="hover:underline">
-                              {n.numero}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell text-right">
-                            {n._count.itens}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatarMoeda(n.totalCents)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <ListaDeDados
+                  legenda="Últimas notas do fornecedor"
+                  linhas={fornecedor.notas}
+                  chave={(n) => n.id}
+                  colunas={colunasNotas}
+                />
               )}
             </CardContent>
           </Card>
