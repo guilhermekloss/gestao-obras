@@ -5,14 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { formatarMoeda, formatarData } from "@/lib/format";
 import { TIPO_DOCUMENTO_BADGE, TIPO_DOCUMENTO_LABELS } from "@/services/financeiro";
 import type { TipoDocumento } from "@prisma/client";
@@ -69,10 +62,136 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
     .filter((p) => selecionadas.has(p.id))
     .reduce((acc, p) => acc + p.valorCents, 0);
 
+  function alternarTodas() {
+    setSelecionadas(todasSelecionadas ? new Set() : new Set(abertas.map((p) => p.id)));
+  }
+
+  const colunas: ColunaDados<ParcelaLinha>[] = [
+    {
+      id: "selecao",
+      titulo: "Selecionar",
+      papel: "selecao",
+      tituloOculto: true,
+      classeCabecalho: "w-10",
+      cabecalho: (
+        <label className="-m-2 flex size-10 cursor-pointer items-center justify-center cartao:hidden">
+          <input
+            type="checkbox"
+            aria-label="Selecionar todas"
+            className="size-4 pointer-coarse:size-6"
+            checked={todasSelecionadas}
+            onChange={alternarTodas}
+          />
+        </label>
+      ),
+      celula: (p) =>
+        p.status === "ABERTA" ? (
+          <label className="-m-2 flex size-10 cursor-pointer items-center justify-center">
+            <input
+              type="checkbox"
+              aria-label={`Selecionar parcela ${p.numero}/${p.totalParcelas} de ${p.fornecedor}`}
+              className="size-4 pointer-coarse:size-6"
+              checked={selecionadas.has(p.id)}
+              onChange={() => toggle(p.id)}
+            />
+          </label>
+        ) : (
+          // mantém o recuo do título igual ao das parcelas abertas
+          <span aria-hidden className="block size-6" />
+        ),
+    },
+    {
+      id: "vencimento",
+      titulo: "Vencimento",
+      celula: (p) => (
+        <span className={p.vencida ? "font-bold text-estado-vencido-fg" : undefined}>
+          {formatarData(p.vencimento)}
+        </span>
+      ),
+    },
+    {
+      id: "fornecedor",
+      titulo: "Fornecedor",
+      papel: "titulo",
+      classe: "tabela:font-medium",
+      celula: (p) => (
+        <Link href={`/notas/${p.notaId}`} className={LINK_DA_LINHA}>
+          {p.fornecedor}
+        </Link>
+      ),
+    },
+    {
+      id: "documento",
+      titulo: "Documento",
+      celula: (p) => (
+        <span className="inline-flex items-center gap-1.5">
+          <Badge
+            variant={p.tipoDocumento === "NF" ? "outline" : "secondary"}
+            title={TIPO_DOCUMENTO_LABELS[p.tipoDocumento]}
+          >
+            {TIPO_DOCUMENTO_BADGE[p.tipoDocumento]}
+          </Badge>
+          {p.notaNumero}
+        </span>
+      ),
+    },
+    {
+      id: "obras",
+      titulo: "Obras",
+      classe: "tabela:max-w-48 tabela:truncate",
+      celula: (p) => p.obras || null,
+    },
+    { id: "parcela", titulo: "Parcela", celula: (p) => `${p.numero}/${p.totalParcelas}` },
+    {
+      id: "status",
+      titulo: "Status",
+      papel: "estado",
+      celula: (p) => (
+        <StatusBadge estado={p.status === "PAGA" ? "pago" : p.vencida ? "vencido" : "neutro"}>
+          {p.status === "PAGA" ? "Paga" : p.vencida ? "Vencida" : "Aberta"}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: "valor",
+      titulo: "Valor",
+      papel: "valor",
+      numerica: true,
+      classe: "tabela:text-base",
+      celula: (p) => formatarMoeda(p.valorCents),
+    },
+    {
+      id: "acoes",
+      titulo: "Ações",
+      papel: "acao",
+      tituloOculto: true,
+      classeCabecalho: "w-10",
+      celula: (p) =>
+        p.status === "PAGA" ? (
+          <Button
+            variant="ghost"
+            title="Reabrir parcela"
+            // celular: botão com texto; desktop: só o ícone, como os outros botões de ícone
+            className="tabela:size-8 tabela:px-0 tabela:pointer-coarse:size-10"
+            onClick={() =>
+              startTransition(async () => {
+                const res = await reabrirParcela(p.id);
+                if (!res.ok) toast.error(res.erro ?? "Erro");
+              })
+            }
+          >
+            <Undo2 className="size-4 text-muted-foreground" />
+            <span className="tabela:sr-only">Reabrir parcela</span>
+          </Button>
+        ) : null,
+    },
+  ];
+
   return (
-    <div className="space-y-3">
+    <div className="@container space-y-3">
       {selecionadas.size > 0 && (
-        <div className="flex items-center gap-3 rounded-md border bg-accent/50 p-2">
+        // no celular a barra acompanha a rolagem, acima do menu de baixo
+        <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-primary bg-card p-2 md:static md:border-border md:bg-accent/50">
           <span className="text-sm">
             {selecionadas.size} selecionada(s) · {formatarMoeda(totalSelecionado)}
           </span>
@@ -83,107 +202,29 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
         </div>
       )}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <label className="-m-2 flex size-10 cursor-pointer items-center justify-center">
-                  <input
-                    type="checkbox"
-                    aria-label="Selecionar todas"
-                    className="size-4 pointer-coarse:size-6"
-                    checked={todasSelecionadas}
-                    onChange={() =>
-                      setSelecionadas(
-                        todasSelecionadas ? new Set() : new Set(abertas.map((p) => p.id)),
-                      )
-                    }
-                  />
-                </label>
-              </TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Fornecedor</TableHead>
-              <TableHead className="hidden md:table-cell">Documento</TableHead>
-              <TableHead className="hidden lg:table-cell">Obras</TableHead>
-              <TableHead>Parcela</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-              <TableHead className="w-10"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {parcelas.map((p) => (
-              <TableRow key={p.id} className={p.vencida ? "bg-estado-vencido/40 shadow-[inset_4px_0_0_var(--estado-vencido-borda)]" : ""}>
-                <TableCell>
-                  {p.status === "ABERTA" && (
-                    <label className="-m-2 flex size-10 cursor-pointer items-center justify-center">
-                      <input
-                        type="checkbox"
-                        aria-label={`Selecionar parcela ${p.numero}/${p.totalParcelas} de ${p.fornecedor}`}
-                        className="size-4 pointer-coarse:size-6"
-                        checked={selecionadas.has(p.id)}
-                        onChange={() => toggle(p.id)}
-                      />
-                    </label>
-                  )}
-                </TableCell>
-                <TableCell className={p.vencida ? "font-bold text-estado-vencido-fg" : ""}>
-                  {formatarData(p.vencimento)}
-                </TableCell>
-                <TableCell className="max-w-36 truncate font-medium md:max-w-none">
-                  <Link
-                    href={`/notas/${p.notaId}`}
-                    className="hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center"
-                  >
-                    {p.fornecedor}
-                  </Link>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <div className="flex items-center gap-1.5">
-                    <Badge
-                      variant={p.tipoDocumento === "NF" ? "outline" : "secondary"}
-                      title={TIPO_DOCUMENTO_LABELS[p.tipoDocumento]}
-                    >
-                      {TIPO_DOCUMENTO_BADGE[p.tipoDocumento]}
-                    </Badge>
-                    {p.notaNumero}
-                  </div>
-                </TableCell>
-                <TableCell className="hidden max-w-48 truncate lg:table-cell">{p.obras}</TableCell>
-                <TableCell>
-                  {p.numero}/{p.totalParcelas}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge estado={p.status === "PAGA" ? "pago" : p.vencida ? "vencido" : "neutro"}>
-                    {p.status === "PAGA" ? "Paga" : p.vencida ? "Vencida" : "Aberta"}
-                  </StatusBadge>
-                </TableCell>
-                <TableCell className="text-right num text-base">
-                  {formatarMoeda(p.valorCents)}
-                </TableCell>
-                <TableCell>
-                  {p.status === "PAGA" && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Reabrir parcela"
-                      onClick={() =>
-                        startTransition(async () => {
-                          const res = await reabrirParcela(p.id);
-                          if (!res.ok) toast.error(res.erro ?? "Erro");
-                        })
-                      }
-                    >
-                      <Undo2 className="size-4 text-muted-foreground" />
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {abertas.length > 0 && (
+        // o cabeçalho da tabela some no celular; este controle ocupa o lugar dele
+        <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm tabela:hidden">
+          <input
+            type="checkbox"
+            className="size-6"
+            checked={todasSelecionadas}
+            onChange={alternarTodas}
+          />
+          Selecionar todas as abertas
+        </label>
+      )}
+
+      <ListaDeDados
+        legenda="Parcelas"
+        linhas={parcelas}
+        chave={(p) => p.id}
+        colunas={colunas}
+        classeDaLinha={(p) =>
+          p.vencida ? "bg-estado-vencido/40 shadow-[inset_4px_0_0_var(--estado-vencido-borda)]" : undefined
+        }
+        vazio="Nenhuma parcela nesta visão."
+      />
     </div>
   );
 }

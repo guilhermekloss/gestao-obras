@@ -5,7 +5,8 @@ import { chaveEmail } from "@/services/protecao-login";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
+import { StatusBadge } from "@/components/status-badge";
 import { LogOut } from "lucide-react";
 import { encerrarMinhasSessoes } from "./actions";
 import { SenhaForm } from "./senha-form";
@@ -24,6 +25,27 @@ export default async function ContaPage() {
     take: 10,
     select: { id: true, criadoEm: true, ip: true, sucesso: true },
   });
+
+  const colunasAcessos: ColunaDados<(typeof acessos)[number]>[] = [
+    { id: "quando", titulo: "Quando", papel: "titulo", celula: (a) => dataHora.format(a.criadoEm) },
+    {
+      id: "ip",
+      titulo: "Origem (IP)",
+      classe: "font-mono text-xs",
+      celula: (a) => a.ip ?? "—",
+    },
+    {
+      id: "resultado",
+      titulo: "Resultado",
+      papel: "estado",
+      celula: (a) =>
+        a.sucesso ? (
+          <StatusBadge estado="pago">Entrou</StatusBadge>
+        ) : (
+          <StatusBadge estado="atencao">Senha errada</StatusBadge>
+        ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -55,30 +77,12 @@ export default async function ContaPage() {
           {acessos.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum acesso registrado ainda.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Quando</TableHead>
-                  <TableHead>Origem (IP)</TableHead>
-                  <TableHead>Resultado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {acessos.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{dataHora.format(a.criadoEm)}</TableCell>
-                    <TableCell className="font-mono text-xs">{a.ip ?? "—"}</TableCell>
-                    <TableCell>
-                      {a.sucesso ? (
-                        <Badge variant="secondary">Entrou</Badge>
-                      ) : (
-                        <Badge variant="destructive">Senha errada</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ListaDeDados
+              legenda="Acessos recentes"
+              linhas={acessos}
+              chave={(a) => a.id}
+              colunas={colunasAcessos}
+            />
           )}
           <form action={encerrarMinhasSessoes}>
             <Button type="submit" variant="outline">

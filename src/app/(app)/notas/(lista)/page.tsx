@@ -1,17 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, TipoDocumento } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Input } from "@/components/ui/input";
 import { SelectNativo } from "@/components/select-nativo";
@@ -25,6 +19,83 @@ import {
   parseTipoDocumento,
 } from "@/services/financeiro";
 import { FileCode2, Paperclip, Plus } from "lucide-react";
+
+type Nota = {
+  id: string;
+  dataCompra: Date;
+  numero: string;
+  tipoDocumento: TipoDocumento;
+  formaPagto: keyof typeof FORMA_PAGTO_LABELS;
+  anexoUrl: string | null;
+  totalCents: number;
+  fornecedor: { nome: string };
+  parcelas: { status: string }[];
+  _count: { itens: number };
+};
+
+const COLUNAS: ColunaDados<Nota>[] = [
+  { id: "data", titulo: "Data", celula: (n) => formatarData(n.dataCompra) },
+  {
+    id: "fornecedor",
+    titulo: "Fornecedor",
+    papel: "titulo",
+    classe: "tabela:font-medium",
+    celula: (n) => (
+      <Link href={`/notas/${n.id}`} className={LINK_DA_LINHA}>
+        {n.fornecedor.nome}
+      </Link>
+    ),
+  },
+  {
+    id: "documento",
+    titulo: "Documento",
+    celula: (n) => (
+      <span className="inline-flex items-center gap-1.5">
+        <Badge
+          variant={n.tipoDocumento === "NF" ? "outline" : "secondary"}
+          title={TIPO_DOCUMENTO_LABELS[n.tipoDocumento]}
+        >
+          {TIPO_DOCUMENTO_BADGE[n.tipoDocumento]}
+        </Badge>
+        {n.numero}
+        {n.anexoUrl && (
+          <a
+            href={n.anexoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Ver anexo"
+            aria-label={`Ver anexo do documento ${n.numero}`}
+            className="-m-3.5 p-3.5 tabela:m-0 tabela:p-0"
+          >
+            <Paperclip className="size-4 text-muted-foreground hover:text-foreground" />
+          </a>
+        )}
+      </span>
+    ),
+  },
+  { id: "forma", titulo: "Forma", semCartao: true, celula: (n) => FORMA_PAGTO_LABELS[n.formaPagto] },
+  { id: "itens", titulo: "Itens", semCartao: true, celula: (n) => n._count.itens },
+  {
+    id: "parcelas",
+    titulo: "Parcelas",
+    papel: "estado",
+    celula: (n) => {
+      const pagas = n.parcelas.filter((p) => p.status === "PAGA").length;
+      return (
+        <StatusBadge estado={n.parcelas.length > 0 && pagas === n.parcelas.length ? "pago" : "neutro"}>
+          {pagas}/{n.parcelas.length} pagas
+        </StatusBadge>
+      );
+    },
+  },
+  {
+    id: "total",
+    titulo: "Total",
+    papel: "valor",
+    numerica: true,
+    celula: (n) => formatarMoeda(n.totalCents),
+  },
+];
 
 export default async function NotasPage({
   searchParams,
@@ -65,9 +136,9 @@ export default async function NotasPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl md:text-3xl">Lançamentos</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" render={<Link href="/notas/importar-xml" />}>
             <FileCode2 className="size-4" /> Importar XML
           </Button>
@@ -124,74 +195,13 @@ export default async function NotasPage({
         {notas.length} {notas.length === 1 ? "lançamento" : "lançamentos"} · total {formatarMoeda(totalPeriodo)}
       </p>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Data</TableHead>
-              <TableHead>Fornecedor</TableHead>
-              <TableHead>Documento</TableHead>
-              <TableHead className="hidden md:table-cell">Forma</TableHead>
-              <TableHead className="hidden md:table-cell">Itens</TableHead>
-              <TableHead>Parcelas</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {notas.map((n) => {
-              const pagas = n.parcelas.filter((p) => p.status === "PAGA").length;
-              return (
-                <TableRow key={n.id}>
-                  <TableCell>{formatarData(n.dataCompra)}</TableCell>
-                  <TableCell className="max-w-40 truncate font-medium md:max-w-none">
-                    <Link href={`/notas/${n.id}`} className="hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center">
-                      {n.fornecedor.nome}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <Badge
-                        variant={n.tipoDocumento === "NF" ? "outline" : "secondary"}
-                        title={TIPO_DOCUMENTO_LABELS[n.tipoDocumento]}
-                      >
-                        {TIPO_DOCUMENTO_BADGE[n.tipoDocumento]}
-                      </Badge>
-                      {n.numero}
-                      {n.anexoUrl && (
-                        <a
-                          href={n.anexoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Ver anexo"
-                        >
-                          <Paperclip className="size-3.5 text-muted-foreground hover:text-foreground" />
-                        </a>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">{FORMA_PAGTO_LABELS[n.formaPagto]}</TableCell>
-                  <TableCell className="hidden md:table-cell">{n._count.itens}</TableCell>
-                  <TableCell>
-                    <Badge variant={pagas === n.parcelas.length ? "secondary" : "outline"}>
-                      {pagas}/{n.parcelas.length} pagas
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatarMoeda(n.totalCents)}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {notas.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Nenhum lançamento encontrado.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ListaDeDados
+        legenda="Lançamentos"
+        linhas={notas}
+        chave={(n) => n.id}
+        colunas={COLUNAS}
+        vazio="Nenhum lançamento encontrado."
+      />
     </div>
   );
 }

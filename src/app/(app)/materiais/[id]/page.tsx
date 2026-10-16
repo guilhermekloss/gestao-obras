@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { ConfirmButton } from "@/components/confirm-button";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { EditarMaterialDialog, MesclarMaterialButton } from "../material-dialogs";
@@ -33,6 +33,28 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
 
   const apelidosTexto = material.apelidos.filter((a) => !a.codigoProduto);
   const apelidosCodigo = material.apelidos.filter((a) => a.codigoProduto);
+
+  const colunasCompras: ColunaDados<(typeof material.itens)[number]>[] = [
+    {
+      id: "compra",
+      titulo: "Data",
+      papel: "titulo",
+      celula: (i) => (
+        <Link href={`/notas/${i.nota.id}`} className={LINK_DA_LINHA}>
+          {formatarData(i.nota.dataCompra)} · NF {i.nota.numero}
+        </Link>
+      ),
+    },
+    { id: "fornecedor", titulo: "Fornecedor", celula: (i) => i.nota.fornecedor.nome },
+    { id: "qtde", titulo: "Qtde", numerica: true, celula: (i) => `${Number(i.qtde)} ${i.unidade}` },
+    {
+      id: "unitario",
+      titulo: "Unitário",
+      papel: "valor",
+      numerica: true,
+      celula: (i) => formatarMoeda(i.unitCents),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -114,32 +136,12 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
           {material.itens.length === 0 ? (
             <p className="text-sm text-muted-foreground">Ainda não foi lançado em nenhuma nota.</p>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead className="text-right">Qtde</TableHead>
-                    <TableHead className="text-right">Unitário</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {material.itens.map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell>
-                        <Link href={`/notas/${i.nota.id}`} className="hover:underline">
-                          {formatarData(i.nota.dataCompra)} · NF {i.nota.numero}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{i.nota.fornecedor.nome}</TableCell>
-                      <TableCell className="text-right">{Number(i.qtde)} {i.unidade}</TableCell>
-                      <TableCell className="text-right">{formatarMoeda(i.unitCents)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ListaDeDados
+              legenda="Últimas compras do material"
+              linhas={material.itens}
+              chave={(i) => i.id}
+              colunas={colunasCompras}
+            />
           )}
         </CardContent>
       </Card>

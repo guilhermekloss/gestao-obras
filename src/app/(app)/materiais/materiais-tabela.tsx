@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { SelectNativo } from "@/components/select-nativo";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { chaveMaterial } from "@/services/materiais";
 import { formatarMoeda } from "@/lib/format";
 import { ChevronRight } from "lucide-react";
@@ -18,6 +18,43 @@ export type LinhaMaterial = {
   apelidos: string[];
   ultimoPrecoCents: number | null;
 };
+
+const COLUNAS: ColunaDados<LinhaMaterial>[] = [
+  {
+    id: "material",
+    titulo: "Material",
+    papel: "titulo",
+    classe: "tabela:font-medium",
+    celula: (l) => (
+      <Link href={`/materiais/${l.id}`} className={LINK_DA_LINHA}>
+        {l.nome}
+      </Link>
+    ),
+  },
+  { id: "categoria", titulo: "Categoria", classe: "tabela:text-muted-foreground", celula: (l) => l.categoria },
+  { id: "unidade", titulo: "Und", celula: (l) => l.unidade },
+  {
+    id: "preco",
+    titulo: "Último preço",
+    papel: "valor",
+    numerica: true,
+    celula: (l) => (l.ultimoPrecoCents === null ? "—" : formatarMoeda(l.ultimoPrecoCents)),
+  },
+  { id: "usos", titulo: "Usos", numerica: true, celula: (l) => l.usos },
+  {
+    id: "abrir",
+    titulo: "Abrir",
+    papel: "acao",
+    semCartao: true,
+    tituloOculto: true,
+    classeCabecalho: "w-10",
+    celula: (l) => (
+      <Link href={`/materiais/${l.id}`} className="inline-flex" title="Abrir material" aria-label={`Abrir ${l.nome}`}>
+        <ChevronRight className="size-4 text-muted-foreground" />
+      </Link>
+    ),
+  },
+];
 
 export function MateriaisTabela({ linhas }: { linhas: LinhaMaterial[] }) {
   const [busca, setBusca] = useState("");
@@ -57,42 +94,13 @@ export function MateriaisTabela({ linhas }: { linhas: LinhaMaterial[] }) {
         </span>
       </div>
 
-      {visiveis.length === 0 ? (
-        <p className="text-muted-foreground">Nenhum material encontrado.</p>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Material</TableHead>
-                <TableHead className="hidden md:table-cell">Categoria</TableHead>
-                <TableHead>Und</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">Último preço</TableHead>
-                <TableHead className="text-right">Usos</TableHead>
-                <TableHead className="w-10"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visiveis.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-medium">{l.nome}</TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">{l.categoria ?? "—"}</TableCell>
-                  <TableCell>{l.unidade}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-right">
-                    {l.ultimoPrecoCents === null ? "—" : formatarMoeda(l.ultimoPrecoCents)}
-                  </TableCell>
-                  <TableCell className="text-right">{l.usos}</TableCell>
-                  <TableCell>
-                    <Link href={`/materiais/${l.id}`} className="inline-flex" title="Abrir material">
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <ListaDeDados
+        legenda="Materiais"
+        linhas={visiveis}
+        chave={(l) => l.id}
+        colunas={COLUNAS}
+        vazio="Nenhum material encontrado."
+      />
     </div>
   );
 }
