@@ -34,3 +34,6 @@ uploads/
 
 /test-results/
 /playwright-report/
+
+/reports/
+/.stryker-tmp/

@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "db:seed": "tsx prisma/seed.ts",
     "leitor:corpus": "tsx scripts/leitor-nativo/gerar-corpus.ts",
-    "leitor:avaliar": "tsx scripts/leitor-nativo/avaliar.ts"
+    "leitor:avaliar": "tsx scripts/leitor-nativo/avaliar.ts",
+    "test:mutation": "stryker run"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -28,12 +29,12 @@
     "date-fns": "^4.4.0",
     "fast-xml-parser": "5.11.2",
     "google-auth-library": "^9.15.1",
-    "lucide-react": "^1.55.0",
-    "next": "16.4.0",
+    "lucide-react": "^1.58.0",
+    "next": "16.4.2",
     "next-auth": "^5.0.0-beta.32",
     "prisma": "^6.19.3",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-hook-form": "^7.90.0",
     "recharts": "^3.10.1",
     "sharp": "^0.35.5",
@@ -41,22 +42,24 @@
     "tailwind-merge": "^3.7.0",
     "tesseract.js": "^7.0.0",
     "tw-animate-css": "^1.4.0",
-    "unpdf": "^1.8.1",
-    "zod": "^4.6.6",
+    "unpdf": "^1.9.0",
+    "zod": "^4.6.7",
     "zxing-wasm": "^3.1.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.0",
+    "@playwright/test": "^1.64.1",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.0",
+    "eslint-config-next": "16.4.2",
     "shadcn": "^4.21.4",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }

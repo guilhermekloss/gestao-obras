@@ -33,6 +33,16 @@ describe("fluxoMensal", () => {
     expect(fluxo.totalPorMes["2026-01"]).toBe(10000);
   });
 
+  it("ordena os meses cronologicamente, mesmo com parcelas fora de ordem", () => {
+    const rateios = [{ obraId: "L03", fracaoBp: 10000 }];
+    const fluxo = fluxoMensal([
+      { valorCents: 100, vencimento: new Date(2026, 10, 5), rateios },
+      { valorCents: 200, vencimento: new Date(2026, 8, 5), rateios },
+      { valorCents: 300, vencimento: new Date(2026, 9, 5), rateios },
+    ]);
+    expect(fluxo.meses).toEqual(["2026-09", "2026-10", "2026-11"]);
+  });
+
   it("lida com lista vazia", () => {
     const fluxo = fluxoMensal([]);
     expect(fluxo.meses).toEqual([]);
@@ -59,6 +69,10 @@ describe("gerarNumeroDocumento", () => {
 
   it("ignora números digitados que só se parecem com o padrão", () => {
     expect(gerarNumeroDocumento("RECIBO", ["REC-12A", "XREC-0009", "REC-"])).toBe("REC-0001");
+  });
+
+  it("tolera espaços em volta dos números já cadastrados", () => {
+    expect(gerarNumeroDocumento("RECIBO", ["  REC-0005 "])).toBe("REC-0006");
   });
 
   it("passa de 9999 sem truncar", () => {
