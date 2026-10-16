@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import type { Role } from "@prisma/client";
-import { exigirPapel } from "./auth";
+import { exigirAcessoObra, exigirPapel } from "./auth";
 import { comContextoDeAtividade, registrarAtividade } from "./atividade";
 import type { TipoAtividade } from "@/services/atividade";
 
@@ -27,6 +27,8 @@ export function mensagemDeErro(erro: unknown, padrao = MSG_ERRO_INTERNO): string
 export function acaoDeEscrita<Args extends unknown[], R extends ActionResult>(
   opcoes: {
     papeis?: Role[];
+    // obra que a action toca, quando vem nos argumentos; sem acesso, responde como registro inexistente
+    obra?: (...args: Args) => string | undefined;
     revalidar?: string[] | ((...args: Args) => string[]);
     atividade?: TipoAtividade | ((...args: Args) => TipoAtividade);
   },
@@ -34,6 +36,14 @@ export function acaoDeEscrita<Args extends unknown[], R extends ActionResult>(
 ): (...args: Args) => Promise<R> {
   return async (...args: Args) => {
     const usuario = await exigirPapel(...(opcoes.papeis ?? []));
+    const obraId = opcoes.obra?.(...args);
+    if (obraId) {
+      try {
+        exigirAcessoObra(usuario, obraId);
+      } catch (erro) {
+        return { ok: false, erro: mensagemDeErro(erro) } as R;
+      }
+    }
     const execucao = await comContextoDeAtividade(() => handler(usuario, ...args));
     const registrar = async () => {
       if (opcoes.atividade && !execucao.ctx.ignorar) {

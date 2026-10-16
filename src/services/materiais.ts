@@ -1,5 +1,10 @@
 import type { TipoItem } from "@prisma/client";
 
+// "Insumo" significa o mesmo na curva ABC, na dependência de fornecedor e no detalhe do fornecedor.
+export function normalizarDescricao(descricao: string): string {
+  return descricao.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export type MaterialCatalogo = {
   id: string;
   nome: string;

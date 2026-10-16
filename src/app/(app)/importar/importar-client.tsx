@@ -82,6 +82,19 @@ export function ImportarClient() {
               <Resumo titulo="Valor total" valor={formatarMoeda(preview.valorTotalCents ?? 0)} />
             </div>
 
+            {(preview.notasRecusadas?.length ?? 0) > 0 && (
+              <div>
+                <p className="mb-1 text-sm font-medium text-destructive">
+                  {preview.notasRecusadas!.length} nota(s) não {preview.importadas !== undefined ? "foram importadas" : "serão importadas"}:
+                </p>
+                <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2 text-xs">
+                  {preview.notasRecusadas!.map((motivo, i) => (
+                    <li key={i}>• {motivo}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {(preview.inconsistencias?.length ?? 0) > 0 && (
               <div>
                 <p className="mb-1 text-sm font-medium text-amber-700 dark:text-amber-400">

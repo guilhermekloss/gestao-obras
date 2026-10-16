@@ -35,3 +35,15 @@ export function validarAvanco(
   }
   return { ok: true };
 }
+
+export function orcamentoTotal(etapas: { orcamentoCents: number }[]): number {
+  return etapas.reduce((acc, e) => acc + e.orcamentoCents, 0);
+}
+
+// Avanço da obra a partir do último avanço de cada etapa (etapa sem medição conta 0%).
+export function avancoDaObra(
+  etapas: { id: string; orcamentoCents: number }[],
+  avancos: Map<string, number>,
+): number {
+  return avancoPonderado(etapas.map((e) => ({ orcamentoCents: e.orcamentoCents, percentBp: avancos.get(e.id) ?? 0 })));
+}

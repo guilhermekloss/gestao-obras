@@ -12,6 +12,15 @@ export function restricaoDeObras(usuario: {
   return usuario.obras.map((o) => o.obraId);
 }
 
+// "CAMPO não vê dinheiro" e "CAMPO não edita cadastro" hoje coincidem; ficam separados porque mudam por motivos diferentes.
+export function veFinanceiro(role: Role): boolean {
+  return role !== "CAMPO";
+}
+
+export function podeEditarCadastros(role: Role): boolean {
+  return role !== "CAMPO";
+}
+
 export function podeVerObra(restricao: RestricaoObras, obraId: string): boolean {
   return restricao === null || restricao.includes(obraId);
 }

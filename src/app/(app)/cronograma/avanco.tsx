@@ -1,4 +1,6 @@
 import type { Role } from "@prisma/client";
+import type { ObraAutorizada } from "@/lib/auth";
+import { podeEditarCadastros } from "@/services/acesso";
 import { prisma } from "@/lib/prisma";
 import { formatarData, formatarPercentBp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,14 +12,15 @@ import type { Cronograma } from "./dados";
 import { Trash2 } from "lucide-react";
 
 export async function SecaoAvanco({
-  obraId,
+  obra,
   role,
   cronograma,
 }: {
-  obraId: string;
+  obra: ObraAutorizada;
   role: Role;
   cronograma: Cronograma;
 }) {
+  const obraId = obra.id;
   const medicoes = await prisma.medicao.findMany({
     where: { etapa: { obraId } },
     orderBy: [{ data: "desc" }, { id: "desc" }],
@@ -81,7 +84,7 @@ export async function SecaoAvanco({
                       {m.obs ? ` · ${m.obs}` : ""}
                     </span>
                   </div>
-                  {role !== "CAMPO" && (
+                  {podeEditarCadastros(role) && (
                     <ConfirmButton
                       action={excluirMedicao.bind(null, m.id)}
                       mensagem="Excluir este lançamento de avanço?"

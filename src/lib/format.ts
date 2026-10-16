@@ -72,3 +72,16 @@ export function formatarTempoRelativo(data: Date | string, agora: Date = new Dat
   if (dias <= 30) return `há ${dias} dias`;
   return formatarData(d);
 }
+
+export const MESES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+// "aaaa-mm" no mês local: chave de agrupamento por mês
+export function chaveMes(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// "2026-10" -> "out/26"
+export function rotuloChaveMes(chave: string): string {
+  const [ano, mes] = chave.split("-");
+  return `${MESES_ABREV[parseInt(mes) - 1]}/${ano.slice(2)}`;
+}

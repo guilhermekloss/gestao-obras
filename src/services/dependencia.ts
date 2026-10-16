@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { TipoItem } from "@prisma/client";
+import { normalizarDescricao } from "./materiais";
 
 export const PESOS = {
   concentracao: 40,
@@ -76,10 +77,6 @@ type MetricasDependencia = Pontuacao & {
   descricoesExclusivas: Set<string>;
 };
 
-function normalizar(descricao: string): string {
-  return descricao.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
 type Acc = {
   gastoCents: number;
   numNotas: number;
@@ -143,7 +140,7 @@ export async function calcularDependencia(
     for (const item of nota.itens) {
       acc.tipos.add(item.tipo);
 
-      const chave = normalizar(item.descricao);
+      const chave = normalizarDescricao(item.descricao);
       acc.gastoPorDescricao.set(
         chave,
         (acc.gastoPorDescricao.get(chave) ?? 0) + item.totalCents,

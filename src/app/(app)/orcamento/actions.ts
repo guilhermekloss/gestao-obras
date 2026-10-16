@@ -9,6 +9,7 @@ import { MAX_CENTS } from "@/schemas/comum";
 export const salvarOrcamentos = acaoDeEscrita(
   {
     papeis: ["ADMIN", "ESCRITORIO"],
+    obra: (obraId: string, _formData: FormData) => obraId,
     revalidar: (obraId: string, _formData: FormData) => ["/orcamento", `/obras/${obraId}`],
     atividade: "orcamento.salvar",
   },

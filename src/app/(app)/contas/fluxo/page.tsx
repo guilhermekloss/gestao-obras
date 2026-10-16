@@ -11,16 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { fluxoMensal } from "@/services/financeiro";
-import { formatarMoeda } from "@/lib/format";
+import { formatarMoeda, rotuloChaveMes } from "@/lib/format";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { ArrowLeft } from "lucide-react";
-
-const MESES_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-
-function labelMes(chave: string): string {
-  const [ano, mes] = chave.split("-");
-  return `${MESES_LABEL[parseInt(mes) - 1]}/${ano.slice(2)}`;
-}
 
 export default async function FluxoMensalPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");
@@ -79,7 +72,7 @@ export default async function FluxoMensalPage() {
             <TableBody>
               {fluxo.meses.map((mes) => (
                 <TableRow key={mes}>
-                  <TableCell className="font-medium">{labelMes(mes)}</TableCell>
+                  <TableCell className="font-medium">{rotuloChaveMes(mes)}</TableCell>
                   {obrasOrdenadas.map((id) => {
                     const v = fluxo.valores[mes][id] ?? 0;
                     return (

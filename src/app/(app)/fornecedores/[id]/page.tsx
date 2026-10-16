@@ -15,7 +15,9 @@ import {
 import { EditarFornecedorDialog } from "../fornecedor-dialogs";
 import { DependenciaBadge } from "../dependencia-badge";
 import { calcularDependencia, PESOS } from "@/services/dependencia";
-import { custoRateado, BP_TOTAL } from "@/services/rateio";
+import { BP_TOTAL } from "@/services/rateio";
+import { acumular } from "@/services/custos";
+import { normalizarDescricao } from "@/services/materiais";
 import { formatarMoeda, formatarData, formatarPercentBp } from "@/lib/format";
 import type { TipoItem } from "@prisma/client";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
@@ -26,10 +28,6 @@ const TIPO_LABELS: Record<TipoItem, string> = {
   FRETE: "Frete",
   ENCARGO: "Encargos",
 };
-
-function normalizar(descricao: string): string {
-  return descricao.trim().toLowerCase().replace(/\s+/g, " ");
-}
 
 export default async function FornecedorDetalhePage({
   params,
@@ -60,20 +58,18 @@ export default async function FornecedorDetalhePage({
   const dep = dependencia.get(fornecedor.id) ?? null;
 
   const gastoPorTipo = new Map<TipoItem, number>();
-  const gastoPorObra = new Map<string, { nome: string; cents: number }>();
+  // por nota (itens somados e depois rateados), como o resto do sistema: os centavos batem com o dashboard
+  const nomeDaObra = new Map(fornecedor.notas.flatMap((n) => n.rateios.map((r) => [r.obraId, r.obra.nome] as const)));
+  const gastoPorObra = new Map(
+    [...acumular(fornecedor.notas, (_nota, r) => r.obraId)].map(([obraId, cents]) => [obraId, { nome: nomeDaObra.get(obraId) ?? "—", cents }]),
+  );
   const itensExclusivos = new Map<string, { descricao: string; cents: number; qtde: number }>();
 
   for (const nota of fornecedor.notas) {
     for (const item of nota.itens) {
       gastoPorTipo.set(item.tipo, (gastoPorTipo.get(item.tipo) ?? 0) + item.totalCents);
 
-      for (const r of nota.rateios) {
-        const atual = gastoPorObra.get(r.obraId) ?? { nome: r.obra.nome, cents: 0 };
-        atual.cents += custoRateado(item.totalCents, r.fracaoBp);
-        gastoPorObra.set(r.obraId, atual);
-      }
-
-      const chave = normalizar(item.descricao);
+      const chave = normalizarDescricao(item.descricao);
       if (dep?.descricoesExclusivas.has(chave)) {
         const atual = itensExclusivos.get(chave) ?? {
           descricao: item.descricao,

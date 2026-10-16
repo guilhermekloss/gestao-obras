@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { exigirPapel } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { exigirPapel, obraAutorizada } from "@/lib/auth";
+import { podeEditarCadastros, veFinanceiro } from "@/services/acesso";
 import { formatarPercentBp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { listarObrasParaFiltro } from "@/services/obras";
@@ -39,7 +41,9 @@ export default async function CronogramaPage({
     );
   }
 
-  const cronograma = await carregarCronograma(obraId, { comPesos: user.role !== "CAMPO" });
+  const obra = await obraAutorizada(user, obraId);
+  if (!obra) notFound();
+  const cronograma = await carregarCronograma(obra, { comPesos: veFinanceiro(user.role) });
   const atrasadas = cronograma.etapas.filter((e) => e.situacao === "ATRASADA").length;
 
   return (
@@ -96,9 +100,9 @@ export default async function CronogramaPage({
       </nav>
 
       {aba.key === "avanco" ? (
-        <SecaoAvanco obraId={obraId} role={user.role} cronograma={cronograma} />
+        <SecaoAvanco obra={obra} role={user.role} cronograma={cronograma} />
       ) : (
-        <SecaoPlanejamento obraId={obraId} podeEditar={user.role !== "CAMPO"} cronograma={cronograma} />
+        <SecaoPlanejamento obraId={obraId} podeEditar={podeEditarCadastros(user.role)} cronograma={cronograma} />
       )}
     </div>
   );

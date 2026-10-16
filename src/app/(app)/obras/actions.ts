@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { exigirAcessoObra } from "@/lib/auth";
 import { anotarAtividade } from "@/lib/atividade";
 import { obraSchema, etapaSchema, ETAPAS_PADRAO } from "@/schemas/obra";
 
@@ -51,6 +52,7 @@ export const criarObra = acaoDeEscrita(
 export const atualizarObra = acaoDeEscrita(
   {
     papeis: ["ADMIN", "ESCRITORIO"],
+    obra: (id: string, _formData: FormData) => id,
     revalidar: (id: string, _formData: FormData) => ["/obras", `/obras/${id}`],
     atividade: "obra.editar",
   },
@@ -82,7 +84,7 @@ export const atualizarObra = acaoDeEscrita(
 
 // sem `revalidar` no wrapper: redireciona no sucesso e revalida ela mesma
 export const excluirObra = acaoDeEscrita(
-  { papeis: ["ADMIN"], atividade: "obra.excluir" },
+  { papeis: ["ADMIN"], obra: (id: string) => id, atividade: "obra.excluir" },
   async (_user, id: string): Promise<ActionResult> => {
     const usos = await prisma.rateioNota.count({ where: { obraId: id } });
     if (usos > 0) {
@@ -101,6 +103,7 @@ export const excluirObra = acaoDeEscrita(
 export const criarEtapa = acaoDeEscrita(
   {
     papeis: ["ADMIN", "ESCRITORIO"],
+    obra: (obraId: string, _formData: FormData) => obraId,
     revalidar: (obraId: string, _formData: FormData) => [`/obras/${obraId}`],
     atividade: "etapa.criar",
   },
@@ -122,12 +125,13 @@ export const criarEtapa = acaoDeEscrita(
 
 export const excluirEtapa = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], atividade: "etapa.excluir" },
-  async (_user, id: string): Promise<ActionResult> => {
+  async (user, id: string): Promise<ActionResult> => {
     const etapa = await prisma.etapa.findUnique({
       where: { id },
       include: { obra: { select: { nome: true } }, _count: { select: { medicoes: true, rateios: true } } },
     });
     if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
+    exigirAcessoObra(user, etapa.obraId, "Etapa não encontrada");
     if (etapa._count.medicoes > 0 || etapa._count.rateios > 0) {
       return { ok: false, erro: "Etapa possui avanço lançado ou custos vinculados — não pode ser excluída." };
     }

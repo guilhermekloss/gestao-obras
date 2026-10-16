@@ -5,6 +5,7 @@ import {
   FORMA_PAGTO_LABELS,
   gerarNumeroDocumento,
   parseTipoDocumento,
+  proximosDias,
 } from "../financeiro";
 
 describe("fluxoMensal", () => {
@@ -99,5 +100,17 @@ describe("FORMA_PAGTO_LABELS", () => {
   it("inclui transferência e dinheiro", () => {
     expect(FORMA_PAGTO_LABELS.TRANSFERENCIA).toBe("Transferência");
     expect(FORMA_PAGTO_LABELS.DINHEIRO).toBe("Dinheiro");
+  });
+});
+
+describe("proximosDias", () => {
+  it("vai do início de hoje até hoje + 7 dias, a mesma janela do card e da visão de Contas", () => {
+    const hoje = new Date(2026, 9, 16, 15, 30);
+    const { de, ate } = proximosDias(hoje);
+    expect(de).toEqual(new Date(2026, 9, 16, 0, 0));
+    expect(ate).toEqual(new Date(2026, 9, 23, 15, 30));
+  });
+  it("aceita outro número de dias", () => {
+    expect(proximosDias(new Date(2026, 9, 16, 8), 3).ate).toEqual(new Date(2026, 9, 19, 8));
   });
 });

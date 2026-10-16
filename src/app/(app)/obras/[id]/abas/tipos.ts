@@ -1,6 +1,7 @@
 import type { Role } from "@prisma/client";
+import type { ObraAutorizada } from "@/lib/auth";
 
 export type AbaObraProps = {
-  obraId: string;
+  obra: ObraAutorizada;
   role: Role;
 };

@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/prisma";
+import { chaveMes } from "@/lib/format";
 import { custoRateado } from "./rateio";
+
+export { chaveMes };
 
 // Realizado = itens × rateio na data da compra; `fluxoMensal` (financeiro.ts) usa as parcelas no vencimento.
 
 type Rateio = { obraId: string; etapaId: string | null; fracaoBp: number };
 type NotaComRateio = { itens: { totalCents: number }[]; rateios: Rateio[] };
 
-function acumular<N extends NotaComRateio, K>(
+// Itens somados por nota e só então rateados: o arredondamento é por nota em todas as telas.
+export function acumular<N extends NotaComRateio, K>(
   notas: N[],
   chaveDe: (nota: N, rateio: Rateio) => K,
 ): Map<K, number> {
@@ -77,16 +81,18 @@ export async function realizadoPorMes(
   return porMes;
 }
 
-export function chaveMes(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-export async function avancoPorEtapa(obraId: string): Promise<Map<string, number>> {
-  const medicoes = await prisma.medicao.findMany({
-    where: { etapa: { obraId } },
-    orderBy: [{ data: "asc" }, { id: "asc" }],
-  });
+// Medições em ordem de data e id: no mesmo dia, a última lançada vence, e a última de todas vale (mesmo datada no futuro).
+export function ultimoAvancoPorEtapa(medicoes: { etapaId: string; percentBp: number }[]): Map<string, number> {
   const mapa = new Map<string, number>();
   for (const m of medicoes) mapa.set(m.etapaId, m.percentBp);
   return mapa;
+}
+
+export async function avancoPorEtapa(obraId?: string): Promise<Map<string, number>> {
+  const medicoes = await prisma.medicao.findMany({
+    where: obraId ? { etapa: { obraId } } : {},
+    orderBy: [{ data: "asc" }, { id: "asc" }],
+    select: { etapaId: true, percentBp: true },
+  });
+  return ultimoAvancoPorEtapa(medicoes);
 }

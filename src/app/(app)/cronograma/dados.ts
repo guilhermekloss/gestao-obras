@@ -1,3 +1,4 @@
+import type { ObraAutorizada } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dataParaInput, formatarMesAno, inputParaData } from "@/lib/format";
 import type { PontoCurvaSChart } from "./curva-s-chart";
@@ -61,7 +62,8 @@ export function paraPlano(
   };
 }
 
-export async function carregarCronograma(obraId: string, opcoes: { comPesos: boolean }): Promise<Cronograma> {
+export async function carregarCronograma(obra: ObraAutorizada, opcoes: { comPesos: boolean }): Promise<Cronograma> {
+  const obraId = obra.id;
   const [etapas, medicoes] = await Promise.all([
     prisma.etapa.findMany({
       where: { obraId },

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   centsParaEditavel,
+  chaveMes,
+  rotuloChaveMes,
   dataParaInput,
   formatarMoeda,
   formatarPercentBp,
@@ -101,5 +103,16 @@ describe("formatarTempoRelativo", () => {
     expect(formatarTempoRelativo(antes(30 * 3_600_000), agora)).toBe("ontem");
     expect(formatarTempoRelativo(antes(4 * 86_400_000), agora)).toBe("há 4 dias");
     expect(formatarTempoRelativo(antes(45 * 86_400_000), agora)).toMatch(/^\d{2}\/\d{2}\/2026$/);
+  });
+});
+
+describe("chaveMes e rotuloChaveMes", () => {
+  it("chaveMes usa o mês local, com zero à esquerda", () => {
+    expect(chaveMes(new Date(2026, 0, 31, 23, 59))).toBe("2026-01");
+    expect(chaveMes(new Date(2026, 9, 1))).toBe("2026-10");
+  });
+  it("rotuloChaveMes abrevia o mês e o ano", () => {
+    expect(rotuloChaveMes("2026-10")).toBe("out/26");
+    expect(rotuloChaveMes("2027-01")).toBe("jan/27");
   });
 });

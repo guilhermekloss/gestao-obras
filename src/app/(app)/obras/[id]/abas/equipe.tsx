@@ -10,10 +10,11 @@ import { carregarEquipeDaObra, listarAtividades } from "../../../usuarios/dados"
 import { FeedAtividades } from "../../../usuarios/feed-atividades";
 import type { AbaObraProps } from "./tipos";
 
-export async function AbaEquipe({ obraId, role }: AbaObraProps) {
+export async function AbaEquipe({ obra, role }: AbaObraProps) {
+  const obraId = obra.id;
   const ehAdmin = role === "ADMIN";
   const [equipe, { atividades, total }] = await Promise.all([
-    carregarEquipeDaObra(obraId),
+    carregarEquipeDaObra(obra),
     listarAtividades({ obraId }),
   ]);
   const agora = new Date();

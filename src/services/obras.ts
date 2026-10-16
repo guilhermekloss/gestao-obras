@@ -47,10 +47,13 @@ export async function listarObrasParaRateio(idsJaUsados: string[] = []): Promise
   });
 }
 
-export async function erroEtapasDoRateio(rateios: { obraId: string; etapaId?: string | null }[]): Promise<string | null> {
+export async function erroEtapasDoRateio(
+  rateios: { obraId: string; etapaId?: string | null }[],
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<string | null> {
   const comEtapa = rateios.filter((r) => r.etapaId);
   if (comEtapa.length === 0) return null;
-  const etapas = await prisma.etapa.findMany({
+  const etapas = await db.etapa.findMany({
     where: { id: { in: comEtapa.map((r) => r.etapaId!) } },
     select: { id: true, obraId: true },
   });

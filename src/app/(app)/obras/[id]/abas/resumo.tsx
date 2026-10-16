@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { startOfDay, addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { realizadoPorEtapa, avancoPorEtapa } from "@/services/custos";
-import { avancoPonderado } from "@/services/obra";
+import { avancoDaObra, orcamentoTotal } from "@/services/obra";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/confirm-button";
 import { FormDialog } from "@/components/form-dialog";
@@ -13,21 +12,18 @@ import { criarEtapa, excluirEtapa } from "../../actions";
 import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { Plus, Trash2 } from "lucide-react";
 import { dataDoRdo } from "@/services/rdo";
+import { podeEditarCadastros, veFinanceiro } from "@/services/acesso";
 import type { AbaObraProps } from "./tipos";
 
-export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
-  const podeEditar = role !== "CAMPO";
-  const veFinanceiro = role !== "CAMPO";
-
-  const obra = await prisma.obra.findUnique({
-    where: { id },
-    include: { etapas: { orderBy: { ordem: "asc" } } },
-  });
-  if (!obra) notFound();
+export async function AbaResumo({ obra, role }: AbaObraProps) {
+  const id = obra.id;
+  const podeEditar = podeEditarCadastros(role);
+  const veValores = veFinanceiro(role);
+  const etapas = await prisma.etapa.findMany({ where: { obraId: id }, orderBy: { ordem: "asc" } });
 
   const hoje = startOfDay(new Date());
   const [realizado, avancos, ultimosRdos, proximasParcelas] = await Promise.all([
-    veFinanceiro ? realizadoPorEtapa(id) : Promise.resolve(new Map<string | null, number>()),
+    veValores ? realizadoPorEtapa(id) : Promise.resolve(new Map<string | null, number>()),
     avancoPorEtapa(id),
     prisma.diarioObra.findMany({
       where: { obraId: id },
@@ -35,7 +31,7 @@ export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
       take: 3,
       include: { autor: { select: { nome: true } } },
     }),
-    veFinanceiro
+    veValores
       ? prisma.parcela.findMany({
           where: {
             status: "ABERTA",
@@ -50,24 +46,19 @@ export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
   ]);
 
   const custoTotal = [...realizado.values()].reduce((a, b) => a + b, 0);
-  const orcamentoTotal = obra.etapas.reduce((a, e) => a + e.orcamentoCents, 0);
-  const avancoObra = avancoPonderado(
-    obra.etapas.map((e) => ({
-      orcamentoCents: e.orcamentoCents,
-      percentBp: avancos.get(e.id) ?? 0,
-    })),
-  );
+  const orcamento = orcamentoTotal(etapas);
+  const avancoObra = avancoDaObra(etapas, avancos);
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        {veFinanceiro && (
+        {veValores && (
           <InfoCard titulo="Custo acumulado" valor={formatarMoeda(custoTotal)} destaque />
         )}
-        {veFinanceiro && (
+        {veValores && (
           <InfoCard
             titulo="Orçamento previsto"
-            valor={orcamentoTotal ? formatarMoeda(orcamentoTotal) : "—"}
+            valor={orcamento ? formatarMoeda(orcamento) : "—"}
           />
         )}
         <InfoCard titulo="Avanço físico" valor={formatarPercentBp(avancoObra)} destaque />
@@ -98,11 +89,11 @@ export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
             </div>
           </CardHeader>
           <CardContent>
-            {obra.etapas.length === 0 ? (
+            {etapas.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma etapa cadastrada.</p>
             ) : (
               <ul className="divide-y">
-                {obra.etapas.map((etapa) => {
+                {etapas.map((etapa) => {
                   const bp = avancos.get(etapa.id) ?? 0;
                   return (
                     <li key={etapa.id} className="flex items-center gap-3 py-2">
@@ -135,7 +126,7 @@ export async function AbaResumo({ obraId: id, role }: AbaObraProps) {
         </Card>
 
         <div className="space-y-6">
-          {veFinanceiro && (
+          {veValores && (
             <Card>
               <CardHeader>
                 <CardTitle>Contas a vencer (30 dias)</CardTitle>

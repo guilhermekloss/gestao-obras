@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { startOfMonth, addDays, startOfDay, subMonths } from "date-fns";
+import { startOfMonth, subMonths } from "date-fns";
 import { usuarioAtual } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { realizadoPorObra, realizadoPorMes, chaveMes } from "@/services/custos";
+import { avancoPorEtapa, realizadoPorObra, realizadoPorMes } from "@/services/custos";
+import { proximosDias } from "@/services/financeiro";
 import { carregarAlertas, carregarCurvaAbc } from "@/services/analises";
-import { avancoPonderado } from "@/services/obra";
-import { formatarMoeda } from "@/lib/format";
+import { avancoDaObra, orcamentoTotal } from "@/services/obra";
+import { chaveMes, formatarMoeda, rotuloChaveMes } from "@/lib/format";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   GastoMensalChart,
@@ -20,8 +21,6 @@ import { TopInsumos } from "./top-insumos";
 const MAX_ALERTAS = 8;
 const LINK_CARD = "text-sm text-muted-foreground hover:text-foreground hover:underline";
 
-const MESES_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-
 export default async function DashboardPage() {
   const user = await usuarioAtual();
   if (!user) redirect("/login");
@@ -30,20 +29,21 @@ export default async function DashboardPage() {
   const hoje = new Date();
   const inicioMes = startOfMonth(hoje);
   const inicio12Meses = startOfMonth(subMonths(hoje, 11));
+  const janelaAVencer = proximosDias(hoje);
 
   const [
     aVencer7,
     obras,
     porMes,
     realizado,
-    etapasComMedicoes,
+    avancos,
     alertas,
     abc,
   ] = await Promise.all([
     prisma.parcela.aggregate({
       where: {
         status: "ABERTA",
-        vencimento: { gte: startOfDay(hoje), lte: addDays(hoje, 7) },
+        vencimento: { gte: janelaAVencer.de, lte: janelaAVencer.ate },
       },
       _sum: { valorCents: true },
       _count: true,
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
     }),
     realizadoPorMes(inicio12Meses),
     realizadoPorObra(),
-    prisma.medicao.findMany({ orderBy: [{ data: "asc" }, { id: "asc" }] }),
+    avancoPorEtapa(),
     carregarAlertas(hoje),
     carregarCurvaAbc(),
   ]);
@@ -72,11 +72,8 @@ export default async function DashboardPage() {
   const mesesOrdenados = [...porMes.keys()].sort();
   const obrasComGasto = obras.filter((o) => realizado.has(o.id)).map((o) => o.nome);
   const gastoMensalData = mesesOrdenados.map((chave) => {
-    const [ano, mes] = chave.split("-");
     const porObra = porMes.get(chave) ?? new Map<string, number>();
-    const linha: Record<string, string | number> = {
-      mes: `${MESES_LABEL[parseInt(mes) - 1]}/${ano.slice(2)}`,
-    };
+    const linha: Record<string, string | number> = { mes: rotuloChaveMes(chave) };
     for (const [obraId, cents] of porObra) {
       const nome = nomeObra.get(obraId);
       if (nome) linha[nome] = cents;
@@ -87,24 +84,16 @@ export default async function DashboardPage() {
   const orcadoRealizadoData = obras
     .map((o) => ({
       obra: o.nome,
-      Orçado: o.etapas.reduce((a, e) => a + e.orcamentoCents, 0),
+      Orçado: orcamentoTotal(o.etapas),
       Realizado: realizado.get(o.id) ?? 0,
     }))
     .filter((d) => d.Orçado > 0 || d.Realizado > 0);
 
-  const ultimaMedicaoPorEtapa = new Map<string, number>();
-  for (const m of etapasComMedicoes) ultimaMedicaoPorEtapa.set(m.etapaId, m.percentBp);
   const avancoData = obras
     .filter((o) => o.status === "ANDAMENTO" && o.etapas.length > 0)
     .map((o) => ({
       obra: o.nome,
-      avanco:
-        avancoPonderado(
-          o.etapas.map((e) => ({
-            orcamentoCents: e.orcamentoCents,
-            percentBp: ultimaMedicaoPorEtapa.get(e.id) ?? 0,
-          })),
-        ) / 100,
+      avanco: avancoDaObra(o.etapas, avancos) / 100,
     }));
 
   const obrasAtivas = obras.filter((o) => o.status === "ANDAMENTO").length;
@@ -123,7 +112,7 @@ export default async function DashboardPage() {
           titulo="A vencer em 7 dias"
           valor={formatarMoeda(aVencer7._sum.valorCents ?? 0)}
           rodape={`${aVencer7._count} parcela(s)`}
-          href="/contas?visao=semana"
+          href="/contas?visao=7dias"
         />
         <CardStat titulo="Obras ativas" valor={String(obrasAtivas)} href="/obras" />
         <CardStat

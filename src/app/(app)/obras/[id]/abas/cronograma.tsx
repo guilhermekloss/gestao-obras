@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { carregarCronograma, paraGrafico } from "@/app/(app)/cronograma/dados";
 import { Gantt } from "@/app/(app)/cronograma/gantt";
 import { CurvaSChart } from "@/app/(app)/cronograma/curva-s-chart";
+import { veFinanceiro } from "@/services/acesso";
 import type { AbaObraProps } from "./tipos";
 
-export async function AbaCronograma({ obraId, role }: AbaObraProps) {
-  const cronograma = await carregarCronograma(obraId, { comPesos: role !== "CAMPO" });
+export async function AbaCronograma({ obra, role }: AbaObraProps) {
+  const obraId = obra.id;
+  const cronograma = await carregarCronograma(obra, { comPesos: veFinanceiro(role) });
 
   return (
     <div className="space-y-6">
