@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { avancoPonderado, validarAvanco } from "../obra";
+import { avancoDaObra, avancoPonderado, orcamentoTotal, validarAvanco } from "../obra";
 
 describe("avancoPonderado", () => {
   it("pondera pelo orçamento da etapa", () => {
@@ -36,5 +36,25 @@ describe("validarAvanco", () => {
 
   it("rejeita acima de 100%", () => {
     expect(validarAvanco(10001, 0).ok).toBe(false);
+  });
+});
+
+describe("orcamentoTotal", () => {
+  it("soma o orçamento das etapas; sem etapas é zero", () => {
+    expect(orcamentoTotal([{ orcamentoCents: 1_000 }, { orcamentoCents: 2_500 }])).toBe(3_500);
+    expect(orcamentoTotal([])).toBe(0);
+  });
+});
+
+describe("avancoDaObra", () => {
+  const etapas = [
+    { id: "e1", orcamentoCents: 3_000 },
+    { id: "e2", orcamentoCents: 1_000 },
+  ];
+  it("pondera o último avanço de cada etapa pelo orçamento", () => {
+    expect(avancoDaObra(etapas, new Map([["e1", 10_000], ["e2", 0]]))).toBe(7_500);
+  });
+  it("etapa sem medição conta 0%", () => {
+    expect(avancoDaObra(etapas, new Map([["e2", 10_000]]))).toBe(2_500);
   });
 });

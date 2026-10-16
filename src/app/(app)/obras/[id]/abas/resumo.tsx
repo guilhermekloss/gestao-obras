@@ -2,7 +2,7 @@ import Link from "next/link";
 import { startOfDay, addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { realizadoPorEtapa, avancoPorEtapa } from "@/services/custos";
-import { avancoPonderado } from "@/services/obra";
+import { avancoDaObra, orcamentoTotal } from "@/services/obra";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/confirm-button";
 import { FormDialog } from "@/components/form-dialog";
@@ -46,13 +46,8 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
   ]);
 
   const custoTotal = [...realizado.values()].reduce((a, b) => a + b, 0);
-  const orcamentoTotal = etapas.reduce((a, e) => a + e.orcamentoCents, 0);
-  const avancoObra = avancoPonderado(
-    etapas.map((e) => ({
-      orcamentoCents: e.orcamentoCents,
-      percentBp: avancos.get(e.id) ?? 0,
-    })),
-  );
+  const orcamento = orcamentoTotal(etapas);
+  const avancoObra = avancoDaObra(etapas, avancos);
 
   return (
     <div className="space-y-6">
@@ -63,7 +58,7 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
         {veValores && (
           <InfoCard
             titulo="Orçamento previsto"
-            valor={orcamentoTotal ? formatarMoeda(orcamentoTotal) : "—"}
+            valor={orcamento ? formatarMoeda(orcamento) : "—"}
           />
         )}
         <InfoCard titulo="Avanço físico" valor={formatarPercentBp(avancoObra)} destaque />

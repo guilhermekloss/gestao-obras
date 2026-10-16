@@ -1,4 +1,6 @@
+import { addDays, startOfDay } from "date-fns";
 import type { FormaPagto, TipoDocumento } from "@prisma/client";
+import { chaveMes } from "@/lib/format";
 import { custoRateado } from "./rateio";
 
 type ParcelaComRateio = {
@@ -15,8 +17,9 @@ type FluxoMensal = {
   totalPorObra: Record<string, number>;
 };
 
-function chaveMes(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+// Janela do card "A vencer em 7 dias" e da visão de mesmo nome em Contas: as duas contam as mesmas parcelas.
+export function proximosDias(hoje: Date, dias = 7): { de: Date; ate: Date } {
+  return { de: startOfDay(hoje), ate: addDays(hoje, dias) };
 }
 
 export function fluxoMensal(parcelas: ParcelaComRateio[]): FluxoMensal {

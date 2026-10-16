@@ -8,12 +8,13 @@ import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { SelectNativo } from "@/components/select-nativo";
 import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { listarObrasParaFiltro } from "@/services/obras";
-import { TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, parseTipoDocumento } from "@/services/financeiro";
+import { TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, parseTipoDocumento, proximosDias } from "@/services/financeiro";
 import { ContasTable, type ParcelaLinha } from "./contas-client";
 import { cn } from "@/lib/utils";
 
 const VISOES = [
   { key: "hoje", label: "Vence hoje" },
+  { key: "7dias", label: "Próximos 7 dias" },
   { key: "semana", label: "Esta semana" },
   { key: "mes", label: "Este mês" },
   { key: "vencidas", label: "Vencidas" },
@@ -38,6 +39,12 @@ export default async function ContasPage({
       where.status = "ABERTA";
       where.vencimento = { gte: startOfDay(hoje), lte: endOfDay(hoje) };
       break;
+    case "7dias": {
+      const { de, ate } = proximosDias(hoje);
+      where.status = "ABERTA";
+      where.vencimento = { gte: de, lte: ate };
+      break;
+    }
     case "semana":
       where.status = "ABERTA";
       where.vencimento = { lte: endOfWeek(hoje, { weekStartsOn: 1 }) };

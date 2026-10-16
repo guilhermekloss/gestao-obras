@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { formatarPercentBp } from "@/lib/format";
-import { avancoPonderado } from "@/services/obra";
+import { avancoPonderado, orcamentoTotal } from "@/services/obra";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   agregarCurvasS,
@@ -49,7 +49,7 @@ export async function CurvaSWidget() {
   if (!faixa) return null;
 
   // previsto e realizado na mesma data (hoje) — o ponto do mês corrente compara fim do mês × hoje
-  const pesos = comCurva.map((p) => p.plano.reduce((a, e) => a + e.orcamentoCents, 0));
+  const pesos = comCurva.map((p) => orcamentoTotal(p.plano));
   const previstoHoje = avancoPonderado(
     comCurva.map((p, i) => ({ orcamentoCents: pesos[i], percentBp: previstoNaData(p.plano, hoje) })),
   );

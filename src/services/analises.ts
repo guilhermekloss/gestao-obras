@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { BP_TOTAL, custoRateado } from "./rateio";
 import { realizadoPorEtapaTodas } from "./custos";
+import { normalizarDescricao } from "./materiais";
 
 export type ClasseAbc = "A" | "B" | "C";
 
@@ -44,10 +45,7 @@ type CurvaAbc = {
   resumo: Record<ClasseAbc, ResumoClasse>;
 };
 
-// Manter igual a `normalizar` de dependencia.ts: "insumo" deve significar o mesmo nas duas análises.
-export function normalizarDescricao(descricao: string): string {
-  return descricao.trim().toLowerCase().replace(/\s+/g, " ");
-}
+export { normalizarDescricao };
 
 function normalizarUnidade(unidade: string): string {
   return unidade.trim().toUpperCase();
