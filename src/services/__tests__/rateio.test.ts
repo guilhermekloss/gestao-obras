@@ -34,6 +34,14 @@ describe("dividirIgualmente", () => {
     expect(bps.reduce((a, b) => a + b, 0)).toBe(BP_TOTAL);
   });
 
+  it("1 obra fica com 100%", () => {
+    expect(dividirIgualmente(1)).toEqual([BP_TOTAL]);
+  });
+
+  it("recusa menos de 1 obra", () => {
+    expect(() => dividirIgualmente(0)).toThrow("Divisão exige ao menos 1 obra");
+  });
+
   it("6 obras somam 100% (caso real dos 6 lotes)", () => {
     expect(dividirIgualmente(6).reduce((a, b) => a + b, 0)).toBe(BP_TOTAL);
   });
