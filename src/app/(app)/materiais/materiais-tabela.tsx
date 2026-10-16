@@ -79,11 +79,12 @@ export function MateriaisTabela({ linhas }: { linhas: LinhaMaterial[] }) {
       <div className="flex flex-wrap gap-2">
         <Input
           className="max-w-sm"
+          aria-label="Buscar material"
           placeholder="Buscar por nome ou apelido..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
         />
-        <SelectNativo className="w-56" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+        <SelectNativo className="w-56" aria-label="Filtrar por categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
           <option value="">Todas as categorias</option>
           {categorias.map((c) => (
             <option key={c} value={c}>{c}</option>

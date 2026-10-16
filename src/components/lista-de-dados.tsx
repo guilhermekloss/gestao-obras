@@ -75,7 +75,7 @@ type Props<T> = {
 
 /** Link que identifica a linha: 44 px de altura no celular, como o resto dos alvos de toque. */
 export const LINK_DA_LINHA =
-  "inline-flex min-h-11 items-center hover:underline tabela:min-h-0 tabela:pointer-coarse:min-h-10";
+  "inline-flex min-h-11 min-w-11 items-center hover:underline tabela:min-h-0 tabela:min-w-0 tabela:pointer-coarse:min-h-10";
 
 // Posição explícita no grid do cartão: não depende da ordem das colunas.
 const POSICAO = {
@@ -179,8 +179,8 @@ export function ListaDeDados<T>({
                     c.classeCabecalho,
                   )}
                 >
-                  {c.cabecalho ??
-                    (c.tituloOculto ? <span className="sr-only">{c.titulo}</span> : c.titulo)}
+                  {c.tituloOculto && <span className="sr-only">{c.titulo}</span>}
+                  {c.cabecalho ?? (c.tituloOculto ? null : c.titulo)}
                 </TableHead>
               ))}
             </TableRow>

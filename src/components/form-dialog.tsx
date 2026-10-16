@@ -19,7 +19,8 @@ export function FormDialog({
   children,
   textoBotao = "Salvar",
 }: {
-  trigger: React.ReactNode;
+  /** O próprio botão que abre o diálogo (vira o gatilho, sem elemento por fora). */
+  trigger: React.ReactElement;
   titulo: string;
   action: (formData: FormData) => Promise<ActionResult>;
   children: React.ReactNode;
@@ -44,7 +45,7 @@ export function FormDialog({
 
   return (
     <Dialog open={aberto} onOpenChange={setAberto}>
-      <DialogTrigger nativeButton={false} render={<span>{trigger}</span>} />
+      <DialogTrigger render={trigger} />
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>

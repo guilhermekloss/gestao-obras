@@ -24,7 +24,7 @@ export function Sidebar({
       aria-label="Menu principal"
       className="hidden w-60 shrink-0 flex-col border-r bg-sidebar md:sticky md:top-0 md:flex md:h-svh"
     >
-      <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-4">
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
         <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
           <DraftingCompass aria-hidden className="size-4.5" />
         </span>
@@ -61,7 +61,7 @@ export function Sidebar({
 }
 
 const TAB =
-  "flex min-h-16 flex-col items-center justify-start gap-0.5 px-0.5 pt-2 pb-1.5 text-center text-[13px] leading-tight text-balance [font-stretch:88%] transition-colors";
+  "flex min-h-16 flex-col items-center justify-start gap-0.5 px-0.5 pt-2 pb-1.5 text-center text-xs leading-tight text-balance [font-stretch:88%] transition-colors";
 
 function Marca({ ativo, children }: { ativo: boolean; children: React.ReactNode }) {
   return (
@@ -160,7 +160,7 @@ export function BottomNav({ role }: { role: Role }) {
                     onClick={() => setAberto(false)}
                     aria-current={ativo ? "page" : undefined}
                     className={cn(
-                      "flex min-h-12 items-center gap-2.5 rounded-md border px-3 py-2 text-sm",
+                      "flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm",
                       ativo ? cn("border-primary", ATIVO) : "bg-card font-medium hover:bg-accent/60",
                     )}
                   >

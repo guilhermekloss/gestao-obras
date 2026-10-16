@@ -136,6 +136,7 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
                         <ConfirmButton
                           action={excluirEtapa.bind(null, etapa.id)}
                           mensagem={`Excluir a etapa "${etapa.nome}"?`}
+                          rotulo={`Excluir a etapa ${etapa.nome}`}
                           variant="ghost"
                           size="icon"
                         >

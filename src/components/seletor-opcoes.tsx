@@ -49,7 +49,7 @@ export function SeletorOpcoes<V extends string>({
             aria-pressed={marcada}
             onClick={() => onChange(marcada ? "" : v)}
             className={cn(
-              "relative flex min-h-16 items-center justify-center gap-2.5 rounded-lg border-2 px-3 py-2 text-base leading-tight outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
+              "relative flex min-h-16 items-center justify-center gap-3 rounded-lg border-2 px-3 py-2 text-base leading-tight outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
               colunas === 1 ? "justify-start" : "flex-col gap-1",
               marcada
                 ? cn("font-semibold", estiloMarcada ?? MARCADA)

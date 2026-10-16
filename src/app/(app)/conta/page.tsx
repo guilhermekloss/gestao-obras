@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { exigirPapel } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ROLE_LABELS } from "@/services/acesso";
@@ -10,6 +11,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { LogOut } from "lucide-react";
 import { encerrarMinhasSessoes } from "./actions";
 import { SenhaForm } from "./senha-form";
+
+export const metadata: Metadata = { title: "Minha conta" };
 
 const dataHora = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",

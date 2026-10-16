@@ -37,7 +37,7 @@ export function FeedAtividades({
       {atividades.map((a) => {
         const { Icone, cor } = ICONE[categoriaDoTipo(a.tipo) ?? "cadastro"];
         return (
-          <li key={a.id} className="flex items-start gap-3 py-2.5">
+          <li key={a.id} className="flex items-start gap-3 py-3">
             <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full", cor)}>
               <Icone className="size-3.5" />
             </span>

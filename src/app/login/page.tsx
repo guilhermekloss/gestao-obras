@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { LoginBloqueado, signIn, usuarioAtual } from "@/lib/auth";
 import { FolhaDeAcesso, TituloCota } from "@/components/folha-de-acesso";
 import { LoginForm, type AvisoDeLogin } from "./login-form";
+
+export const metadata: Metadata = { title: "Entrar" };
 
 export default async function LoginPage({
   searchParams,

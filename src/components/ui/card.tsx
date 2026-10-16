@@ -33,9 +33,15 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** Título do cartão: é um título de verdade (h2), para leitor de tela navegar por ele. Dentro de um bloco que já tem h2, use `nivel={3}`. */
+function CardTitle({
+  className,
+  nivel = 2,
+  ...props
+}: React.ComponentProps<"h2"> & { nivel?: 2 | 3 | 4 }) {
+  const Titulo = `h${nivel}` as const
   return (
-    <div
+    <Titulo
       data-slot="card-title"
       className={cn(
         "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",

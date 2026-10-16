@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Combobox, type ComboboxOption } from "@/components/combobox";
 
 export function ComboboxFiltro({
+  id,
   name,
   options,
   defaultValue = "",
@@ -13,6 +14,8 @@ export function ComboboxFiltro({
   className,
   inputClassName,
 }: {
+  /** Liga o campo ao `<label htmlFor>`. */
+  id?: string;
   name: string;
   options: ComboboxOption[];
   defaultValue?: string;
@@ -29,6 +32,7 @@ export function ComboboxFiltro({
     <>
       <input ref={ref} type="hidden" name={name} value={value} />
       <Combobox
+        id={id}
         options={options}
         value={value}
         onChange={(v) => {

@@ -68,7 +68,7 @@ export function EditarFornecedorDialog({ fornecedor }: { fornecedor: Fornecedor 
       titulo={`Editar ${fornecedor.nome}`}
       action={atualizarFornecedor.bind(null, fornecedor.id)}
       trigger={
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" aria-label={`Editar ${fornecedor.nome}`}>
           <Pencil className="size-4" />
         </Button>
       }

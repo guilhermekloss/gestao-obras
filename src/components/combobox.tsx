@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ export function Combobox({
   const campoRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listaRef = useRef<HTMLUListElement>(null);
+  const listaId = useId();
 
   const selecionado = options.find((o) => o.value === value) ?? null;
 
@@ -171,6 +172,11 @@ export function Combobox({
           onKeyDown={onKeyDown}
           className={cn("pr-8", mostrarErro && "border-destructive focus-visible:ring-destructive", inputClassName)}
           autoComplete="off"
+          role="combobox"
+          aria-expanded={aberto}
+          aria-controls={aberto ? listaId : undefined}
+          aria-autocomplete="list"
+          aria-activedescendant={aberto && lista[destaque] ? `${listaId}-${destaque}` : undefined}
           aria-invalid={mostrarErro}
         />
         {selecionado && !aberto ? (
@@ -186,18 +192,24 @@ export function Combobox({
         createPortal(
           <ul
             ref={listaRef}
+            id={listaId}
+            role="listbox"
             style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width }}
             className="z-50 max-h-64 overflow-auto rounded-md border bg-popover p-1 text-sm shadow-md"
           >
             {lista.length === 0 ? (
-              <li className="px-2 py-2 text-muted-foreground">{vazio}</li>
+              <li role="presentation" className="px-2 py-2 text-muted-foreground">{vazio}</li>
             ) : (
               lista.map((o, i) => {
                 const ativo = !!o.value && o.value === value;
                 return (
-                  <li key={o.value || "__limpar__"}>
+                  <li key={o.value || "__limpar__"} role="presentation">
                     <button
                       type="button"
+                      role="option"
+                      id={`${listaId}-${i}`}
+                      aria-selected={i === destaque}
+                      tabIndex={-1}
                       onMouseEnter={() => setDestaque(i)}
                       onMouseDown={(e) => {
                         // evita o blur do input antes do clique registrar

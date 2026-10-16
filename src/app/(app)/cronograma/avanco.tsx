@@ -84,6 +84,7 @@ export async function SecaoAvanco({
                     <ConfirmButton
                       action={excluirMedicao.bind(null, m.id)}
                       mensagem="Excluir este lançamento de avanço?"
+                      rotulo="Excluir este lançamento de avanço"
                       variant="ghost"
                       size="icon"
                     >

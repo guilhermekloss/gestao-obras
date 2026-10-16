@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
@@ -9,6 +10,8 @@ import { excluirFornecedor } from "./actions";
 import { calcularDependencia } from "@/services/dependencia";
 import { formatarMoeda } from "@/lib/format";
 import { ChevronRight, Trash2 } from "lucide-react";
+
+export const metadata: Metadata = { title: "Fornecedores" };
 
 export default async function FornecedoresPage() {
   const user = await exigirPapel("ADMIN", "ESCRITORIO");
@@ -71,6 +74,7 @@ export default async function FornecedoresPage() {
             <ConfirmButton
               action={excluirFornecedor.bind(null, f.id)}
               mensagem={`Excluir o fornecedor "${f.nome}"?`}
+              rotulo={`Excluir o fornecedor ${f.nome}`}
               variant="ghost"
               size="icon"
             >

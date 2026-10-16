@@ -44,13 +44,10 @@ export function NovoConviteDialog({ obras, grande = false }: { obras: ObraOpcao[
       }}
     >
       <DialogTrigger
-        nativeButton={false}
         render={
-          <span>
-            <Button size={grande ? "lg" : "default"}>
-              <Link2 className="size-4" /> Convidar por link
-            </Button>
-          </span>
+          <Button size={grande ? "lg" : "default"}>
+            <Link2 className="size-4" /> Convidar por link
+          </Button>
         }
       />
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">

@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { ultimosPrecos } from "@/services/materiais-db";
 import { NovoMaterialDialog } from "./material-dialogs";
 import { MateriaisTabela } from "./materiais-tabela";
+
+export const metadata: Metadata = { title: "Materiais" };
 
 export default async function MateriaisPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");

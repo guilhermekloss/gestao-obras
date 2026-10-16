@@ -94,7 +94,7 @@ export function EditarMaterialDialog({ material }: { material: MaterialCatalogo 
       titulo={`Editar ${material.nome}`}
       action={atualizarMaterial.bind(null, material.id)}
       trigger={
-        <Button variant="ghost" size="icon" title="Editar material">
+        <Button variant="ghost" size="icon" title="Editar material" aria-label="Editar material">
           <Pencil className="size-4" />
         </Button>
       }

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
@@ -9,6 +10,8 @@ import { listarObrasParaFiltro } from "@/services/obras";
 import { ArrowLeft, ChartNoAxesColumn, ReceiptText } from "lucide-react";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { veFinanceiro } from "@/services/acesso";
+
+export const metadata: Metadata = { title: "Fluxo mensal por obra" };
 
 export default async function FluxoMensalPage() {
   const user = await exigirPapel("ADMIN", "ESCRITORIO");

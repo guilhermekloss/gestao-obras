@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { exigirPapel } from "@/lib/auth";
@@ -17,7 +18,10 @@ import { EditarUsuarioDialog } from "../usuario-dialogs";
 import { encerrarSessoesUsuario } from "../actions";
 import { FeedAtividades } from "../feed-atividades";
 import { carregarPerfilUsuario, paraEdicao } from "../dados";
-import { AlertTriangle, ArrowLeft, LogOut } from "lucide-react";
+import { AlertTriangle, LogOut } from "lucide-react";
+import { LinkVoltar } from "@/components/link-voltar";
+
+export const metadata: Metadata = { title: "Usuário" };
 
 const SEMANAS = 12;
 
@@ -91,9 +95,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" render={<Link href="/usuarios" />}>
-        <ArrowLeft className="size-4" /> Usuários
-      </Button>
+      <LinkVoltar href="/usuarios">Usuários</LinkVoltar>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
@@ -165,7 +167,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
                 );
               })}
             </div>
-            <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+            <div className="mt-1 flex justify-between text-xs text-muted-foreground">
               <span>{formatarDataCurta(semanas[0].inicio)}</span>
               <span>esta semana</span>
             </div>
@@ -247,7 +249,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
               <ul className="divide-y text-sm">
                 {perfil.ultimosLancamentos.map((n) => (
                   <li key={n.id}>
-                    <Link href={`/notas/${n.id}`} className="-mx-2 flex items-center gap-2 rounded-md px-2 py-2 hover:bg-accent/50">
+                    <Link href={`/notas/${n.id}`} className="-mx-2 flex min-h-11 items-center gap-2 rounded-md px-2 py-2 hover:bg-accent/50">
                       <span className="flex-1 truncate">
                         {n.tipoDocumento === "NF" ? "NF" : n.tipoDocumento.toLowerCase()} {n.numero} · {n.fornecedor.nome}
                       </span>
@@ -271,7 +273,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
               <ul className="divide-y text-sm">
                 {perfil.ultimosRdos.map((r) => (
                   <li key={r.id}>
-                    <Link href={`/diario/${r.id}`} className="-mx-2 flex items-center gap-2 rounded-md px-2 py-2 hover:bg-accent/50">
+                    <Link href={`/diario/${r.id}`} className="-mx-2 flex min-h-11 items-center gap-2 rounded-md px-2 py-2 hover:bg-accent/50">
                       <span className="flex-1 truncate">
                         {formatarData(dataDoRdo(r.data))} · {r.obraNome}
                       </span>

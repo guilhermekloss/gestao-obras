@@ -12,7 +12,7 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "Gestão de Obras",
+  title: { default: "Gestão de Obras", template: "%s · Gestão de Obras" },
   description: "Notas fiscais, contas a pagar, RDO e medições das obras",
   appleWebApp: {
     capable: true,

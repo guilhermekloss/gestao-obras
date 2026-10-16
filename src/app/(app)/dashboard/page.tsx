@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { startOfMonth, subMonths } from "date-fns";
@@ -20,6 +21,8 @@ import { TopInsumos } from "./top-insumos";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { veFinanceiro } from "@/services/acesso";
 import { ChartGantt, ChartNoAxesColumn, ListOrdered, PiggyBank, ReceiptText, Scale } from "lucide-react";
+
+export const metadata: Metadata = { title: "Dashboard" };
 
 const MAX_ALERTAS = 8;
 const LINK_CARD =
@@ -175,7 +178,7 @@ export default async function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Avanço físico por obra</CardTitle>
+              <CardTitle nivel={3}>Avanço físico por obra</CardTitle>
             </CardHeader>
             <CardContent>
               {avancoData.length === 0 ? (
@@ -197,7 +200,7 @@ export default async function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Top 5 insumos (curva ABC)</CardTitle>
+              <CardTitle nivel={3}>Top 5 insumos (curva ABC)</CardTitle>
               <CardAction>
                 <Link href="/orcamento/abc" className={LINK_CARD}>
                   Ver curva ABC
@@ -228,7 +231,7 @@ export default async function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Gasto mensal por obra</CardTitle>
+              <CardTitle nivel={3}>Gasto mensal por obra</CardTitle>
             </CardHeader>
             <CardContent>
               {gastoMensalData.length === 0 ? (
@@ -246,7 +249,7 @@ export default async function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Orçado vs. realizado</CardTitle>
+              <CardTitle nivel={3}>Orçado vs. realizado</CardTitle>
             </CardHeader>
             <CardContent>
               {orcadoRealizadoData.length === 0 ? (

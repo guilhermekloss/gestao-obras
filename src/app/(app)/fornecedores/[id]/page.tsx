@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -14,6 +15,8 @@ import { normalizarDescricao } from "@/services/materiais";
 import { formatarMoeda, formatarData, formatarPercentBp } from "@/lib/format";
 import type { TipoItem } from "@prisma/client";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
+
+export const metadata: Metadata = { title: "Fornecedor" };
 
 const TIPO_LABELS: Record<TipoItem, string> = {
   MATERIAL: "Materiais",

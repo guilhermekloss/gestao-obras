@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
@@ -23,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 
 // fotos que cabem na linha do cartão (a última vira "+N" quando sobram)
+
+export const metadata: Metadata = { title: "Diário de obra" };
 const FOTOS_NA_LISTA = 4;
 
 export default async function DiarioPage({
@@ -61,7 +64,7 @@ export default async function DiarioPage({
       </div>
 
       <form method="get" className="grid gap-2">
-        <label className="text-base font-semibold">Obra</label>
+        <label htmlFor="filtro-obra" className="text-base font-semibold">Obra</label>
         <div className="flex items-start gap-2">
           <ComboboxFiltro
             name="obra"
@@ -114,7 +117,7 @@ export default async function DiarioPage({
                   <CardContent className="grid gap-3">
                     <Link
                       href={`/diario/${rdo.id}`}
-                      className="-m-2 grid gap-2.5 rounded-lg p-2 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="-m-2 grid gap-3 rounded-lg p-2 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -150,7 +153,7 @@ export default async function DiarioPage({
 
                       <p className="line-clamp-3 text-base whitespace-pre-wrap">{rdo.atividades}</p>
                       {rdo.ocorrencias && (
-                        <p className="line-clamp-3 rounded-md border-2 border-estado-atencao-borda bg-estado-atencao p-2.5 text-base whitespace-pre-wrap text-estado-atencao-fg">
+                        <p className="line-clamp-3 rounded-md border-2 border-estado-atencao-borda bg-estado-atencao p-3 text-base whitespace-pre-wrap text-estado-atencao-fg">
                           <strong>Ocorrência:</strong> {rdo.ocorrencias}
                         </p>
                       )}

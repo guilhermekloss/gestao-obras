@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { exigirPapel } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ImportarClient } from "./importar-client";
+
+export const metadata: Metadata = { title: "Importar planilhas" };
 
 export default async function ImportarPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");
