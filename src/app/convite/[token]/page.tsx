@@ -7,7 +7,7 @@ import { descreverAcessoObras, ROLE_DESCRICOES, ROLE_LABELS } from "@/services/a
 import { statusConvite, tokenComFormatoValido } from "@/services/convite";
 import { formatarData } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AvisoDeAcesso, FolhaDeAcesso, TituloCota } from "@/components/folha-de-acesso";
 import { CadastroForm } from "./cadastro-form";
 
 export const metadata: Metadata = {
@@ -35,19 +35,17 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
 
   if (!convite || status !== "PENDENTE") {
     return (
-      <Moldura>
-        <CardHeader>
-          <CardTitle className="text-2xl">Convite indisponível</CardTitle>
-          <CardDescription>
-            {status ? MOTIVO[status] : "Link de convite inválido."} Peça um novo link a quem convidou você.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="outline" className="w-full" render={<Link href="/login" />}>
-            Já tenho conta — entrar
+      <FolhaDeAcesso>
+        <TituloCota>Convite indisponível</TituloCota>
+        <div className="mt-6 grid gap-5 rounded-lg border border-foreground/60 bg-card p-5 sm:p-6">
+          <AvisoDeAcesso tom="atencao" titulo={status ? MOTIVO[status] : "Link de convite inválido."}>
+            Peça um novo link a quem convidou você.
+          </AvisoDeAcesso>
+          <Button variant="outline" size="lg" className="h-12 w-full text-base" render={<Link href="/login" />}>
+            Entrar com minha conta
           </Button>
-        </CardContent>
-      </Moldura>
+        </div>
+      </FolhaDeAcesso>
     );
   }
 
@@ -59,44 +57,46 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
   ]);
 
   return (
-    <Moldura>
-      <CardHeader>
-        <CardTitle className="text-2xl">Crie seu acesso</CardTitle>
-        <CardDescription>
-          {convite.criadoPor ? `${convite.criadoPor.nome} convidou você` : "Você foi convidado(a)"} para a plataforma
-          Gestão de Obras.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="rounded-md bg-muted/60 p-3 text-sm">
-          <p>
-            <span className="text-muted-foreground">Acesso: </span>
-            <strong>{ROLE_LABELS[convite.role]}</strong>
-          </p>
-          <p className="text-xs text-muted-foreground">{ROLE_DESCRICOES[convite.role]}</p>
-          {convite.role === "CAMPO" && (
-            <p className="mt-1">
-              <span className="text-muted-foreground">Obras: </span>
-              {descreverAcessoObras(convite.role, convite.todasObras, obras.map((o) => o.nome))}
-            </p>
-          )}
-          <p className="mt-1 text-xs text-muted-foreground">Link válido até {formatarData(convite.expiraEm)}.</p>
-        </div>
+    <FolhaDeAcesso>
+      <TituloCota>Crie seu acesso</TituloCota>
+      <p className="mt-3 text-muted-foreground">
+        {convite.criadoPor ? `${convite.criadoPor.nome} convidou você` : "Você foi convidado(a)"} para a plataforma
+        Gestão de Obras.
+      </p>
+
+      <dl className="mt-6 divide-y divide-foreground/40 overflow-hidden rounded-lg border border-foreground/60 bg-card">
+        <LinhaDaLegenda rotulo="Acesso">
+          <strong>{ROLE_LABELS[convite.role]}</strong>
+          <span className="block text-sm text-muted-foreground">{ROLE_DESCRICOES[convite.role]}</span>
+        </LinhaDaLegenda>
+        {convite.role === "CAMPO" && (
+          <LinhaDaLegenda rotulo="Obras">
+            {descreverAcessoObras(convite.role, convite.todasObras, obras.map((o) => o.nome))}
+          </LinhaDaLegenda>
+        )}
+        <LinhaDaLegenda rotulo="Válido até">
+          <span className="num text-base">{formatarData(convite.expiraEm)}</span>
+        </LinhaDaLegenda>
+      </dl>
+
+      <div className="mt-5 grid gap-5">
         {logado && (
-          <p className="text-xs text-muted-foreground">
-            Você está conectado como {logado.nome}. Ao concluir, entrará com a conta nova.
-          </p>
+          <AvisoDeAcesso tom="neutro" titulo={`Você está conectado como ${logado.nome}.`}>
+            Ao concluir, você entra com a conta nova.
+          </AvisoDeAcesso>
         )}
         <CadastroForm token={token} nome={convite.nome ?? ""} email={convite.email} />
-      </CardContent>
-    </Moldura>
+      </div>
+    </FolhaDeAcesso>
   );
 }
 
-function Moldura({ children }: { children: React.ReactNode }) {
+/** Linha do selo do convite: rótulo à esquerda, valor à direita, separados por régua. */
+function LinhaDaLegenda({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">{children}</Card>
-    </main>
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)]">
+      <dt className="border-r border-foreground/40 px-3 py-2.5 text-sm text-muted-foreground">{rotulo}</dt>
+      <dd className="px-3 py-2.5">{children}</dd>
+    </div>
   );
 }

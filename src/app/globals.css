@@ -258,3 +258,28 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+
+/* Papel quadriculado da prancheta: malha de 24 px, só nas telas de acesso. */
+@utility papel-quadriculado {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--border) 55%, transparent) 1px, transparent 1px);
+  background-size: 1.5rem 1.5rem;
+}
+
+/* A planta da tela de entrada se desenha uma vez, ao abrir. Sem movimento quando o usuário pede menos. */
+@keyframes desenhar-traco {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .traco-desenhado {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: desenhar-traco 1.6s cubic-bezier(0.3, 0.6, 0.2, 1) forwards;
+  }
+  .traco-desenhado-tardio {
+    animation-delay: 0.6s;
+  }
+}
