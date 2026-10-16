@@ -6,10 +6,12 @@ import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { fluxoMensal } from "@/services/financeiro";
 import { formatarMoeda, rotuloChaveMes } from "@/lib/format";
 import { listarObrasParaFiltro } from "@/services/obras";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChartNoAxesColumn, ReceiptText } from "lucide-react";
+import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
+import { veFinanceiro } from "@/services/acesso";
 
 export default async function FluxoMensalPage() {
-  await exigirPapel("ADMIN", "ESCRITORIO");
+  const user = await exigirPapel("ADMIN", "ESCRITORIO");
 
   const [parcelas, obras] = await Promise.all([
     prisma.parcela.findMany({
@@ -79,7 +81,19 @@ export default async function FluxoMensalPage() {
       </div>
 
       {fluxo.meses.length === 0 ? (
-        <p className="text-muted-foreground">Nenhuma parcela lançada ainda.</p>
+        <EstadoVazio
+          icone={ChartNoAxesColumn}
+          titulo="Fluxo sem parcelas"
+          acao={
+            veFinanceiro(user.role) && (
+              <AcaoVazio href="/notas/nova" icone={ReceiptText}>
+                Lançar primeira nota
+              </AcaoVazio>
+            )
+          }
+        >
+          O fluxo soma o que vence a cada mês, por obra. Ele aparece com a primeira nota parcelada.
+        </EstadoVazio>
       ) : (
         <ListaDeDados
           modo="rolagem"

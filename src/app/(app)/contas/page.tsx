@@ -10,6 +10,9 @@ import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, parseTipoDocumento, proximosDias } from "@/services/financeiro";
 import { ContasTable, type ParcelaLinha } from "./contas-client";
+import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
+import { veFinanceiro } from "@/services/acesso";
+import { CalendarCheck, ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const VISOES = [
@@ -27,7 +30,7 @@ export default async function ContasPage({
 }: {
   searchParams: Promise<{ visao?: string; obra?: string; fornecedor?: string; tipo?: string }>;
 }) {
-  await exigirPapel("ADMIN", "ESCRITORIO");
+  const user = await exigirPapel("ADMIN", "ESCRITORIO");
   const { visao = "semana", obra, fornecedor, tipo: tipoParam } = await searchParams;
   const tipo = parseTipoDocumento(tipoParam);
 
@@ -116,6 +119,9 @@ export default async function ContasPage({
   }));
 
   const total = linhas.reduce((acc, l) => acc + l.valorCents, 0);
+  // Sem parcela nenhuma no sistema o passo é lançar nota; com parcelas, o vazio vem só do filtro.
+  const semNenhumaParcela = linhas.length === 0 && (await prisma.parcela.count()) === 0;
+  const filtrado = Boolean(obra || fornecedor || tipo);
 
   return (
     <div className="space-y-4">
@@ -183,7 +189,37 @@ export default async function ContasPage({
         {linhas.length} parcela(s) · total {formatarMoeda(total)}
       </p>
 
-      <ContasTable parcelas={linhas} />
+      {linhas.length > 0 ? (
+        <ContasTable parcelas={linhas} />
+      ) : semNenhumaParcela ? (
+        <EstadoVazio
+          icone={CalendarCheck}
+          titulo="Nenhuma conta a pagar"
+          acao={
+            veFinanceiro(user.role) && (
+              <AcaoVazio href="/notas/nova" icone={ReceiptText}>
+                Lançar primeira nota
+              </AcaoVazio>
+            )
+          }
+        >
+          As parcelas aparecem aqui quando você lança uma nota com vencimento.
+        </EstadoVazio>
+      ) : (
+        <EstadoVazio
+          icone={CalendarCheck}
+          titulo="Nada nesta visão"
+          acao={
+            (visao !== "todas" || filtrado) && (
+              <AcaoVazio href="/contas?visao=todas" variante="outline">
+                Ver todas abertas
+              </AcaoVazio>
+            )
+          }
+        >
+          {filtrado ? "Nenhuma parcela bate com estes filtros." : "Nenhuma parcela neste período."}
+        </EstadoVazio>
+      )}
     </div>
   );
 }

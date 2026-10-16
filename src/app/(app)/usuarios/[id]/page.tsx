@@ -300,7 +300,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
           )}
         </CardHeader>
         <CardContent>
-          <FeedAtividades atividades={feed.atividades} mostrarUsuario={false} vazio="Nenhuma ação registrada ainda." />
+          <FeedAtividades atividades={feed.atividades} mostrarUsuario={false} vazio="Ainda não fez nenhuma ação na plataforma." />
         </CardContent>
       </Card>
     </div>
