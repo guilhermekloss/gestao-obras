@@ -5,6 +5,7 @@ import {
   rotuloChaveMes,
   dataParaInput,
   formatarMoeda,
+  formatarMoedaAbreviada,
   formatarPercentBp,
   formatarTempoRelativo,
   inputParaData,
@@ -114,5 +115,25 @@ describe("chaveMes e rotuloChaveMes", () => {
   it("rotuloChaveMes abrevia o mês e o ano", () => {
     expect(rotuloChaveMes("2026-10")).toBe("out/26");
     expect(rotuloChaveMes("2027-01")).toBe("jan/27");
+  });
+});
+
+describe("formatarMoedaAbreviada", () => {
+  it("abrevia em mil e mi, com no máximo uma casa decimal", () => {
+    expect(formatarMoedaAbreviada(0)).toBe("R$\u00a00");
+    expect(formatarMoedaAbreviada(85_000)).toBe("R$\u00a0850");
+    expect(formatarMoedaAbreviada(4_820_000)).toBe("R$\u00a048,2\u00a0mil");
+    expect(formatarMoedaAbreviada(12_000_000)).toBe("R$\u00a0120\u00a0mil");
+    expect(formatarMoedaAbreviada(130_000_000)).toBe("R$\u00a01,3\u00a0mi");
+  });
+
+  it("troca de unidade exatamente em R$ 1.000 e R$ 1.000.000", () => {
+    expect(formatarMoedaAbreviada(99_900)).toBe("R$\u00a0999");
+    expect(formatarMoedaAbreviada(100_000)).toBe("R$\u00a01\u00a0mil");
+    expect(formatarMoedaAbreviada(100_000_000)).toBe("R$\u00a01\u00a0mi");
+  });
+
+  it("mantém o sinal de valores negativos", () => {
+    expect(formatarMoedaAbreviada(-4_820_000)).toBe("-R$\u00a048,2\u00a0mil");
   });
 });
