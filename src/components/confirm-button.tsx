@@ -16,7 +16,7 @@ export function ConfirmButton({
   mensagem: string;
   children: React.ReactNode;
   variant?: "destructive" | "outline" | "ghost";
-  size?: "sm" | "icon" | "default";
+  size?: "sm" | "icon" | "default" | "lg";
 }) {
   const [pendente, startTransition] = useTransition();
   return (

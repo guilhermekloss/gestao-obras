@@ -11,6 +11,7 @@ export function ComboboxFiltro({
   todosLabel,
   autoSubmit,
   className,
+  inputClassName,
 }: {
   name: string;
   options: ComboboxOption[];
@@ -19,6 +20,7 @@ export function ComboboxFiltro({
   todosLabel?: string;
   autoSubmit?: boolean;
   className?: string;
+  inputClassName?: string;
 }) {
   const [value, setValue] = useState(defaultValue);
   const ref = useRef<HTMLInputElement>(null);
@@ -39,6 +41,7 @@ export function ComboboxFiltro({
         placeholder={placeholder}
         limparLabel={todosLabel}
         className={className}
+        inputClassName={inputClassName}
       />
     </>
   );

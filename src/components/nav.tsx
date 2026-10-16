@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@prisma/client";
@@ -82,9 +82,26 @@ export function BottomNav({ role }: { role: Role }) {
   const { barra, mais } = dividirBarra(itensPara(role));
   const maisAtivo = mais.some((i) => naRota(pathname, i.href));
   const colunas = barra.length + (mais.length > 0 ? 1 : 0);
+  const navRef = useRef<HTMLElement>(null);
+
+  // telas com barra de ação fixa (ex.: salvar o RDO) se apoiam nesta altura; ela muda com rótulo em 2 linhas e área segura
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const raiz = document.documentElement;
+    const publicar = () => raiz.style.setProperty("--altura-bottom-nav", `${nav.offsetHeight}px`);
+    publicar();
+    const observador = new ResizeObserver(publicar);
+    observador.observe(nav);
+    return () => {
+      observador.disconnect();
+      raiz.style.removeProperty("--altura-bottom-nav");
+    };
+  }, []);
 
   return (
     <nav
+      ref={navRef}
       aria-label="Menu principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
     >

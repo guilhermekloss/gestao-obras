@@ -53,6 +53,15 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 - Barra inferior (celular): 4 itens + "Mais" com as demais telas, em folha que sobe da base. Perfil com até 4 telas (campo) não mostra "Mais". Rótulos completos, em até 2 linhas. Quais itens ficam na barra: campo `fixo` em `src/components/nav-itens.ts`.
 - Permissões por papel ficam em `nav-itens.ts` (`papeis`) e têm teste em `src/components/__tests__/nav-itens.test.ts`.
 
+## Formulário de campo (RDO)
+Pensado para uma mão, sol forte e luva. O padrão vale para qualquer formulário longo que se preenche na obra.
+- **Campos grandes:** entradas de 63 px (`h-14`), texto em 18 px, rótulo em `text-base font-semibold` acima do campo. Nada de `<select>` para poucas opções: use `SeletorOpcoes` (`src/components/seletor-opcoes.tsx`), botões de 72 px com ícone, borda de 2 px e visto na opção marcada (a seleção não depende só da cor). Um toque escolhe, outro toque na mesma opção limpa.
+- **Contadores:** `+` e `−` de 54 px com o número em `num` de 24 px (`contador-lista.tsx`). A linha com quantidade fica com fundo `nav-ativo`.
+- **Seções recolhíveis:** `Accordion` (`src/components/ui/accordion.tsx`, Base UI). Cada seção mostra o resumo do que foi preenchido, mesmo fechada. O quadrado do ícone diz o estado: **tracejado** = falta preencher, **cheio com visto** = tem conteúdo, **vermelho** = obrigatório e vazio depois de tentar salvar.
+- **Ação fixa na base:** `BarraDeAcao` (`src/components/barra-de-acao.tsx`) fica logo acima da barra inferior. A `BottomNav` publica a altura dela em `--altura-bottom-nav`, que muda com rótulo em 2 linhas e com a área segura do aparelho. A tela precisa de `pb-24` embaixo. Foco e rolagem por âncora respeitam o cabeçalho e a barra (`scroll-padding` em `globals.css`).
+- **Rascunho:** o RDO guarda o que foi digitado no `localStorage` (uma chave por RDO, validade de 7 dias, 500 ms depois da última mudança). Ao reabrir, o aviso "Recuperamos o rascunho" tem o botão "Descartar". Salvar ou cancelar a edição apaga o rascunho. Lógica em `diario/novo/rascunho.ts`, com teste.
+- **Confirmação:** depois de salvar, a tela vira um painel verde "RDO salvo" com "Ver RDO" e "Voltar ao diário". Sem redirecionamento automático, para dar tempo de ler com luva.
+
 ## Listas e tabelas no celular
 Use `ListaDeDados` (`src/components/lista-de-dados.tsx`) em vez de `<Table>` solto. Há um único DOM; o CSS troca o desenho conforme a **largura do contêiner** (variantes `tabela:` e `cartao:` em `globals.css`, corte em 800 px). Isso vale também para colunas estreitas, como a equipe da obra.
 

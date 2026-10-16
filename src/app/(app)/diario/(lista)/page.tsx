@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { BarraDeAcao } from "@/components/barra-de-acao";
 import { Card, CardContent } from "@/components/ui/card";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -17,8 +18,12 @@ import {
   podeAlterarRdo,
   resumoClima,
 } from "@/services/rdo";
-import { ChevronRight, Images, NotebookPen, Plus, Trash2, Users } from "lucide-react";
+import { ChevronRight, CloudSun, Images, NotebookPen, Plus, Trash2, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
+
+// fotos que cabem na linha do cartão (a última vira "+N" quando sobram)
+const FOTOS_NA_LISTA = 4;
 
 export default async function DiarioPage({
   searchParams,
@@ -42,31 +47,36 @@ export default async function DiarioPage({
     listarObrasParaFiltro(user.obrasPermitidas),
   ]);
 
+  const novoHref = obra ? `/diario/novo?obra=${obra}` : "/diario/novo";
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 pb-24 md:pb-0">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl md:text-3xl">Diário de obra</h1>
         {rdos.length > 0 && (
-          <Button render={<Link href={obra ? `/diario/novo?obra=${obra}` : "/diario/novo"} />}>
+          <Button className="hidden md:inline-flex" render={<Link href={novoHref} />}>
             <Plus className="size-4" /> Registrar RDO
           </Button>
         )}
       </div>
 
-      <form method="get" className="flex items-end gap-2">
-        <div className="grid gap-1">
-          <label className="text-sm text-muted-foreground">Obra</label>
+      <form method="get" className="grid gap-2">
+        <label className="text-base font-semibold">Obra</label>
+        <div className="flex items-start gap-2">
           <ComboboxFiltro
             name="obra"
             defaultValue={obra ?? ""}
             todosLabel="Todas"
             placeholder="Todas"
-            className="w-48"
+            className="min-w-0 flex-1 md:max-w-xs"
+            inputClassName="h-14"
             autoSubmit
             options={obras.map((o) => ({ value: o.id, label: o.nome }))}
           />
+          <Button type="submit" variant="secondary" className="h-14 px-5 pointer-coarse:h-14">
+            Filtrar
+          </Button>
         </div>
-        <Button type="submit" variant="secondary">Filtrar</Button>
       </form>
 
       {rdos.length === 0 ? (
@@ -79,7 +89,7 @@ export default async function DiarioPage({
             icone={NotebookPen}
             titulo={obra ? "Nenhum RDO nesta obra" : "Nenhum RDO registrado"}
             acao={
-              <AcaoVazio href={obra ? `/diario/novo?obra=${obra}` : "/diario/novo"} icone={Plus}>
+              <AcaoVazio href={novoHref} icone={Plus}>
                 Registrar primeiro RDO
               </AcaoVazio>
             }
@@ -88,7 +98,7 @@ export default async function DiarioPage({
           </EstadoVazio>
         )
       ) : (
-        <div className="space-y-3">
+        <ul className="space-y-3">
           {rdos.map((rdo) => {
             const dia = dataDoRdo(rdo.data);
             const efetivo = normalizarEfetivo(rdo.efetivo);
@@ -96,81 +106,123 @@ export default async function DiarioPage({
             const totalEfetivo = efetivo.reduce((a, e) => a + e.qtd, 0);
             const clima = resumoClima(rdo);
             const podeExcluir = podeAlterarRdo(user, rdo);
+            const sobram = rdo.fotos.length > FOTOS_NA_LISTA;
+            const fotosVisiveis = sobram ? rdo.fotos.slice(0, FOTOS_NA_LISTA - 1) : rdo.fotos;
             return (
-              <Card key={rdo.id}>
-                <CardContent className="space-y-2 pt-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <Link href={`/diario/${rdo.id}`} className="group min-w-0 flex-1">
-                      <p className="flex items-center gap-1 font-semibold group-hover:underline">
-                        {rdo.obra.nome} · {formatarData(dia)}
-                        <ChevronRight className="size-4 text-muted-foreground" />
-                      </p>
-                      <p className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
-                        <span>{rdo.autor?.nome ?? "—"}</span>
-                        {clima && <span>· {clima}</span>}
-                        {totalEfetivo > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            · <Users className="size-3" /> {totalEfetivo}
-                          </span>
-                        )}
-                        {rdo.fotos.length > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            · <Images className="size-3" /> {rdo.fotos.length}
-                          </span>
-                        )}
-                        {rdo.condicao && (
-                          <CondicaoBadge condicao={rdo.condicao} curto className="ml-1" />
-                        )}
-                      </p>
-                    </Link>
-                    {podeExcluir && (
-                      <ConfirmButton
-                        action={excluirRdo.bind(null, rdo.id)}
-                        mensagem={`Excluir o RDO de ${formatarData(dia)}?`}
-                        variant="ghost"
-                        size="icon"
-                      >
-                        <Trash2 className="size-4 text-muted-foreground" />
-                      </ConfirmButton>
-                    )}
-                  </div>
+              <li key={rdo.id}>
+                <Card>
+                  <CardContent className="grid gap-3">
+                    <Link
+                      href={`/diario/${rdo.id}`}
+                      className="-m-2 grid gap-2.5 rounded-lg p-2 outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xl leading-snug font-semibold [font-stretch:112%]">{formatarData(dia)}</p>
+                          <p className="text-base leading-snug">{rdo.obra.nome}</p>
+                          <p className="text-sm text-muted-foreground">{rdo.autor?.nome ?? "—"}</p>
+                        </div>
+                        <ChevronRight aria-hidden className="mt-1 size-6 shrink-0 text-muted-foreground" />
+                      </div>
 
-                  <p className="whitespace-pre-wrap text-sm">{rdo.atividades}</p>
-                  {rdo.ocorrencias && (
-                    <p className="whitespace-pre-wrap rounded-md border-2 border-estado-atencao-borda bg-estado-atencao p-2 text-sm text-estado-atencao-fg">
-                      <strong>Ocorrência:</strong> {rdo.ocorrencias}
-                    </p>
-                  )}
-                  {efetivo.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {efetivo.map((e) => `${e.qtd} ${e.funcao.toLowerCase()}`).join(" · ")}
-                    </p>
-                  )}
-                  {equipamentos.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Equipamentos: {equipamentos.map((e) => `${e.qtd} ${e.nome.toLowerCase()}`).join(" · ")}
-                    </p>
-                  )}
-                  {rdo.fotos.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {rdo.fotos.map((f) => (
-                        <a key={f.id} href={f.url} target="_blank" rel="noreferrer">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={f.url}
-                            alt={f.legenda ?? "Foto do RDO"}
-                            className="size-24 rounded-md object-cover"
-                            loading="lazy"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                      {(rdo.condicao || clima || totalEfetivo > 0 || rdo.fotos.length > 0) && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium">
+                          {rdo.condicao && <CondicaoBadge condicao={rdo.condicao} curto className="h-7 text-sm" />}
+                          {clima && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <CloudSun aria-hidden className="size-5 shrink-0" /> {clima}
+                            </span>
+                          )}
+                          {totalEfetivo > 0 && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Users aria-hidden className="size-5 shrink-0" />
+                              {totalEfetivo} {totalEfetivo === 1 ? "pessoa" : "pessoas"}
+                            </span>
+                          )}
+                          {rdo.fotos.length > 0 && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Images aria-hidden className="size-5 shrink-0" />
+                              {rdo.fotos.length} {rdo.fotos.length === 1 ? "foto" : "fotos"}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="line-clamp-3 text-base whitespace-pre-wrap">{rdo.atividades}</p>
+                      {rdo.ocorrencias && (
+                        <p className="line-clamp-3 rounded-md border-2 border-estado-atencao-borda bg-estado-atencao p-2.5 text-base whitespace-pre-wrap text-estado-atencao-fg">
+                          <strong>Ocorrência:</strong> {rdo.ocorrencias}
+                        </p>
+                      )}
+                      {efetivo.length > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          {efetivo.map((e) => `${e.qtd} ${e.funcao.toLowerCase()}`).join(" · ")}
+                        </p>
+                      )}
+                      {equipamentos.length > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Equipamentos: {equipamentos.map((e) => `${e.qtd} ${e.nome.toLowerCase()}`).join(" · ")}
+                        </p>
+                      )}
+                    </Link>
+
+                    {rdo.fotos.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2">
+                        {fotosVisiveis.map((f) => (
+                          <a
+                            key={f.id}
+                            href={f.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={f.url}
+                              alt={f.legenda ?? "Foto do RDO"}
+                              className="aspect-square w-full rounded-lg object-cover"
+                              loading="lazy"
+                            />
+                          </a>
+                        ))}
+                        {sobram && (
+                          <Link
+                            href={`/diario/${rdo.id}`}
+                            aria-label={`Ver as ${rdo.fotos.length} fotos`}
+                            className="num grid aspect-square place-items-center rounded-lg border-2 border-input bg-muted text-xl font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            +{rdo.fotos.length - (FOTOS_NA_LISTA - 1)}
+                          </Link>
+                        )}
+                      </div>
+                    )}
+
+                    {podeExcluir && (
+                      <div className="flex justify-end border-t pt-3">
+                        <ConfirmButton
+                          action={excluirRdo.bind(null, rdo.id)}
+                          mensagem={`Excluir o RDO de ${formatarData(dia)}?`}
+                          variant="destructive"
+                          size="lg"
+                        >
+                          <Trash2 aria-hidden className="size-4" /> Excluir RDO
+                        </ConfirmButton>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </li>
             );
           })}
-        </div>
+        </ul>
+      )}
+
+      {rdos.length > 0 && (
+        <BarraDeAcao className="md:hidden">
+          <Link href={novoHref} className={cn(buttonVariants({ size: "lg" }), "h-14 w-full text-lg pointer-coarse:h-14")}>
+            <Plus aria-hidden className="size-5" /> Registrar RDO
+          </Link>
+        </BarraDeAcao>
       )}
     </div>
   );
