@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { startOfDay, endOfDay, endOfWeek, endOfMonth } from "date-fns";
+import { startOfDay, endOfDay, endOfWeek, endOfMonth, differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
@@ -107,6 +107,7 @@ export default async function ContasPage({
     status: p.status,
     pagaEm: p.pagaEm?.toISOString() ?? null,
     vencida: p.status === "ABERTA" && p.vencimento < startOfDay(hoje),
+    diasParaVencer: differenceInCalendarDays(p.vencimento, hoje),
     fornecedor: p.nota.fornecedor.nome,
     notaId: p.notaId,
     notaNumero: p.nota.numero,

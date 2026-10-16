@@ -21,6 +21,7 @@ function normalizar(s: string): string {
 }
 
 export function Combobox({
+  id,
   options,
   value,
   onChange,
@@ -34,6 +35,8 @@ export function Combobox({
   className,
   inputClassName,
 }: {
+  /** Liga o campo ao `<label htmlFor>`. */
+  id?: string;
   options: ComboboxOption[];
   value: string;
   onChange: (value: string) => void;
@@ -157,6 +160,7 @@ export function Combobox({
       <div ref={campoRef} className="relative">
         <Input
           ref={inputRef}
+          id={id}
           value={aberto ? busca : selecionado?.label ?? ""}
           placeholder={placeholder}
           onFocus={() => {

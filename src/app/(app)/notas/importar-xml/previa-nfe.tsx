@@ -5,7 +5,6 @@ import type { TipoItem } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectNativo } from "@/components/select-nativo";
-import { CampoAjuda } from "@/components/campo-ajuda";
 import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { formatarDocumento, type Nfe } from "@/services/nfe-xml";
@@ -170,44 +169,38 @@ export function PreviaItens({
     },
   ];
 
+  // vai dentro da seção "Itens" do formulário (que já tem título e resumo)
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          Itens
-          <CampoAjuda titulo="Itens da NF-e">
-            Os itens vêm do XML e não podem ser editados aqui — só o <b>tipo</b>, que classifica o
-            custo nos relatórios, e o <b>material</b> do catálogo a que cada item corresponde. Frete e impostos cobrados por fora (IPI, ST, seguro, outras
-            despesas) aparecem como itens próprios, para a soma fechar com o total da nota.
-          </CampoAjuda>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ListaDeDados
-          legenda="Itens da NF-e"
-          linhas={nfe.itens.map((item, i) => ({ item, i }))}
-          chave={({ i }) => String(i)}
-          colunas={colunas}
-          classeDaLinha={({ i }) => (vinculos[i] ? "tabela:border-b-0" : undefined)}
-          linhaExtra={({ item, i }) =>
-            vinculos[i] && (
-              <EscolhaMaterial
-                vinculo={vinculos[i]}
-                descricao={item.descricao}
-                unidade={item.unidade}
-                catalogo={catalogo}
-                onChange={(v) => onVinculo(i, v)}
-              />
-            )
-          }
-          rodape={
-            <div className="flex justify-between">
-              <span>Total da nota</span>
-              <span className="num">{formatarMoeda(nfe.totalCents)}</span>
-            </div>
-          }
-        />
-      </CardContent>
-    </Card>
+    <div className="grid gap-3">
+      <p className="text-sm text-muted-foreground">
+        Os itens vêm do XML e não podem ser editados aqui. Você escolhe só o tipo, que classifica o custo nos
+        relatórios, e o material do catálogo de cada item. Frete e impostos cobrados por fora (IPI, ST, seguro,
+        outras despesas) aparecem como itens próprios, para a soma fechar com o total da nota.
+      </p>
+      <ListaDeDados
+        legenda="Itens da NF-e"
+        linhas={nfe.itens.map((item, i) => ({ item, i }))}
+        chave={({ i }) => String(i)}
+        colunas={colunas}
+        classeDaLinha={({ i }) => (vinculos[i] ? "tabela:border-b-0" : undefined)}
+        linhaExtra={({ item, i }) =>
+          vinculos[i] && (
+            <EscolhaMaterial
+              vinculo={vinculos[i]}
+              descricao={item.descricao}
+              unidade={item.unidade}
+              catalogo={catalogo}
+              onChange={(v) => onVinculo(i, v)}
+            />
+          )
+        }
+        rodape={
+          <div className="flex justify-between">
+            <span>Total da nota</span>
+            <span className="num">{formatarMoeda(nfe.totalCents)}</span>
+          </div>
+        }
+      />
+    </div>
   );
 }

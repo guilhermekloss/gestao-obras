@@ -9,7 +9,7 @@ import { listarMateriais } from "@/services/materiais-db";
 import { centsParaEditavel, dataParaInput, percentBpParaEditavel } from "@/lib/format";
 import { TIPO_DOCUMENTO_BADGE } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
-import { Trash2 } from "lucide-react";
+import { Trash2, TriangleAlert } from "lucide-react";
 
 export default async function EditarNotaPage({
   params,
@@ -81,27 +81,32 @@ export default async function EditarNotaPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl">Editar {documento}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="min-w-0 text-2xl md:text-3xl">Editar {documento}</h1>
         {!temParcelaPaga && (
           <ConfirmButton
             action={excluirNota.bind(null, nota.id)}
             mensagem={`Excluir o lançamento ${documento}? Itens, rateios e parcelas serão removidos.`}
           >
-            <Trash2 className="size-4" /> Excluir
+            <Trash2 className="size-4" /> Excluir lançamento
           </ConfirmButton>
         )}
       </div>
       {nota.chaveNfe && (
-        <p className="text-xs text-muted-foreground">
-          Importada do XML · chave NF-e <span className="font-mono">{nota.chaveNfe}</span>
+        <p className="text-sm text-muted-foreground">
+          Importada do XML · chave NF-e <span className="font-mono break-all">{nota.chaveNfe}</span>
         </p>
       )}
       {temParcelaPaga && (
-        <p className="rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
-          Este lançamento tem parcelas pagas. Elas continuam pagas se o valor e o vencimento não
-          mudarem; se você alterar ou remover uma parcela paga, o sistema pede confirmação antes de
-          reabri-la.
+        <p
+          role="note"
+          className="flex items-start gap-2 rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg"
+        >
+          <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Este lançamento tem parcelas pagas. Elas continuam pagas se o valor e o vencimento não mudarem. Se
+            você alterar ou remover uma parcela paga, o sistema pede confirmação antes de reabri-la.
+          </span>
         </p>
       )}
       <NotaForm

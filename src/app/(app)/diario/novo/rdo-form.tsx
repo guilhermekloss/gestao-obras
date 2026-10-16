@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BarraDeAcao } from "@/components/barra-de-acao";
+import { CabecalhoSecao } from "@/components/cabecalho-secao";
 import { Combobox } from "@/components/combobox";
 import { SeletorOpcoes, type Opcao } from "@/components/seletor-opcoes";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,6 @@ import {
 } from "./rascunho";
 import {
   Camera,
-  Check,
   CircleCheck,
   Cloud,
   CloudRain,
@@ -640,48 +640,6 @@ export function RdoForm({
         </Button>
       </BarraDeAcao>
     </div>
-  );
-}
-
-function CabecalhoSecao({
-  icone: Icone,
-  titulo,
-  resumo,
-  preenchida,
-  erro = false,
-}: {
-  icone: LucideIcon;
-  titulo: string;
-  resumo: string;
-  preenchida: boolean;
-  erro?: boolean;
-}) {
-  return (
-    <>
-      {/* tracejado = falta preencher; cheio com visto = tem conteúdo */}
-      <span
-        aria-hidden
-        className={cn(
-          "relative grid size-12 shrink-0 place-items-center rounded-md border-2",
-          erro
-            ? "border-estado-vencido-borda bg-estado-vencido text-estado-vencido-fg"
-            : preenchida
-              ? "border-estado-no-prazo-borda bg-estado-no-prazo text-estado-no-prazo-fg"
-              : "border-dashed border-estado-neutro-borda bg-estado-neutro text-estado-neutro-fg",
-        )}
-      >
-        <Icone className="size-6" />
-        {preenchida && !erro && (
-          <Check className="absolute -right-1.5 -bottom-1.5 size-5 rounded-full bg-card p-0.5 text-estado-no-prazo-fg ring-1 ring-estado-no-prazo-borda" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-lg leading-snug font-semibold [font-stretch:112%]">{titulo}</span>
-        <span className={cn("block truncate text-sm font-normal", erro ? "font-medium text-destructive" : "text-muted-foreground")}>
-          {resumo}
-        </span>
-      </span>
-    </>
   );
 }
 
