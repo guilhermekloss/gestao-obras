@@ -1,7 +1,3 @@
-/**
- * Comparação campo a campo entre o `DocumentoLido` esperado e o lido.
- * Puro: sem E/S, para poder ser testado e reaproveitado.
- */
 import type { DocumentoLido } from "@/services/leitura-documento";
 
 export const CAMPOS = [
@@ -27,9 +23,7 @@ export type Campo = (typeof CAMPOS)[number];
 
 export type ResultadoCampo = {
   campo: Campo;
-  /** acertos (para itens: itens que conferem; demais: 0 ou 1) */
   acertos: number;
-  /** total comparado (para itens: max(nº esperado, nº lido); demais: 1) */
   total: number;
   esperado: unknown;
   lido: unknown;
@@ -37,10 +31,9 @@ export type ResultadoCampo = {
 
 const digitos = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
 const cents = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? null : Math.round(v * 100));
-/** null e 0 são equivalentes para frete/outras/desconto ("não há") */
 const centsOuZero = (v: number | null | undefined) => cents(v) ?? 0;
 
-export function normalizarTexto(s: string): string {
+function normalizarTexto(s: string): string {
   return s
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -50,7 +43,7 @@ export function normalizarTexto(s: string): string {
     .trim();
 }
 
-export function levenshtein(a: string, b: string): number {
+function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   let ant = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
@@ -63,11 +56,7 @@ export function levenshtein(a: string, b: string): number {
   return ant[b.length];
 }
 
-/**
- * Nome "parecido": similaridade de Levenshtein ≥ 0,85 sobre o texto normalizado,
- * ou todas as palavras do esperado presentes no lido com no máximo 3 palavras a mais.
- */
-export function nomeConfere(esperado: string | null, lido: string | null): boolean {
+function nomeConfere(esperado: string | null, lido: string | null): boolean {
   if (!esperado) return !lido;
   if (!lido) return false;
   const e = normalizarTexto(esperado);
@@ -80,8 +69,7 @@ export function nomeConfere(esperado: string | null, lido: string | null): boole
   return pe.every((p) => pl.has(p)) && pl.size <= pe.length + 3;
 }
 
-/** Números de nota comparados sem pontuação e sem zeros à esquerda; demais, sem espaços. */
-export function numeroConfere(esperado: string | null, lido: string | null): boolean {
+function numeroConfere(esperado: string | null, lido: string | null): boolean {
   const n = (s: string | null) => {
     const t = (s ?? "").replace(/[\s.\-/]/g, "").toUpperCase();
     return /^\d+$/.test(t) ? String(Number(t)) : (s ?? "").replace(/\s+/g, "").toUpperCase();
@@ -89,11 +77,7 @@ export function numeroConfere(esperado: string | null, lido: string | null): boo
   return n(esperado) === n(lido);
 }
 
-/**
- * Forma de pagamento: igual, ou NAO_INFORMADA ≡ BOLETO quando o documento tem
- * vencimentos (é o que `normalizarLeitura` decide nesse caso).
- */
-export function formaConfere(esperado: DocumentoLido, lido: DocumentoLido): boolean {
+function formaConfere(esperado: DocumentoLido, lido: DocumentoLido): boolean {
   if (esperado.formaPagamento === lido.formaPagamento) return true;
   const par = new Set([esperado.formaPagamento, lido.formaPagamento]);
   return esperado.parcelas.length > 0 && par.has("NAO_INFORMADA") && par.has("BOLETO");
@@ -112,7 +96,6 @@ function um(campo: Campo, ok: boolean, esperado: unknown, lido: unknown): Result
 
 export function compararDocumento(esperado: DocumentoLido, lido: DocumentoLido | null): ResultadoCampo[] {
   if (!lido) {
-    // falha na leitura: tudo conta como erro (itens contam pelo nº esperado)
     return CAMPOS.map((campo) => {
       const n = campo === "itens.quantidade" || campo === "itens.valorTotal" ? Math.max(esperado.itens.length, 1) : 1;
       return { campo, acertos: 0, total: n, esperado: "(ver esperado)", lido: null };
@@ -146,7 +129,6 @@ export function compararDocumento(esperado: DocumentoLido, lido: DocumentoLido |
   }
   r.push(um("formaPagamento", formaConfere(esperado, lido), esperado.formaPagamento, lido.formaPagamento));
 
-  // itens, casados pela ordem
   r.push(um("itens.contagem", esperado.itens.length === lido.itens.length, esperado.itens.length, lido.itens.length));
   const nE = esperado.itens.length;
   const nL = lido.itens.length;
@@ -157,7 +139,6 @@ export function compararDocumento(esperado: DocumentoLido, lido: DocumentoLido |
     for (let i = 0; i < Math.min(nE, nL); i++) {
       const e = esperado.itens[i];
       const l = lido.itens[i];
-      // quantidade não impressa (null) aceita null ou 1
       const qE = e.quantidade === null ? null : Math.round(e.quantidade * 1000);
       const qL = l.quantidade === null ? null : Math.round(l.quantidade * 1000);
       if (qE === qL || (qE === null && qL === 1000)) okQtd++;

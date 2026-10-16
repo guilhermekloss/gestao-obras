@@ -1,5 +1,3 @@
-# GitHub Actions troca o token OIDC do workflow por credenciais temporárias do GCP.
-# Nenhuma chave de service account é criada ou guardada no GitHub.
 resource "google_iam_workload_identity_pool" "github" {
   workload_identity_pool_id = "github"
   display_name              = "GitHub Actions"
@@ -18,8 +16,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.ref"           = "assertion.ref"
   }
 
-  # Só este repositório (pelo ID numérico) e só a branch de deploy.
-  # PRs, forks e outras branches não conseguem credenciais.
+  # Só este repositório (pelo ID numérico) e a branch de deploy: PRs, forks e outras branches não obtêm credenciais.
   attribute_condition = "assertion.repository_id == '${var.github_repository_id}' && assertion.ref == 'refs/heads/${var.github_branch_deploy}'"
 
   oidc {

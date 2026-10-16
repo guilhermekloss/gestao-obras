@@ -6,7 +6,6 @@ import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
 import { MAX_CENTS } from "@/schemas/comum";
 
-/** Salva os orçamentos de todas as etapas da obra de uma vez (campos etapa-<id>). */
 export const salvarOrcamentos = acaoDeEscrita(
   {
     papeis: ["ADMIN", "ESCRITORIO"],

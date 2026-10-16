@@ -1,9 +1,3 @@
-/**
- * Geradores de arquivos de teste, feitos na hora (sem fixtures binárias):
- * imagem com texto em português e códigos de barras (zxing-wasm writer) e
- * PDFs mínimos escritos à mão (texto com Helvetica e página escaneada com
- * JPEG embutido).
- */
 import fs from "node:fs";
 import sharp from "sharp";
 import { prepareZXingModule, writeBarcode } from "zxing-wasm/writer";
@@ -17,7 +11,6 @@ function prepararEscritor() {
   preparado = true;
 }
 
-/** PNG de um código (Code128, ITF ou QRCode), com altura mínima para os lineares. */
 export async function codigoPng(formato: "Code128" | "ITF" | "QRCode", texto: string, escala: number, altura?: number) {
   prepararEscritor();
   const r = await writeBarcode(texto, { format: formato, scale: escala, addQuietZones: true, addHRT: false });
@@ -34,10 +27,6 @@ export async function codigoPng(formato: "Code128" | "ITF" | "QRCode", texto: st
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-/**
- * Página branca com linhas de texto (SVG renderizado pelo sharp) e códigos
- * colados embaixo. `linhas`: [texto, tamanho da fonte, negrito?].
- */
 export async function imagemDocumento(
   largura: number,
   linhas: [string, number, boolean?][],
@@ -60,10 +49,6 @@ export async function imagemDocumento(
   return sharp(Buffer.from(svg)).composite(camadas).png().toBuffer();
 }
 
-// ---------------------------------------------------------------------------
-// PDF mínimo
-
-/** Monta um PDF com os objetos dados (o 1º é o catálogo), calculando a tabela xref. */
 function montarPdf(objetos: Buffer[]): Buffer {
   const partes: Buffer[] = [Buffer.from("%PDF-1.4\n%\xe2\xe3\xcf\xd3\n", "latin1")];
   const posicoes: number[] = [];
@@ -87,7 +72,7 @@ const fluxo = (dicionario: string, dados: Buffer) =>
 
 const textoPdf = (s: string) => `(${s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")})`;
 
-/** PDF digital A4 com trechos de texto em Helvetica: [texto, x, y (de baixo para cima), tamanho]. */
+// y de baixo para cima (coordenadas do PDF)
 export function pdfComTexto(trechos: [string, number, number, number][]): Buffer {
   const conteudo = Buffer.from(
     trechos.map(([t, x, y, tam]) => `BT /F1 ${tam} Tf ${x} ${y} Td ${textoPdf(t)} Tj ET`).join("\n"),
@@ -104,7 +89,6 @@ export function pdfComTexto(trechos: [string, number, number, number][]): Buffer
   ]);
 }
 
-/** PDF "escaneado": uma página só com uma imagem JPEG ocupando a página, sem texto. */
 export async function pdfEscaneado(imagem: Buffer): Promise<Buffer> {
   const { data: jpeg, info } = await sharp(imagem).flatten({ background: "#fff" }).jpeg({ quality: 90 }).toBuffer({
     resolveWithObject: true,

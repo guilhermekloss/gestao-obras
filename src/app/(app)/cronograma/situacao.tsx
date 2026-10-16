@@ -2,7 +2,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ROTULO_SITUACAO, type SituacaoEtapa } from "@/services/cronograma";
 
-/** Cores por situação da etapa — barra do Gantt (trilho + preenchimento) e badge. */
 export const COR_SITUACAO: Record<SituacaoEtapa, { trilho: string; barra: string; badge: string }> = {
   NAO_INICIADA: {
     trilho: "bg-chart-5/20",

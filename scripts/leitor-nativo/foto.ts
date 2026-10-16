@@ -1,15 +1,8 @@
-/**
- * Deriva uma "foto de celular" do render limpo (PNG ~192 dpi) com sharp:
- * papel sobre a mesa, rotação e cisalhamento leves, sombra/vinheta,
- * desfoque, pretos acinzentados, JPEG e lado maior limitado.
- */
 import sharp from "sharp";
 import type { ParametrosFoto } from "./documentos";
 
-/** o cliente do app reduz a 2400 px (JPEG 0,85) antes de enviar */
-export const LADO_MAXIMO = 2400;
+const LADO_MAXIMO = 2400;
 
-/** Sombra linear numa direção: iluminação desigual de foto de celular. */
 function sombraSvg(w: number, h: number, sombra: number, direcao: number): Buffer {
   const rad = (direcao * Math.PI) / 180;
   const x2 = 50 + 50 * Math.cos(rad);
@@ -21,7 +14,6 @@ function sombraSvg(w: number, h: number, sombra: number, direcao: number): Buffe
 </linearGradient></defs><rect width="100%" height="100%" fill="url(#s)"/></svg>`);
 }
 
-/** Vinheta suave (bordas mais escuras que o centro). */
 function vinhetaSvg(w: number, h: number): Buffer {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
 <defs><radialGradient id="v" cx="50%" cy="48%" r="75%"><stop offset="0.55" stop-color="#fff"/><stop offset="1" stop-color="#c4c4c4"/></radialGradient></defs>
@@ -33,7 +25,6 @@ export async function gerarFoto(png: Buffer, p: ParametrosFoto, ladoMaximo = LAD
   const w = meta.width ?? 0;
   const h = meta.height ?? 0;
 
-  // 1. cor do papel (multiplica o branco)
   let img = p.papel
     ? await sharp(png)
         .composite([{ input: { create: { width: w, height: h, channels: 3, background: p.papel } }, blend: "multiply" }])
@@ -41,7 +32,6 @@ export async function gerarFoto(png: Buffer, p: ParametrosFoto, ladoMaximo = LAD
         .toBuffer()
     : png;
 
-  // 2. mesa em volta + cisalhamento leve + rotação
   const margem = Math.round(Math.max(w, h) * 0.045);
   img = await sharp(img)
     .flatten({ background: "#ffffff" })
@@ -60,7 +50,6 @@ export async function gerarFoto(png: Buffer, p: ParametrosFoto, ladoMaximo = LAD
     .toBuffer();
   img = await sharp(img).rotate(p.angulo, { background: p.fundo }).png({ compressionLevel: 1 }).toBuffer();
 
-  // 3. iluminação desigual, desfoque, contraste de câmera (pretos acinzentados)
   const m2 = await sharp(img).metadata();
   img = await sharp(img)
     .composite([

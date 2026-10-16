@@ -1,15 +1,11 @@
-/**
- * Utilitários compartilhados entre o gerador do corpus e o avaliador.
- */
 import { existsSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { MidiaDocumento } from "@/services/leitor-nativo/tipos";
 
-/** "Hoje" fixo das avaliações: as datas do corpus são todas anteriores ou iguais. */
 export const HOJE = "2026-10-15";
 
-export const RAIZ_REPO = path.resolve(import.meta.dirname, "..", "..");
+const RAIZ_REPO = path.resolve(import.meta.dirname, "..", "..");
 export const DIR_FIXTURES = path.join(RAIZ_REPO, "src", "services", "leitor-nativo", "__fixtures__");
 export const DIR_SAIDA_PADRAO = path.join(os.tmpdir(), "leitor-nativo-corpus");
 
@@ -22,7 +18,6 @@ export function midiaDoArquivo(arquivo: string): MidiaDocumento | null {
   return null;
 }
 
-/** pdf = PDF digital; foto = JPEG fotografado; imagem = PNG/WebP limpo (render direto). */
 export type Origem = "pdf" | "foto" | "imagem";
 
 export function origemDoArquivo(arquivo: string): Origem {
@@ -30,12 +25,8 @@ export function origemDoArquivo(arquivo: string): Origem {
   return m === "application/pdf" ? "pdf" : m === "image/jpeg" ? "foto" : "imagem";
 }
 
-export type EntradaCorpus = { id: string; esperado: string; arquivos: string[] };
+type EntradaCorpus = { id: string; esperado: string; arquivos: string[] };
 
-/**
- * Para cada `<id>.esperado.json` do diretório, os arquivos `<id>.<variante>.<ext>`
- * ou `<id>.<ext>` com mídia suportada.
- */
 export function listarCorpus(dir: string): EntradaCorpus[] {
   if (!existsSync(dir)) throw new Error(`diretório não encontrado: ${dir}`);
   const nomes = readdirSync(dir).sort();

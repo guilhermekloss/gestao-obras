@@ -17,7 +17,6 @@ import { CurvaSWidget } from "./widgets/curva-s";
 import { AlertasLista } from "./alertas-lista";
 import { TopInsumos } from "./top-insumos";
 
-/** Quantos alertas o card mostra; o resto fica em /dashboard/alertas. */
 const MAX_ALERTAS = 8;
 const LINK_CARD = "text-sm text-muted-foreground hover:text-foreground hover:underline";
 
@@ -60,19 +59,15 @@ export default async function DashboardPage() {
     carregarCurvaAbc(),
   ]);
 
-  // "Gasto no mês" usa a mesma base dos gráficos (itens × rateio, por data de
-  // compra — `realizadoPorMes`), não `NotaFiscal.totalCents`: assim o KPI
-  // bate com a barra do mês em "Gasto mensal por obra". Quando itens e total
-  // da nota divergem, a diferença aparece no KPI de divergências.
+  // mesma base dos gráficos (itens × rateio), não NotaFiscal.totalCents: bate com "Gasto mensal
+  // por obra"; a diferença entre itens e total aparece no KPI de divergências
   const gastoNoMes = [...(porMes.get(chaveMes(inicioMes))?.values() ?? [])].reduce(
     (a, v) => a + v,
     0,
   );
 
-  // Divergências: notas cujo total difere da soma dos itens (vêm dos alertas)
   const divergencias = alertas.filter((a) => a.tipo === "NOTA_DIVERGENTE").length;
 
-  // Gasto mensal por obra (12 meses, empilhado por data de compra)
   const nomeObra = new Map(obras.map((o) => [o.id, o.nome]));
   const mesesOrdenados = [...porMes.keys()].sort();
   const obrasComGasto = obras.filter((o) => realizado.has(o.id)).map((o) => o.nome);
@@ -89,7 +84,6 @@ export default async function DashboardPage() {
     return linha;
   });
 
-  // Orçado vs. realizado por obra
   const orcadoRealizadoData = obras
     .map((o) => ({
       obra: o.nome,
@@ -98,7 +92,6 @@ export default async function DashboardPage() {
     }))
     .filter((d) => d.Orçado > 0 || d.Realizado > 0);
 
-  // Avanço físico por obra
   const ultimaMedicaoPorEtapa = new Map<string, number>();
   for (const m of etapasComMedicoes) ultimaMedicaoPorEtapa.set(m.etapaId, m.percentBp);
   const avancoData = obras

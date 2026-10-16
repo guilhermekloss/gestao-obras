@@ -1,7 +1,3 @@
-/**
- * DANFE de NF-e (modelo 55): canhoto, emitente, destinatário, fatura,
- * cálculo do imposto e o quadro "DADOS DO(S) PRODUTO(S)/SERVIÇO(S)".
- */
 import type { DocumentoLido } from "../../../leitura-documento";
 import {
   avisosDeMarca,
@@ -27,7 +23,7 @@ import {
 import { coberturaRotulos, dataDe, documentoDe, textoDe, valorDe } from "../rotulos";
 import { parcelasDoTrecho, telefoneDoTrecho, type Resultado } from "./auxiliares";
 
-/** CNPJ (ou CPF, para produtor rural: "000" + CPF) embutido na chave. */
+// CNPJ, ou CPF de produtor rural ("000" + CPF), embutido na chave.
 export function documentoDaChave(chave: string | null): string | null {
   if (!chave) return null;
   const c = dadosChaveNfe(chave).cnpj;
@@ -36,19 +32,15 @@ export function documentoDaChave(chave: string | null): string | null {
   return null;
 }
 
-/** Emitente/número/série/data comuns a NF-e e NFC-e a partir da chave. */
 function mesAnoDaChave(chave: string | null): string | null {
   if (!chave) return null;
   const d = dadosChaveNfe(chave);
   return `${d.ano}-${String(d.mes).padStart(2, "0")}`;
 }
 
-// ---------------------------------------------------------------------------
-// Linhas de produto
-
 const NUMERICO = /^-?\d[\d.]*,\d+$/;
 
-export type LinhaProduto = {
+type LinhaProduto = {
   codigo: string;
   descricao: string;
   ncm: string;
@@ -56,17 +48,11 @@ export type LinhaProduto = {
   cfop: string;
   unidade: string;
   numeros: string[];
-  /** índices dos tokens: início da descrição e NCM */
   iDescricao: number;
   iNcm: number;
 };
 
-/**
- * Linha do quadro de produtos ancorada em NCM (8 dígitos) + CST (3–4) +
- * CFOP (4, começando por 1–7), seguida de unidade e da cauda numérica
- * (QUANT, VALOR UNIT, VALOR TOTAL, ...). Tudo à esquerda do NCM é código +
- * descrição — então "10,0MM" na descrição não vira valor.
- */
+// Âncora: NCM (8) + CST (3–4) + CFOP (4, começa por 1–7); à esquerda é código + descrição.
 export function lerLinhaProduto(texto: string): LinhaProduto | null {
   const tokens = texto.trim().split(/\s+/);
   const num = (t: string) => corrigirOcrNumerico(t);
@@ -109,7 +95,6 @@ function lerItens(doc: Doc): ItensDanfe {
   let naTabela = false;
   let colunaDesconto = false;
   let somaBruta = 0;
-  // última linha de item, para juntar descrições quebradas
   let ultimo: {
     item: Item;
     x0Descricao: number | null;
@@ -138,7 +123,6 @@ function lerItens(doc: Doc): ItensDanfe {
     }
     let p = lerLinhaProduto(linha.texto);
     if (!p && /(?:^|\s)\d{8}\s+\d{2,4}\s+[1-7]\d{3}(?:\s|$)/.test(linha.texto)) {
-      // NCM/CST/CFOP presentes mas a cauda numérica caiu na linha de baixo (foto inclinada)
       const prox = doc.linhas[linha.indice + 1];
       const junto = prox ? lerLinhaProduto(`${linha.texto} ${prox.texto}`) : null;
       if (junto) {
@@ -172,7 +156,6 @@ function lerItens(doc: Doc): ItensDanfe {
       };
       continue;
     }
-    // continuação da descrição do item anterior
     if (!ultimo) continue;
     if (coberturaRotulos(linha) > 0.5) continue;
     const numericos = linha.tokens.filter((t) => NUMERICO.test(t.texto)).length;
@@ -190,8 +173,6 @@ function lerItens(doc: Doc): ItensDanfe {
   return { itens, temTabela, somaBruta: arredondar2(somaBruta) };
 }
 
-// ---------------------------------------------------------------------------
-
 function nomeDoCanhoto(doc: Doc): string | null {
   const ate = Math.min(doc.linhas.length, 4);
   const texto = doc.linhas
@@ -208,7 +189,6 @@ function nomeDoCanhoto(doc: Doc): string | null {
   return limparEspacos(texto.slice(inicio, inicio + m[1].length)) || null;
 }
 
-/** Primeira célula "com cara de nome" no topo (bloco do emitente). */
 function nomeDoTopo(doc: Doc, ate: number): string | null {
   for (let i = 0; i < Math.min(ate, doc.linhas.length); i++) {
     const l = doc.linhas[i];
@@ -267,11 +247,9 @@ export function interpretarDanfe(doc: Doc, ancoras: Ancoras): Resultado {
   const iAdic = acharLinha(doc, /DADOS\s*ADICIONAIS|INFORMACOES\s*COMPLEMENTARES/);
   const fimTopo = iDest !== -1 ? iDest : iCalc !== -1 ? iCalc : Math.min(fim, 15);
 
-  // Chave
   lido.chaveAcesso = ancoras.chave ?? ancoras.chaveInvalida;
   const docChave = documentoDaChave(ancoras.chave);
 
-  // Emitente
   lido.emitente.nome = nomeDoCanhoto(doc) ?? nomeDoTopo(doc, fimTopo);
   const candidatos = ancoras.documentos.filter((d) => d.linha < fimTopo);
   const rotulado = documentoDe(doc, ["CNPJ", "CNPJ_CPF"], {
@@ -285,7 +263,6 @@ export function interpretarDanfe(doc: Doc, ancoras: Ancoras): Resultado {
       rotulado?.valor ?? candidatos.find((d) => d.valido)?.valor ?? candidatos[0]?.valor ?? null;
   lido.emitente.telefone = telefoneDoTrecho(textoDasLinhas(doc, 0, fimTopo));
 
-  // Número, série, data
   const ns = numeroESerie(doc, fimTopo === fim ? Math.min(fim, 15) : fimTopo);
   lido.numero = ns.numero;
   lido.serie = ns.serie;
@@ -298,7 +275,6 @@ export function interpretarDanfe(doc: Doc, ancoras: Ancoras): Resultado {
     lido.dataEmissao = encontrarDatas(doc.textoCompleto).find((d) => d.valor.startsWith(mesChave))?.valor ?? null;
   }
 
-  // Destinatário
   if (faixaDest) {
     lido.destinatario.nome = textoDe(doc, ["NOME_RAZAO"], { faixa: faixaDest });
     const d = documentoDe(doc, ["CNPJ_CPF", "CNPJ", "CPF"], {
@@ -308,7 +284,6 @@ export function interpretarDanfe(doc: Doc, ancoras: Ancoras): Resultado {
     lido.destinatario.documento = d?.valor ?? doBloco.find((x) => x.valido)?.valor ?? doBloco[0]?.valor ?? null;
   }
 
-  // Totais
   const faixaTotais: Faixa | undefined =
     iCalc !== -1
       ? {
@@ -336,7 +311,6 @@ export function interpretarDanfe(doc: Doc, ancoras: Ancoras): Resultado {
   lido.valorFrete = positivoOuNull(vFrete);
   lido.valorOutrasDespesas = positivoOuNull(arredondar2(outras.reduce<number>((s, v) => s + (v ?? 0), 0)));
 
-  // Itens
   const { itens, temTabela, somaBruta } = lerItens(doc);
   lido.itens = itens;
   const descontoNosItens = itens.some((i) => i.desconto);
@@ -353,7 +327,6 @@ export function interpretarDanfe(doc: Doc, ancoras: Ancoras): Resultado {
     );
   }
 
-  // Conferência do quadro de totais (vNF = produtos − desconto + frete + acessórias)
   if (lido.valorTotal && vProd) {
     const esperado = arredondar2(vProd - (vDesc ?? 0) + (lido.valorFrete ?? 0) + (lido.valorOutrasDespesas ?? 0));
     if (Math.abs(esperado - lido.valorTotal) > 0.02) {
@@ -361,21 +334,18 @@ export function interpretarDanfe(doc: Doc, ancoras: Ancoras): Resultado {
     }
   }
 
-  // Fatura / duplicatas
   if (iFatura !== -1 && iFatura > iDest) {
     const fimFatura =
       [iCalc, iTransp, iProd].filter((i) => i > iFatura).sort((a, b) => a - b)[0] ?? Math.min(fim, iFatura + 6);
     lido.parcelas = parcelasDoTrecho(doc, { de: iFatura, ate: fimFatura });
   }
 
-  // Forma de pagamento: fatura e informações complementares
   const trechos = [
     iFatura !== -1 && iFatura > iDest ? textoDasLinhas(doc, iFatura, iCalc > iFatura ? iCalc : iFatura + 4) : "",
     iAdic !== -1 ? textoDasLinhas(doc, iAdic, fim) : "",
   ].join("\n");
   lido.formaPagamento = formaPagamentoDoTexto(trechos);
 
-  // Folhas faltando
   let incompleto = false;
   const folhas = [...doc.normCompleto.matchAll(/\b(?:FOLHA|FL\.?)\s*(\d{1,2})\s*\/\s*(\d{1,2})/g)];
   if (folhas.length) {

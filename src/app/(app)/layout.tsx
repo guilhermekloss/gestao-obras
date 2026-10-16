@@ -12,7 +12,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // lido do banco: conta desativada perde o acesso na hora, e o menu segue o papel atual
+  // lido do banco: conta desativada perde o acesso na hora
   const user = await usuarioAtual();
   if (!user) redirect("/login");
 

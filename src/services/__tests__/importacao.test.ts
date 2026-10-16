@@ -49,9 +49,6 @@ describe("importarPlanilhas", () => {
   });
 
   it("normaliza o rateio pelas colunas de obra somando 100% (rateio único por nota)", () => {
-    // Item 0 (CA50, R$800): 60% L03 / 40% L19. Item 1 (FRETE, R$200): 100% L03.
-    // Rateio da nota = média ponderada pelo total de cada item:
-    //   L03: (800×0,60 + 200×1,00) / 1000 = 68% · L19: (800×0,40) / 1000 = 32%
     const aco = resultado.notas.find((n) => n.numero === "100")!;
     expect(aco.rateios).toEqual([
       { codigoObra: "L03", fracaoBp: 6800 },
@@ -69,8 +66,6 @@ describe("importarPlanilhas", () => {
   });
 
   it("reporta divergência total × itens (o comparador FALSO)", () => {
-    // Aço Forte: itens somam 800+200=1.000 ✓; sem divergência
-    // Madeireira: itens somam 300 = total ✓
     expect(
       resultado.inconsistencias.filter((i) => i.includes("difere do total")),
     ).toHaveLength(0);

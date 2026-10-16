@@ -1,6 +1,4 @@
-# PostgreSQL gerenciado. Sem redes autorizadas e exigindo certificado de cliente:
-# a única forma de conectar é pelo Cloud SQL Auth Proxy/connector, autenticado via IAM
-# (o Cloud Run usa o connector embutido via socket Unix em /cloudsql).
+# Sem redes autorizadas e com certificado de cliente: só conecta pelo Auth Proxy/connector (IAM).
 resource "google_sql_database_instance" "main" {
   name                = "${var.app_name}-pg"
   database_version    = "POSTGRES_17"
@@ -19,7 +17,7 @@ resource "google_sql_database_instance" "main" {
     backup_configuration {
       enabled                        = true
       point_in_time_recovery_enabled = true
-      start_time                     = "06:00" # 03:00 em Brasília
+      start_time                     = "06:00"
       location                       = var.region
       transaction_log_retention_days = 7
       backup_retention_settings {
@@ -33,8 +31,8 @@ resource "google_sql_database_instance" "main" {
     }
 
     maintenance_window {
-      day          = 7 # domingo
-      hour         = 7 # 04:00 em Brasília
+      day          = 7
+      hour         = 7
       update_track = "stable"
     }
 
@@ -44,10 +42,9 @@ resource "google_sql_database_instance" "main" {
 
     database_flags {
       name  = "log_min_duration_statement"
-      value = "1000" # registra queries com mais de 1s
+      value = "1000"
     }
 
-    # trilha de auditoria: quem conectou, de onde e por quanto tempo
     database_flags {
       name  = "log_connections"
       value = "on"

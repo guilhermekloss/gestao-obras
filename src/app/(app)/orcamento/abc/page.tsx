@@ -38,7 +38,7 @@ const CLASSE_INFO: Record<ClasseAbc, { descricao: string; badge: "default" | "se
 
 const DATA_INPUT = /^\d{4}-\d{2}-\d{2}$/;
 
-/** "aaaa-mm-dd" do filtro → início/fim do dia local; valor inválido é ignorado. */
+// início/fim do dia local
 function dataDoFiltro(valor: string | undefined, fimDoDia: boolean): Date | undefined {
   if (!valor || !DATA_INPUT.test(valor)) return undefined;
   return new Date(`${valor}T${fimDoDia ? "23:59:59.999" : "00:00:00"}`);

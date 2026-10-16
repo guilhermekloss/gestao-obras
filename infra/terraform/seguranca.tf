@@ -1,8 +1,3 @@
-# Detecção e auditoria: quem leu segredos, quem mexeu em permissões e ataques
-# ao login do app. Os eventos do app saem como JSON no log do Cloud Run
-# (src/lib/log-seguranca.ts) e viram métricas e alertas aqui.
-
-# --- Auditoria de leitura de segredos (Admin Activity já é registrado sempre) ---
 resource "google_project_iam_audit_config" "secret_manager" {
   project = var.project_id
   service = "secretmanager.googleapis.com"
@@ -14,7 +9,6 @@ resource "google_project_iam_audit_config" "secret_manager" {
   }
 }
 
-# --- Contato de segurança do projeto (avisos do Google sobre incidentes e abusos) ---
 resource "google_essential_contacts_contact" "seguranca" {
   count                               = var.email_alertas == "" ? 0 : 1
   parent                              = "projects/${var.project_id}"
@@ -24,7 +18,6 @@ resource "google_essential_contacts_contact" "seguranca" {
   depends_on                          = [google_project_service.apis]
 }
 
-# --- Eventos de segurança do app, por tipo (login_falhou, login_bloqueado...) ---
 resource "google_logging_metric" "eventos_seguranca" {
   name   = "${var.app_name}/eventos_seguranca"
   filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${var.app_name}\" AND jsonPayload.categoria=\"seguranca\""
@@ -44,7 +37,6 @@ resource "google_logging_metric" "eventos_seguranca" {
   }
 }
 
-# --- Mudança de permissão (IAM) ou criação de chave de service account ---
 resource "google_logging_metric" "mudancas_iam" {
   name   = "${var.app_name}/mudancas_iam"
   filter = "logName:\"cloudaudit.googleapis.com%2Factivity\" AND (protoPayload.methodName=\"SetIamPolicy\" OR protoPayload.methodName:\"CreateServiceAccountKey\" OR protoPayload.methodName:\"UploadServiceAccountKey\")"
@@ -79,7 +71,7 @@ locals {
     iam = {
       nome      = "${var.app_name}: permissões do projeto alteradas"
       descricao = "Alguém mudou uma política IAM ou criou chave de service account. Esperado só ao rodar o bootstrap/Terraform; fora disso, investigue em Logging → cloudaudit activity."
-      # entradas de auditoria (project, service_account...) não têm recurso monitorado próprio: viram "global"
+      # entradas de auditoria não têm recurso monitorado próprio: viram "global"
       filtro = "metric.type=\"logging.googleapis.com/user/${google_logging_metric.mudancas_iam.name}\" AND resource.type=\"global\""
       limite = 0
     }

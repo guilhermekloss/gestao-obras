@@ -43,10 +43,10 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 
 ## Estrutura
 
-- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, notas (lançamentos com envio único de foto/PDF/XML em `nova/` + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu), medicoes (redireciona para cronograma)
+- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, notas (lançamentos com envio único de foto/PDF/XML em `nova/` + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu)
 - `src/app/convite/[token]` — cadastro público pelo link de convite
 - `src/app/(app)/conta` — Minha conta: troca de senha, sair de todos os aparelhos, acessos recentes
-- `src/services/` — acesso (permissão por obra), senha (política), protecao-login (força bruta), arquivos (tipo pelo conteúdo, URLs aceitas), convite, atividade (catálogo do log, atuação por obra), parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), nfe-xml, leitura-documento (conferência da nota lida) + leitor-ia (Claude: foto/PDF → dados)
+- `src/services/` — acesso (permissão por obra), senha (política), protecao-login (força bruta), arquivos (tipo pelo conteúdo, URLs aceitas), convite, atividade (catálogo do log, atuação por obra), parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), fornecedores, correspondencia-fornecedor, nfe-xml, leitura-documento (conferência da nota lida), leitor-nativo (foto/PDF → dados: texto do PDF, código de barras/QR, OCR) e leitor-gemini (Analisar com IA)
 - `src/lib/` — prisma, auth (`usuarioAtual`, `exigirPapel`, `exigirAcessoObra`, bloqueio de login) + auth.config (sessão, usada também pelo `src/proxy.ts`), acao (`acaoDeEscrita` — seam das server actions e do log de auditoria), atividade (`anotarAtividade`), log-seguranca (eventos em JSON), csp, token (link de convite), format (moeda/data/percentual BR), storage, imagem (reduz a foto antes do upload)
 - `src/proxy.ts` — Content-Security-Policy com nonce e renovação do cookie de sessão
 - `prisma/` — schema, seed, `teste-fluxo.ts` (dados de demonstração)
@@ -69,7 +69,7 @@ Camadas (contas, autorização, CSP, arquivos, dados, nuvem, CI/CD, alertas), ri
 
 ## Pendências conscientes
 
-- Service worker (cache offline) não instalado — o PWA é instalável via manifest; Serwist fica para quando o deploy for definido.
+- Service worker (cache offline) não instalado — o PWA é instalável via manifest.
 - Rateio é por nota (aplicado a todos os itens) — o modelo de dados garante isso (`RateioNota` pertence à `NotaFiscal`, não ao item). Para destinar um item a outra obra, lance em uma nota separada.
 - Editar um lançamento preserva as parcelas pagas cujo valor e vencimento não mudaram; alterar ou remover uma parcela paga a reabre/remove, com confirmação.
 - Lançamentos sem NF (recibo, folha, guia, outro) recebem número automático por fornecedor quando ficam em branco: `REC-0001`, `FOL-0001`, `GUIA-0001`, `DOC-0001`.

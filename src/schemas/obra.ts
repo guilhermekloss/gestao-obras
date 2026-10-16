@@ -19,8 +19,6 @@ export const obraSchema = z.object({
   criarEtapasPadrao: z.boolean().optional(),
 });
 
-export type ObraInput = z.infer<typeof obraSchema>;
-
 export const etapaSchema = z.object({
   nome: texto(200, "O nome").min(1, "Nome é obrigatório"),
 });

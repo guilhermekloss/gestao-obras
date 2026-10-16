@@ -6,14 +6,6 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DICA_SENHA, SENHA_MINIMA, requisitosSenha } from "@/services/senha";
 
-/**
- * Campo de senha nova com o formato exigido à vista: a lista de requisitos
- * (mesmas regras do servidor, `services/senha.ts`) se marca enquanto a pessoa
- * digita. Nome e e-mail vêm dos campos `nome`/`email` do mesmo formulário ou,
- * sem esses campos (Minha conta), das props.
- *
- * `outraPessoa`: o admin define a senha de alguém (o texto fala "da pessoa").
- */
 export function CampoSenhaNova({
   id = "senha",
   name = "senha",
@@ -35,7 +27,6 @@ export function CampoSenhaNova({
   const [senha, setSenha] = useState("");
   const [contexto, setContexto] = useState<{ nome?: string; email?: string }>({});
 
-  // acompanha nome e e-mail digitados no mesmo formulário (regra "não contém seu e-mail/nome")
   useEffect(() => {
     const form = ref.current?.form;
     if (!form) return;
@@ -46,10 +37,10 @@ export function CampoSenhaNova({
       };
       setContexto({ nome: valor("nome") ?? nome, email: valor("email") ?? email });
     };
-    // o React limpa o formulário depois da action: a lista volta ao estado vazio
+    // o React limpa o formulário depois da action
     const limpar = () => setSenha("");
     ler();
-    // campo não controlado: o que foi digitado antes da hidratação é preservado e lido aqui
+    // não controlado: preserva o que foi digitado antes da hidratação
     setSenha(ref.current?.value ?? "");
     form.addEventListener("input", ler);
     form.addEventListener("reset", limpar);

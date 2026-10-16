@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// custos.ts lê do banco: o Prisma é substituído por um findMany controlado
 const findMany = vi.fn();
 vi.mock("@/lib/prisma", () => ({ prisma: { notaFiscal: { findMany } } }));
 

@@ -1,10 +1,4 @@
-/**
- * Reduz a foto no navegador antes do envio: foto de celular tem 3–8 MB e
- * 4000+ px, o que deixa o upload lento no canteiro e passa do limite do
- * leitor. 2400 px no lado maior mantém legível a letra miúda de um DANFE.
- * Também converte HEIC (iPhone) e PNG para JPEG. Se o navegador não
- * conseguir decodificar a imagem, devolve o arquivo original.
- */
+// 2400 px no lado maior ainda deixa legível a letra miúda de um DANFE.
 const LADO_MAXIMO = 2400;
 const QUALIDADE = 0.85;
 

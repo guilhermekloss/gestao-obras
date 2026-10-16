@@ -15,14 +15,12 @@ export type LinhaOrcamento = {
   nome: string;
   previstoCents: number;
   realizadoCents: number;
-  /** calculados no servidor (`services/analises`) a partir do previsto salvo */
   consumoBp: number | null;
   faixa: FaixaConsumo;
 };
 
 export type TotalOrcamento = Omit<LinhaOrcamento, "etapaId" | "nome">;
 
-/** Orçamento ainda não preenchido fica em branco em vez de mostrar "0,00". */
 function centsParaStr(cents: number): string {
   return cents ? centsParaEditavel(cents) : "";
 }

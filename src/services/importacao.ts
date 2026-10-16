@@ -1,22 +1,6 @@
-/**
- * Parsing das planilhas históricas exportadas em CSV.
- *
- * Formato esperado (colunas por nome, sem distinção de maiúsculas/acentos):
- *
- * CSV de itens (planilha "quantitativo"):
- *   fornecedor; cnpj; nf; data; descricao; tipo; qtde; unidade; unitario; desconto
- *   + uma coluna por obra com o CÓDIGO da obra (ex.: L01, L03, L19) contendo a
- *     fração destinada (percentual, quantidade ou flag 1) — normalizada pela soma da linha.
- *
- * CSV financeiro (planilha "notas fiscais"):
- *   fornecedor; cnpj; nf; data; valor_total; forma
- *   + parcela1_valor; parcela1_venc; parcela1_pagoem; ... até parcela6_*
- *
- * Datas em dd/mm/aaaa; valores em formato BR (1.234,56).
- */
 import { BP_TOTAL, custoRateado, distribuirBpPorPeso } from "./rateio";
 
-export type ItemImportado = {
+type ItemImportado = {
   descricao: string;
   tipo: "MATERIAL" | "SERVICO" | "FRETE" | "ENCARGO";
   qtde: number;
@@ -26,16 +10,16 @@ export type ItemImportado = {
   totalCents: number;
 };
 
-export type RateioImportado = { codigoObra: string; fracaoBp: number };
+type RateioImportado = { codigoObra: string; fracaoBp: number };
 
-export type ParcelaImportada = {
+type ParcelaImportada = {
   numero: number;
   valorCents: number;
   vencimento: Date;
   pagaEm: Date | null;
 };
 
-export type NotaImportada = {
+type NotaImportada = {
   fornecedor: string;
   cnpj: string | null;
   numero: string;
@@ -43,23 +27,16 @@ export type NotaImportada = {
   totalCents: number;
   formaPagto: "PIX" | "CARTAO" | "DEBITO" | "BOLETO";
   itens: ItemImportado[];
-  /**
-   * Rateio da nota inteira (o app não modela rateio por item — ver README
-   * §Pendências conscientes). Quando os itens da planilha original traziam
-   * pesos diferentes por linha, é a média ponderada pelo total de cada item:
-   * matematicamente idêntica à soma dos custos por obra que os pesos por
-   * item produziriam, então nenhum valor de custo por obra muda.
-   */
+  // não há rateio por item: é a média dos pesos das linhas ponderada pelo total de cada item
   rateios: RateioImportado[];
   parcelas: ParcelaImportada[];
 };
 
-export type ResultadoImportacao = {
+type ResultadoImportacao = {
   notas: NotaImportada[];
   inconsistencias: string[];
 };
 
-/** Parser CSV simples com suporte a campos entre aspas e detecção de ; ou , */
 export function parseCsv(texto: string): Record<string, string>[] {
   const linhas = texto.replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim());
   if (linhas.length < 2) return [];
@@ -142,10 +119,6 @@ function chaveNota(fornecedor: string, nf: string): string {
   return `${normalizarChave(fornecedor)}::${nf.trim()}`;
 }
 
-/**
- * Combina os dois CSVs em notas completas (itens + rateios + parcelas),
- * relatando inconsistências sem interromper a importação.
- */
 export function importarPlanilhas(
   csvItens: string,
   csvFinanceiro: string,
@@ -156,7 +129,6 @@ export function importarPlanilhas(
   const rowsFin = parseCsv(csvFinanceiro);
   const colunasObras = codigosObras.map((c) => ({ codigo: c, chave: normalizarChave(c) }));
 
-  // 1) Notas a partir do financeiro
   const notas = new Map<string, NotaImportada>();
   rowsFin.forEach((row, idx) => {
     const linha = idx + 2;
@@ -217,9 +189,6 @@ export function importarPlanilhas(
     });
   });
 
-  // 2) Itens com rateio pelas colunas de obra. O rateio de cada linha é
-  // acumulado por nota (em centavos, por obra) para virar o rateio único da
-  // nota no passo 3 — ver o comentário em `NotaImportada.rateios`.
   const centsPorObraPorNota = new Map<string, Map<string, number>>();
 
   rowsItens.forEach((row, idx) => {
@@ -234,7 +203,6 @@ export function importarPlanilhas(
     const chave = chaveNota(fornecedor, nf);
     let nota = notas.get(chave);
     if (!nota) {
-      // NF só existe na planilha de itens — cria com dados mínimos
       const data = parseDataBr(row.data) ?? new Date();
       nota = {
         fornecedor,
@@ -285,8 +253,6 @@ export function importarPlanilhas(
     }
   });
 
-  // 3) Rateio único por nota (média ponderada pelo total dos itens), notas
-  // sem itens e divergências total × itens
   for (const [chave, nota] of notas) {
     if (nota.itens.length === 0) {
       inconsistencias.push(`${nota.fornecedor} NF ${nota.numero}: sem itens na planilha de quantitativo`);

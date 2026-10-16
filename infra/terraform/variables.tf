@@ -15,8 +15,6 @@ variable "app_name" {
   default     = "gestao-obras"
 }
 
-# --- GitHub (CI/CD sem chave de service account: Workload Identity Federation) ---
-
 variable "github_repository" {
   description = "Repositório owner/nome autorizado a fazer deploy."
   type        = string
@@ -35,8 +33,6 @@ variable "github_branch_deploy" {
   default     = "main"
 }
 
-# --- Banco ---
-
 variable "db_tier" {
   description = "Máquina do Cloud SQL. db-f1-micro (~US$ 10/mês) atende o início; db-g1-small ou db-custom-1-3840 quando crescer."
   type        = string
@@ -48,8 +44,6 @@ variable "db_alta_disponibilidade" {
   type        = bool
   default     = false
 }
-
-# --- Cloud Run ---
 
 variable "min_instancias" {
   description = "0 = escala a zero (mais barato, primeira requisição após ociosidade leva alguns segundos). 1 = sempre quente."
@@ -113,15 +107,11 @@ variable "proxy_saltos" {
   default     = 1
 }
 
-# --- Segurança ---
-
 variable "varredura_imagens" {
   description = "Varredura automática de vulnerabilidades (pacotes do sistema e do Node) em cada imagem enviada ao Artifact Registry. Cobrada por imagem (~US$ 0,26)."
   type        = bool
   default     = false
 }
-
-# --- Custos e alertas ---
 
 variable "billing_account_id" {
   description = "Conta de faturamento (XXXXXX-XXXXXX-XXXXXX) para o alerta de orçamento. Vazio = sem orçamento."

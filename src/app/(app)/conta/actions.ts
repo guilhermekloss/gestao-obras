@@ -10,11 +10,7 @@ import { CUSTO_BCRYPT, problemaSenha } from "@/services/senha";
 
 export type EstadoSenha = { erro?: string; campo?: "atual" | "nova" | "confirmacao" };
 
-/**
- * Troca da própria senha. Exige a senha atual (uma sessão esquecida aberta não
- * basta para tomar a conta) e conta erros nela no mesmo bloqueio do login. No
- * sucesso, encerra todas as sessões — inclusive esta — e volta ao login.
- */
+// exige a senha atual (sessão esquecida aberta não basta) e erros contam no bloqueio do login
 export async function alterarMinhaSenha(_anterior: EstadoSenha, formData: FormData): Promise<EstadoSenha> {
   const atual = await exigirPapel();
   const senhaAtual = String(formData.get("atual") ?? "");
@@ -52,7 +48,6 @@ export async function alterarMinhaSenha(_anterior: EstadoSenha, formData: FormDa
   return {};
 }
 
-/** "Sair de todos os aparelhos": invalida todas as sessões da conta, inclusive esta. */
 export async function encerrarMinhasSessoes(): Promise<void> {
   const atual = await exigirPapel();
   await prisma.usuario.update({ where: { id: atual.id }, data: { sessaoVersao: { increment: 1 } } });

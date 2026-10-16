@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
-# Prepara o projeto GCP e aplica o Terraform. Rode no Cloud Shell (já tem gcloud e terraform):
-#
-#   git clone https://github.com/guilhermekloss/gestao-obras.git && cd gestao-obras
-#   ./infra/bootstrap.sh SEU_PROJECT_ID
-#
-# É idempotente: pode rodar de novo para aplicar mudanças da pasta infra/terraform.
+# Uso (no Cloud Shell; idempotente): ./infra/bootstrap.sh SEU_PROJECT_ID [REGIAO]
 set -euo pipefail
 
 PROJECT_ID="${1:?uso: $0 PROJECT_ID [REGIAO]}"
@@ -13,8 +8,7 @@ STATE_BUCKET="${PROJECT_ID}-tfstate"
 TF_DIR="$(cd "$(dirname "$0")/terraform" && pwd)"
 TF_VERSION="1.13.3"
 
-# O Cloud Shell não traz mais o Terraform (o comando lá só imprime instruções).
-# Instala em ~/bin, que o Cloud Shell mantém entre sessões.
+# O Cloud Shell não traz mais o Terraform: instala em ~/bin, que persiste entre sessões.
 if ! terraform version 2>/dev/null | grep -q '^Terraform v'; then
   echo "==> Instalando Terraform $TF_VERSION em ~/bin"
   mkdir -p "$HOME/bin"
@@ -30,14 +24,13 @@ terraform version | head -1
 echo "==> Projeto: $PROJECT_ID · Região: $REGION"
 gcloud config set project "$PROJECT_ID" >/dev/null
 
-# Credencial que o Terraform usa (a sua conta, via Application Default Credentials).
 if ! gcloud auth application-default print-access-token >/dev/null 2>&1; then
   gcloud auth application-default login
 fi
 gcloud auth application-default set-quota-project "$PROJECT_ID" >/dev/null 2>&1 || true
 
 echo "==> Habilitando APIs básicas"
-# Projetos novos batem às vezes no limite por minuto da API (erro 429): espera e tenta de novo.
+# Projetos novos às vezes batem no limite por minuto da API (429): espera e tenta de novo.
 for tentativa in 1 2 3 4 5; do
   gcloud services enable serviceusage.googleapis.com cloudresourcemanager.googleapis.com \
     storage.googleapis.com iam.googleapis.com --project "$PROJECT_ID" && break

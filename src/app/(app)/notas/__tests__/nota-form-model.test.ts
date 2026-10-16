@@ -39,7 +39,7 @@ describe("parseQtde", () => {
 
 describe("totalItemForm / somaItensForm", () => {
   it("calcula o total de um item (qtde × unitário − desconto)", () => {
-    expect(totalItemForm(ITEM)).toBe(120000); // 40 × R$30,00 = R$1.200,00
+    expect(totalItemForm(ITEM)).toBe(120000);
   });
 
   it("soma vários itens, mesma fórmula usada no servidor", () => {
@@ -86,7 +86,7 @@ describe("gerarParcelasForm", () => {
   it("gera parcelas PIX à vista na data da compra", () => {
     const parcelas = gerarParcelasForm({
       totalCents: 120000,
-      numParcelas: "3", // ignorado — PIX é sempre 1x
+      numParcelas: "3",
       formaPagto: "PIX",
       dataCompra: "2026-01-15",
     });
@@ -214,7 +214,7 @@ describe("situacaoParcelasPagas", () => {
     ]);
     expect(porNumero.get(1)).toBe("paga");
     expect(porNumero.get(2)).toBe("reabre");
-    expect(porNumero.has(3)).toBe(false); // aberta não aparece
+    expect(porNumero.has(3)).toBe(false);
     expect(pagasRemovidas).toEqual([]);
   });
 
@@ -266,7 +266,6 @@ describe("valoresDaLeitura", () => {
       { descricao: "Cimento", tipo: "MATERIAL", qtde: "3", unidade: "SC", unit: "50,17", desconto: "0,01" },
     ]);
     expect(somaItensForm(v.itens!)).toBe(15050);
-    // PIX sem vencimentos no documento: parcela única na data da compra
     expect(v.parcelas).toEqual([{ numero: 1, valor: "150,50", vencimento: "2026-09-15" }]);
   });
 

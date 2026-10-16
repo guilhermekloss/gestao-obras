@@ -14,7 +14,6 @@ describe("dividirValor", () => {
   });
 
   it("joga o resto do arredondamento na primeira parcela", () => {
-    // R$ 100,00 em 3x → 33,34 + 33,33 + 33,33
     expect(dividirValor(10000, 3)).toEqual([3334, 3333, 3333]);
   });
 
@@ -33,12 +32,12 @@ describe("dividirValor", () => {
 });
 
 describe("gerarParcelas", () => {
-  const dataCompra = new Date(2026, 0, 15); // 15/01/2026
+  const dataCompra = new Date(2026, 0, 15);
 
   it("PIX é sempre 1 parcela à vista na data da compra", () => {
     const p = gerarParcelas({
       totalCents: 50000,
-      numParcelas: 3, // ignorado para PIX
+      numParcelas: 3,
       formaPagto: "PIX",
       dataCompra,
     });
@@ -61,7 +60,7 @@ describe("gerarParcelas", () => {
   it("DINHEIRO é à vista como PIX", () => {
     const p = gerarParcelas({
       totalCents: 9000,
-      numParcelas: 3, // ignorado
+      numParcelas: 3,
       formaPagto: "DINHEIRO",
       dataCompra,
     });
@@ -93,7 +92,7 @@ describe("gerarParcelas", () => {
       totalCents: 30000,
       numParcelas: 3,
       formaPagto: "CARTAO",
-      dataCompra, // compra em jan → vencimentos 20/fev, 20/mar, 20/abr
+      dataCompra,
     });
     expect(p.map((x) => [x.vencimento.getDate(), x.vencimento.getMonth()])).toEqual([
       [20, 1],
@@ -118,7 +117,7 @@ describe("gerarParcelas", () => {
       totalCents: 10000,
       numParcelas: 1,
       formaPagto: "BOLETO",
-      dataCompra: new Date(2026, 0, 31), // 31/jan → fev tem 28
+      dataCompra: new Date(2026, 0, 31),
     });
     expect(p[0].vencimento).toEqual(new Date(2026, 1, 28));
   });

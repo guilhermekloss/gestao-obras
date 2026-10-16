@@ -12,7 +12,6 @@ const ICONE: Record<CategoriaAtividade, { Icone: LucideIcon; cor: string }> = {
   acesso: { Icone: KeyRound, cor: "bg-violet-500/10 text-violet-700 dark:text-violet-400" },
 };
 
-/** Linha do tempo do log de auditoria (usuários, perfil do usuário, aba Equipe da obra). */
 export function FeedAtividades({
   atividades,
   mostrarUsuario = true,
@@ -21,7 +20,6 @@ export function FeedAtividades({
 }: {
   atividades: AtividadeDoFeed[];
   mostrarUsuario?: boolean;
-  /** só o admin abre o perfil do usuário */
   linkUsuario?: boolean;
   vazio?: string;
 }) {

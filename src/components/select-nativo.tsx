@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 
-/** Select nativo estilizado como os inputs do shadcn — funciona em forms de server action. */
 export function SelectNativo({
   className,
   ...props

@@ -1,8 +1,3 @@
-/**
- * Comprovante genérico (OUTRO): cupom não fiscal, pedido, comprovante de
- * pagamento... Só o que tem rótulo claro: total, data, número, emitente
- * (CNPJ e a linha de nome perto dele) e meio de pagamento.
- */
 import type { DocumentoLido } from "../../../leitura-documento";
 import { documentoVazio, formaPagamentoDoTexto, juntarObservacoes, type Ancoras } from "../comum";
 import type { Doc } from "../documento";
@@ -31,7 +26,6 @@ export function interpretarGenerico(doc: Doc, ancoras: Ancoras): Resultado {
   const emitente = ancoras.documentos.find((d) => d.valido) ?? ancoras.documentos[0];
   if (emitente) {
     lido.emitente.documento = emitente.valor;
-    // nome: na própria linha antes do CNPJ ou na linha de cima
     const linha = doc.linhas[emitente.linha];
     const antes = linha.texto
       .slice(0, emitente.inicio)

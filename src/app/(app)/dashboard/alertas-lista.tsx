@@ -8,7 +8,6 @@ const ICONE: Record<Severidade, { Icone: typeof TriangleAlert; cor: string; rotu
   ATENCAO: { Icone: CircleAlert, cor: "text-amber-600 dark:text-amber-400", rotulo: "Atenção" },
 };
 
-/** Lista de alertas (card do dashboard e página /dashboard/alertas). */
 export function AlertasLista({ alertas }: { alertas: Alerta[] }) {
   if (alertas.length === 0) {
     return (

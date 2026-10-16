@@ -29,7 +29,7 @@ type ObraRateio = { id: string; nome: string; etapas: { id: string; nome: string
 type RateioLinha = { obraId: string; etapaId: string; percent: string };
 type ParcelaLinha = { rotulo: string; valor: string; vencimento: string };
 
-/** Limite padrão do corpo de server action no Next é 1 MB; deixa folga para o resto do payload. */
+// o corpo de server action no Next tem limite padrão de 1 MB; folga para o resto do payload
 const MAX_BYTES_XML = 900 * 1024;
 
 function bpDaLinha(r: RateioLinha): number {
@@ -41,7 +41,6 @@ export function ImportarXmlForm({
   arquivoInicial,
 }: {
   obras: ObraRateio[];
-  /** XML já escolhido em outra tela (envio único em /notas/nova): lido ao montar. */
   arquivoInicial?: File;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,7 +74,7 @@ export function ImportarXmlForm({
       inicialLido.current = true;
       void escolherArquivo(arquivoInicial);
     }
-    // só no primeiro render: o arquivo inicial não muda depois de montado
+    // só ao montar: o arquivo inicial não muda depois
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -106,7 +105,7 @@ export function ImportarXmlForm({
           vencimento: p.vencimento,
         })),
       );
-      setLendo(false); // a prévia já está na tela; a consulta abaixo só completa os avisos
+      setLendo(false);
       const s = await consultarSituacaoImportacao(n.chave, n.emitente.documento);
       setSituacao(s);
       if (s.notaExistente) {
@@ -170,7 +169,7 @@ export function ImportarXmlForm({
     }
 
     startTransition(async () => {
-      // No sucesso a action redireciona para a nota criada.
+      // no sucesso a action redireciona
       const res = await importarNfe({
         xml: arquivo.xml,
         nomeArquivo: arquivo.nome,
@@ -237,7 +236,6 @@ export function ImportarXmlForm({
             onTipo={(i, tipo) => setTipos((prev) => prev.map((t, j) => (j === i ? tipo : t)))}
           />
 
-          {/* Rateio */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="flex items-center gap-2">
@@ -319,7 +317,6 @@ export function ImportarXmlForm({
             </CardContent>
           </Card>
 
-          {/* Parcelas */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="flex items-center gap-2">

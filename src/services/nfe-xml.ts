@@ -1,56 +1,27 @@
-/**
- * Leitura do XML da NF-e (modelo 55, layout 4.00) para pré-preencher uma nota.
- *
- * Aceita o XML autorizado com o envelope `nfeProc` (o que o fornecedor envia
- * por e-mail) e o `NFe` sozinho; prefixos de namespace são descartados.
- * Tudo aqui é puro — a página lê o arquivo no client, mostra a prévia, e a
- * server action reprocessa o mesmo XML antes de gravar (não confia na prévia).
- *
- * Arredondamentos (o app guarda dinheiro em centavos Int e quantidade com 3 casas):
- * - valores monetários são convertidos por string, meio-para-cima, sem passar
- *   por ponto flutuante (`decimalParaInteiro`);
- * - `qCom` (até 4 casas no layout) é arredondada para 3 casas, como `ItemNota.qtde`;
- * - `vUnCom` (até 10 casas) vira centavos; quando qtde × unitário arredondado
- *   não reproduz o `vProd` do XML, o unitário sobe para o menor valor em
- *   centavos que alcança `vProd` e o excesso entra no desconto do item
- *   (`unitarioCoerente`). Assim o total de cada item é o do XML (vProd − vDesc)
- *   e é SEMPRE `calcularTotalItem(qtde, unitCents, descontoCents)` — o mesmo
- *   que a gravação e o `custoRateado` usam;
- * - a nota fecha em `vNF`: frete e demais acréscimos do total (seguro, outras
- *   despesas, IPI, ST, II) viram itens próprios; qualquer diferença restante
- *   entra como item de ajuste (se positiva) ou como desconto adicional no
- *   maior item (se negativa — ex.: ICMS desonerado). Assim a soma dos itens =
- *   total da nota, e custo por obra (itens × rateio) bate com o financeiro.
- */
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import type { FormaPagto, TipoItem } from "@prisma/client";
 import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 
-export type ItemNfe = {
+type ItemNfe = {
   descricao: string;
   ncm: string | null;
   qtde: number;
   unidade: string;
   unitCents: number;
   descontoCents: number;
-  /** = calcularTotalItem(qtde, unitCents, descontoCents) */
   totalCents: number;
-  /** PRODUTO = linha `det` do XML; ACESSORIO = frete/impostos do total; AJUSTE = diferença restante até vNF. */
   origem: "PRODUTO" | "ACESSORIO" | "AJUSTE";
   tipoSugerido: TipoItem;
 };
 
-export type DuplicataNfe = {
-  /** `nDup` como veio no XML (ex.: "001"). */
+type DuplicataNfe = {
   numero: string;
-  /** aaaa-mm-dd */
   vencimento: string;
   valorCents: number;
 };
 
-export type EmitenteNfe = {
-  /** só dígitos — 14 (CNPJ) ou 11 (CPF) */
+type EmitenteNfe = {
   documento: string;
   tipoDocumento: "CNPJ" | "CPF";
   razaoSocial: string;
@@ -58,32 +29,21 @@ export type EmitenteNfe = {
 };
 
 export type Nfe = {
-  /** chave de acesso, 44 dígitos */
   chave: string;
   numero: string;
   serie: string;
-  /** aaaa-mm-dd, data local da emissão (como impressa no DANFE) */
   dataEmissao: string;
   emitente: EmitenteNfe;
   itens: ItemNfe[];
-  /** `vNF` em centavos */
   totalCents: number;
   duplicatas: DuplicataNfe[];
   formaPagto: FormaPagto;
-  /** Situações que não impedem a importação, mas merecem conferência. */
   avisos: string[];
 };
 
-export type ResultadoNfe = { ok: true; nfe: Nfe } | { ok: false; erro: string };
+type ResultadoNfe = { ok: true; nfe: Nfe } | { ok: false; erro: string };
 
-// ---------------------------------------------------------------------------
-// Conversões numéricas
-
-/**
- * Converte um decimal do XML ("1234.5678") num inteiro escalado por 10^casas,
- * arredondando meio-para-cima, sem ponto flutuante. Ex.: ("12.345", 2) → 1235.
- * Retorna null para texto que não é decimal não negativo.
- */
+// Por string, meio-para-cima, sem passar por ponto flutuante.
 export function decimalParaInteiro(valor: string | undefined, casas: number): number | null {
   if (valor === undefined) return null;
   const m = /^(\d+)(?:\.(\d*))?$/.exec(valor.trim());
@@ -93,15 +53,7 @@ export function decimalParaInteiro(valor: string | undefined, casas: number): nu
   return Number(frac[casas]) >= 5 ? base + 1 : base;
 }
 
-/**
- * Unitário em centavos para que o item reproduza exatamente o `vProd` do XML.
- *
- * Normalmente é o `vUnCom` arredondado. Quando o unitário tem frações de
- * centavo e qtde × unitário arredondado não fecha (ex.: 3 × R$ 0,3333 = 1,00,
- * mas 3 × 0,33 = 0,99), usa-se o menor unitário em centavos cujo produto
- * alcança `vProd` (0,34 → 1,02) e a diferença (`ajusteCents`, 2 centavos)
- * entra como desconto do item — o total do item fica igual ao do XML.
- */
+// 3 × R$ 0,3333 = 1,00 mas 3 × 0,33 = 0,99: sobe para 0,34 e o excesso vira desconto, fechando o vProd.
 export function unitarioCoerente(
   qtde: number,
   unitXmlCents: number,
@@ -116,10 +68,6 @@ export function unitarioCoerente(
   return { unitCents: c, ajusteCents: Math.round(qtde * c) - vProdCents };
 }
 
-// ---------------------------------------------------------------------------
-// Documento e forma de pagamento
-
-/** Formata CNPJ (14 dígitos) ou CPF (11); outro tamanho volta como veio. */
 export function formatarDocumento(doc: string): string {
   const d = doc.replace(/\D/g, "");
   if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
@@ -127,16 +75,12 @@ export function formatarDocumento(doc: string): string {
   return doc;
 }
 
-/**
- * Grafias possíveis de um CNPJ/CPF no cadastro de fornecedores (o campo é
- * texto livre: há registros só com dígitos e outros com máscara).
- */
 export function variantesDocumento(doc: string): string[] {
   const digitos = doc.replace(/\D/g, "");
   return Array.from(new Set([digitos, formatarDocumento(digitos)]));
 }
 
-/** `tPag` (tabela da SEFAZ) → forma de pagamento do app. Códigos sem equivalente caem em BOLETO. */
+// tPag da tabela da SEFAZ; código sem equivalente cai em BOLETO.
 const T_PAG: Record<string, FormaPagto> = {
   "01": "DINHEIRO",
   "03": "CARTAO", // cartão de crédito
@@ -151,9 +95,6 @@ const T_PAG: Record<string, FormaPagto> = {
 export function mapearFormaPagto(tPag: string | undefined): FormaPagto {
   return (tPag && T_PAG[tPag.padStart(2, "0")]) || "BOLETO";
 }
-
-// ---------------------------------------------------------------------------
-// Parser
 
 type No = Record<string, unknown>;
 
@@ -189,11 +130,10 @@ function centavos(n: No | undefined, campo: string): number {
 
 const NAO_E_NFE = "O arquivo não é o XML de uma NF-e (esperado <nfeProc> ou <NFe> com <infNFe>).";
 
-/** Lê o XML de uma NF-e. Nunca lança: erros de formato voltam em `{ ok: false, erro }`. */
 export function parseNfeXml(xml: string): ResultadoNfe {
   const conteudo = xml.replace(/^﻿/, "").trim();
   if (!conteudo) return { ok: false, erro: "Arquivo vazio." };
-  // NF-e nunca traz DOCTYPE; recusar evita expansão de entidades maliciosas.
+  // NF-e nunca traz DOCTYPE; recusar evita XXE/expansão de entidades.
   if (/<!DOCTYPE/i.test(conteudo)) return { ok: false, erro: NAO_E_NFE };
 
   const validacao = XMLValidator.validate(conteudo);
@@ -220,8 +160,7 @@ export function parseNfeXml(xml: string): ResultadoNfe {
   const ide = no(inf.ide);
   const numero = texto(ide, "nNF");
   const serie = texto(ide, "serie") ?? "";
-  // dhEmi (4.00) = "2026-09-15T10:30:00-03:00"; dEmi (2.00) = "2026-09-15". A data
-  // é a do fuso do emissor (os 10 primeiros caracteres), como impressa no DANFE.
+  // data no fuso do emissor (10 primeiros caracteres de dhEmi/dEmi), como impressa no DANFE
   const dataEmissao = (texto(ide, "dhEmi") ?? texto(ide, "dEmi") ?? "").slice(0, 10);
   if (!numero) return { ok: false, erro: "NF-e sem número (ide/nNF)." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dataEmissao)) {
@@ -295,8 +234,7 @@ export function parseNfeXml(xml: string): ResultadoNfe {
     );
   }
 
-  // pag/detPag pode repetir (ex.: parte em PIX, parte em boleto): vale o de maior valor.
-  // tPag 90 = "sem pagamento" (comum quando há duplicatas) — ignorado.
+  // detPag pode repetir: vale o de maior valor; tPag 90 ("sem pagamento") é ignorado
   const pagamentos = lista(no(inf.pag)?.detPag)
     .map((p) => ({ tPag: texto(p, "tPag"), valor: centavos(p, "vPag") }))
     .filter((p) => p.tPag && p.tPag !== "90")
@@ -309,10 +247,7 @@ export function parseNfeXml(xml: string): ResultadoNfe {
   };
 }
 
-/**
- * Acrescenta itens para frete e demais acréscimos do total e absorve a sobra
- * de arredondamento, de modo que a soma dos itens seja exatamente `vNF`.
- */
+// Soma dos itens = vNF exato, para o custo por obra (itens × rateio) bater com o financeiro.
 function fecharNoTotal(itens: ItemNfe[], tot: No | undefined, totalCents: number, avisos: string[]) {
   const acessorio = (descricao: string, valorCents: number, tipo: TipoItem, origem: ItemNfe["origem"]) => {
     if (valorCents > 0) {
@@ -357,12 +292,8 @@ function fecharNoTotal(itens: ItemNfe[], tot: No | undefined, totalCents: number
   }
 }
 
-// ---------------------------------------------------------------------------
-// Parcelas
+type ParcelaNfe = { numero: number; valorCents: number; vencimento: string };
 
-export type ParcelaNfe = { numero: number; valorCents: number; vencimento: string };
-
-/** Parcelas a lançar: as duplicatas da nota ou, sem cobrança, uma única com vencimento na emissão. */
 export function parcelasDaNfe(nfe: Pick<Nfe, "duplicatas" | "totalCents" | "dataEmissao">): ParcelaNfe[] {
   if (nfe.duplicatas.length === 0) {
     return [{ numero: 1, valorCents: nfe.totalCents, vencimento: nfe.dataEmissao }];

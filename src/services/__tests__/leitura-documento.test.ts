@@ -14,10 +14,9 @@ import {
 } from "../leitura-documento";
 import { calcularTotalItem } from "../rateio";
 
-// Chaves montadas no leiaute (cUF AAMM CNPJ mod série nNF tpEmis cNF DV) com DV conferido à parte.
 const CNPJ = "11222333000181";
-const CHAVE_NFE = "35260911222333000181550010000123451876543218"; // NF 12345, série 1
-const CHAVE_NFCE = "35260911222333000181650020000007771123456786"; // NFC-e 777, série 2
+const CHAVE_NFE = "35260911222333000181550010000123451876543218";
+const CHAVE_NFCE = "35260911222333000181650020000007771123456786";
 const HOJE = "2026-10-14";
 
 function documento(parcial: Partial<DocumentoLido> = {}): DocumentoLido {
@@ -74,7 +73,7 @@ describe("dígitos verificadores", () => {
 
   it("chave de acesso", () => {
     expect(chaveAcessoValida(CHAVE_NFE)).toBe(true);
-    expect(chaveAcessoValida(CHAVE_NFE.replace(/.(?=\d$)/, "9"))).toBe(false); // um dígito trocado
+    expect(chaveAcessoValida(CHAVE_NFE.replace(/.(?=\d$)/, "9"))).toBe(false);
     expect(chaveAcessoValida(CHAVE_NFE.slice(0, 43))).toBe(false);
     expect(chaveAcessoValida("3526 0911 2223 3300 0181 5500 1000 0123 4518 7654 3218")).toBe(true);
   });
@@ -120,7 +119,6 @@ describe("normalizarLeitura", () => {
     expect(l.formaPagto).toBe("PIX");
     const [item] = l.itens;
     expect(item.unidade).toBe("SC");
-    // 3 × 50,17 = 150,51 → 1 centavo vira desconto para o item fechar em 150,50
     expect(item).toMatchObject({ qtde: 3, unitCents: 5017, descontoCents: 1, totalCents: 15050 });
     expect(item.totalCents).toBe(calcularTotalItem(item.qtde, item.unitCents, item.descontoCents));
   });
@@ -155,7 +153,7 @@ describe("normalizarLeitura", () => {
   it("CNPJ com DV errado não é usado para achar o fornecedor", () => {
     const l = ok(documento({ emitente: { nome: "X", documento: "11222333000182", telefone: null } }));
     expect(l.fornecedor.documento).toBeNull();
-    expect(l.fornecedor.documentoLido).toBe("11222333000182"); // fica para o usuário corrigir
+    expect(l.fornecedor.documentoLido).toBe("11222333000182");
     expect(l.avisos.join()).toMatch(/CNPJ\/CPF/);
   });
 

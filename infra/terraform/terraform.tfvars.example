@@ -1,25 +1,23 @@
-# Copie para terraform.tfvars (ignorado pelo git) e ajuste.
+# Copie para terraform.tfvars e ajuste.
 project_id = "seu-projeto-id"
 
-# Conta de faturamento para o alerta de orçamento (gcloud billing accounts list)
 billing_account_id = ""
 orcamento_mensal   = 300
 moeda_orcamento    = "BRL"
 
-# Recebe alertas de app fora do ar / erros 5xx / ataques ao login / mudanças de permissão
 email_alertas = ""
 
-# Leitura de foto/PDF de nota: local (padrão, sem serviço externo), vision ou desligado
+# OCR da nota: local (padrão), vision ou desligado
 # motor_ocr = "vision"
 
-# Botão "Analisar com IA" (Gemini na Vertex AI) na conferência da nota
+# Botão "Analisar com IA" (Gemini) na conferência da nota
 # gemini_habilitado = true
 
 # cnpjs_empresa = "12.345.678/0001-90"
 # min_instancias = 1   # elimina o "cold start" (custo fixo maior)
 
-# Endereço público, se houver domínio próprio (vazio = URL do Cloud Run)
+# Domínio próprio (vazio = URL do Cloud Run)
 # app_url = "https://obras.suaempresa.com.br"
 
-# Varredura de vulnerabilidades das imagens Docker (cobrada por imagem)
+# Varredura de vulnerabilidades das imagens (cobrada por imagem)
 # varredura_imagens = true

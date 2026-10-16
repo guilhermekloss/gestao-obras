@@ -36,16 +36,13 @@ export type LerDocumentoResult =
   | {
       ok: true;
       leitura: LeituraNormalizada;
-      /** emitente × cadastro de fornecedores: o mesmo CNPJ/CPF e os parecidos */
       correspondencia: CorrespondenciaFornecedor;
-      /** o destinatário é a empresa (`CNPJS_EMPRESA`)? null = não configurado / não lido */
       destinatarioEhEmpresa: boolean | null;
-      /** o mesmo documento já foi lançado (pela chave ou por fornecedor + número) */
       notaExistente: { id: string; numero: string } | null;
     }
   | { ok: false; erro: string };
 
-/** Arquivo do próprio storage (URL gerada pelo /api/upload) → nome e tipo; null se não for foto/PDF nosso. */
+// só arquivos do nosso storage (URL do /api/upload), nunca um caminho arbitrário
 function arquivoDoStorage(anexoUrl: string): { nome: string; midia: MidiaDocumento } | null {
   const nome = /^\/api\/fotos\/([\w-]+\.(\w+))$/.exec(anexoUrl);
   const midia = nome ? MIDIA[nome[2].toLowerCase()] : undefined;
@@ -54,10 +51,6 @@ function arquivoDoStorage(anexoUrl: string): { nome: string; midia: MidiaDocumen
 
 const MSG_FORMATO = "Envie uma foto (JPG, PNG, WEBP) ou um PDF.";
 
-/**
- * Lê o arquivo com o leitor indicado e prepara a conferência: normaliza,
- * cruza o emitente com o cadastro, procura duplicata e confere o destinatário.
- */
 async function lerEConferir(
   anexoUrl: string,
   ler: (arquivo: Buffer, midia: MidiaDocumento) => Promise<DocumentoLido>,
@@ -97,16 +90,11 @@ async function lerEConferir(
       notaExistente,
     };
   } catch (e) {
-    // ErroLeitura traz mensagem pensada para o usuário; o resto vai para o log
+    // só ErroLeitura tem mensagem para o usuário; o resto vai para o log
     return { ok: false, erro: e instanceof ErroLeitura ? e.message : mensagemDeErro(e, erroPadrao) };
   }
 }
 
-/**
- * Lê um documento já enviado por `/api/upload` (foto ou PDF) com o leitor
- * nativo e devolve os dados para a conferência do usuário. Não grava nada: o
- * lançamento só é criado quando o usuário confirma a conferência.
- */
 export async function lerDocumento(anexoUrl: string): Promise<LerDocumentoResult> {
   await exigirPapel(...PAPEIS);
   if (!leituraAutomaticaDisponivel()) {
@@ -115,11 +103,6 @@ export async function lerDocumento(anexoUrl: string): Promise<LerDocumentoResult
   return lerEConferir(anexoUrl, lerDocumentoNativo, "Erro ao ler o documento");
 }
 
-/**
- * Reanálise do mesmo documento com o Gemini, a pedido do usuário na
- * conferência (leitura nativa com muitos campos em dúvida). Mesmo retorno e
- * mesmas conferências de `lerDocumento`; também não grava nada.
- */
 export async function analisarDocumentoComIa(anexoUrl: string): Promise<LerDocumentoResult> {
   await exigirPapel(...PAPEIS);
   if (!analiseIaDisponivel()) return { ok: false, erro: "A análise com IA não está configurada neste servidor." };
@@ -128,21 +111,15 @@ export async function analisarDocumentoComIa(anexoUrl: string): Promise<LerDocum
   return r;
 }
 
-export type FornecedorConferido =
-  | { modo: "existente"; id: string; /** grava este CNPJ/CPF se o cadastro ainda não tem */ completarDocumento?: string }
+type FornecedorConferido =
+  | { modo: "existente"; id: string; completarDocumento?: string }
   | { modo: "novo"; nome: string; documento?: string };
 
-export type ResolverFornecedorResult = ActionResult & {
+type ResolverFornecedorResult = ActionResult & {
   fornecedor?: { id: string; nome: string; cnpj: string | null };
-  /** a mensagem para o usuário quando o cadastro foi reaproveitado ou completado */
   info?: string;
 };
 
-/**
- * Fornecedor escolhido na conferência. Nunca duplica: um "novo" cujo
- * CNPJ/CPF já existe vira o cadastro existente; completar o documento de um
- * existente só acontece se ele ainda não tem um e se o número não é de outro.
- */
 function registrarFornecedor(descricao: string, fornecedorId: string) {
   anotarAtividade({ descricao, entidade: "fornecedor", entidadeId: fornecedorId });
 }

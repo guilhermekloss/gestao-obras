@@ -11,12 +11,10 @@ import {
   YAxis,
 } from "recharts";
 
-/** Um ponto já formatado para o gráfico: mês rotulado e percentuais (0–100). */
 export type PontoCurvaSChart = { mes: string; previsto: number; realizado: number | null };
 
 const eixoTick = { fontSize: 12, fill: "var(--muted-foreground)" };
 
-// mesmas cores de "Orçado × Realizado" no dashboard (paleta validada): previsto azul, realizado âmbar
 const COR_PREVISTO = "#2a78d6";
 const COR_REALIZADO = "#eda100";
 
@@ -24,10 +22,7 @@ function pct(v: unknown): string {
   return `${Number(v ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 }
 
-/**
- * Curva S previsto × realizado (% acumulado por mês). O previsto é tracejado
- * para não depender só da cor; o realizado para no mês corrente.
- */
+// previsto tracejado para não depender só da cor
 export function CurvaSChart({ data, altura = 280 }: { data: PontoCurvaSChart[]; altura?: number }) {
   return (
     <ResponsiveContainer width="100%" height={altura}>

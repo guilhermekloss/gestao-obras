@@ -80,7 +80,7 @@ export const atualizarObra = acaoDeEscrita(
   },
 );
 
-/** Redireciona no sucesso — revalida/redireciona ela mesma (ver `acaoDeEscrita`). */
+// sem `revalidar` no wrapper: redireciona no sucesso e revalida ela mesma
 export const excluirObra = acaoDeEscrita(
   { papeis: ["ADMIN"], atividade: "obra.excluir" },
   async (_user, id: string): Promise<ActionResult> => {

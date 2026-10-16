@@ -6,12 +6,6 @@ type Contexto = { detalhe: DetalheAtividade; anotada: boolean; ignorar: boolean 
 
 const contexto = new AsyncLocalStorage<Contexto>();
 
-/**
- * Chamada de dentro de uma action com `atividade` (ver `acaoDeEscrita`) para
- * descrever o que foi feito: texto, registro afetado, obras e valor. Pode ser
- * chamada mais de uma vez — os campos se acumulam — e desfaz um
- * `ignorarAtividade` anterior. Fora de uma action, não faz nada.
- */
 export function anotarAtividade(detalhe: DetalheAtividade) {
   const ctx = contexto.getStore();
   if (!ctx) return;
@@ -20,16 +14,11 @@ export function anotarAtividade(detalhe: DetalheAtividade) {
   ctx.ignorar = false;
 }
 
-/**
- * A action terminou bem mas não mudou nada que valha registrar (ex.:
- * reaproveitou um cadastro existente). Um `anotarAtividade` depois volta a registrar.
- */
 export function ignorarAtividade() {
   const ctx = contexto.getStore();
   if (ctx) ctx.ignorar = true;
 }
 
-/** Grava uma linha do log. Falha de log nunca derruba a ação do usuário. */
 export async function registrarAtividade(
   usuarioId: string | null,
   tipo: TipoAtividade,
@@ -52,10 +41,6 @@ export async function registrarAtividade(
   }
 }
 
-/**
- * Roda `fn` com um contexto de anotação e devolve o que foi anotado. Usado por
- * `acaoDeEscrita`; as actions só chamam `anotarAtividade`.
- */
 export async function comContextoDeAtividade<R>(
   fn: () => Promise<R>,
 ): Promise<{ resultado: R; ctx: Contexto } | { erro: unknown; ctx: Contexto }> {

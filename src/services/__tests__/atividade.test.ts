@@ -36,15 +36,14 @@ describe("linkAtividade", () => {
 });
 
 describe("serieSemanal", () => {
-  // quarta-feira
   const agora = new Date(2026, 9, 14, 10);
   it("agrupa por semana (segunda a domingo) e ignora fora da janela", () => {
     const serie = serieSemanal(
       [
-        new Date(2026, 9, 12, 8), // segunda desta semana
-        new Date(2026, 9, 18, 20), // domingo desta semana
-        new Date(2026, 9, 11, 23), // domingo da semana passada
-        new Date(2026, 5, 1), // fora da janela
+        new Date(2026, 9, 12, 8),
+        new Date(2026, 9, 18, 20),
+        new Date(2026, 9, 11, 23),
+        new Date(2026, 5, 1),
       ],
       4,
       agora,

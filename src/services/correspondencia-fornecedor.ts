@@ -1,30 +1,16 @@
-/**
- * Correspondência entre o emitente lido de um documento e o cadastro de
- * fornecedores — para a mesma empresa não virar dois fornecedores (um com
- * CNPJ e outro sem, um com máscara e outro sem, matriz e filial...).
- *
- * Puro: recebe o cadastro já carregado e devolve o fornecedor exato (mesmo
- * CNPJ/CPF) e os candidatos que o usuário precisa olhar antes de cadastrar
- * um novo.
- */
 import { formatarDocumento } from "./nfe-xml";
 import { documentoValido } from "./leitura-documento";
 export type FornecedorCadastro = { id: string; nome: string; cnpj: string | null };
 
-export type MotivoCandidato =
-  /** mesmo CNPJ raiz (8 primeiros dígitos): outra filial da mesma empresa */
+type MotivoCandidato =
   | "MESMA_EMPRESA"
-  /** nome parecido e cadastrado sem CNPJ/CPF — provavelmente é o mesmo, falta completar o documento */
   | "NOME_SEM_DOCUMENTO"
-  /** nome parecido com CNPJ/CPF diferente — pode ser outra empresa ou documento mal lido */
   | "NOME_DOCUMENTO_DIFERENTE";
 
-export type CandidatoFornecedor = FornecedorCadastro & { motivo: MotivoCandidato; similaridade: number };
+type CandidatoFornecedor = FornecedorCadastro & { motivo: MotivoCandidato; similaridade: number };
 
 export type CorrespondenciaFornecedor = {
-  /** fornecedor com o mesmo CNPJ/CPF (com ou sem máscara) */
   exato: FornecedorCadastro | null;
-  /** quando há `exato` e o nome do cadastro é bem diferente do lido (só informativo) */
   nomeDivergente: boolean;
   candidatos: CandidatoFornecedor[];
 };
@@ -35,7 +21,6 @@ const PALAVRAS_GENERICAS = new Set([
 
 const digitos = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
 
-/** Palavras relevantes do nome: sem acento, minúsculas, sem sufixos societários. */
 export function palavrasDoNome(nome: string): string[] {
   return nome
     .normalize("NFD")
@@ -46,11 +31,6 @@ export function palavrasDoNome(nome: string): string[] {
     .filter((p) => p && !PALAVRAS_GENERICAS.has(p));
 }
 
-/**
- * Similaridade de 0 a 1 entre dois nomes de empresa (Dice sobre as palavras).
- * Quando todas as palavras do nome mais curto estão no mais longo — "Casa do
- * Construtor" × "Casa do Construtor Materiais Ltda" — vale ao menos 0,8.
- */
 export function similaridadeNomes(a: string, b: string): number {
   const pa = new Set(palavrasDoNome(a));
   const pb = new Set(palavrasDoNome(b));
@@ -106,11 +86,6 @@ export const MOTIVO_CANDIDATO_LABEL: Record<MotivoCandidato, string> = {
   NOME_DOCUMENTO_DIFERENTE: "nome parecido, com outro CNPJ/CPF",
 };
 
-/**
- * O destinatário/tomador é a própria empresa? Compara com a lista de CNPJs da
- * empresa (`CNPJS_EMPRESA`), aceitando filiais (mesmo CNPJ raiz). `null`
- * quando a lista não foi configurada ou o documento não foi lido.
- */
 export function destinatarioEhEmpresa(documento: string | null, cnpjsEmpresa: string[]): boolean | null {
   const doc = digitos(documento);
   const lista = cnpjsEmpresa.map(digitos).filter(Boolean);
@@ -118,15 +93,10 @@ export function destinatarioEhEmpresa(documento: string | null, cnpjsEmpresa: st
   return lista.some((c) => c === doc || (c.length === 14 && doc.length === 14 && c.slice(0, 8) === doc.slice(0, 8)));
 }
 
-/** CNPJs da empresa configurados no ambiente (separados por vírgula, ponto e vírgula ou espaço). */
 export function lerCnpjsEmpresa(valor: string | undefined): string[] {
   return (valor ?? "").split(/[,;\s]+/).map(digitos).filter(Boolean);
 }
 
-/**
- * CNPJ/CPF digitado ou lido, pronto para o cadastro: confere os dígitos
- * verificadores e devolve com máscara (o formato que o cadastro usa).
- */
 export function normalizarDocumentoCadastro(valor: string): { ok: true; valor: string } | { ok: false; erro: string } {
   const d = digitos(valor);
   if (d.length !== 11 && d.length !== 14) {

@@ -33,7 +33,6 @@ import {
   encontrarValores,
   extensoParaNumero,
   formatarReais,
-  lerCompetencia,
   lerData,
   lerDecimal,
   lerValor,
@@ -141,11 +140,6 @@ describe("datas", () => {
     expect(anoCompleto(27, 2026)).toBe(2027);
   });
 
-  it("competência", () => {
-    expect(lerCompetencia("Setembro/2026")).toEqual({ ano: 2026, mes: 9 });
-    expect(lerCompetencia("09/2026")).toEqual({ ano: 2026, mes: 9 });
-  });
-
   it("valor por extenso", () => {
     expect(extensoParaNumero("mil e quinhentos reais")).toBe(1500);
     expect(extensoParaNumero("dois mil, trezentos e quarenta e cinco reais e sessenta centavos")).toBe(2345.6);
@@ -205,9 +199,7 @@ describe("dígitos verificadores", () => {
     expect(corrigirDocumento("11.222.333/OOO1-81")).toMatchObject({ valor: "11222333000181", valido: true, corrigido: true });
     expect(corrigirDocumento("11.222.333/0001-8l")).toMatchObject({ valor: "11222333000181", valido: true });
     expect(corrigirDocumento("123.456.789-O9")).toMatchObject({ valor: "12345678909", valido: true, tipo: "CPF" });
-    // alfanumérico legítimo não é "corrigido"
     expect(corrigirDocumento("12.ABC.345/01DE-35")).toMatchObject({ valor: "12ABC34501DE35", valido: true, corrigido: false });
-    // erro que não fecha: volta como lido
     expect(corrigirDocumento("11.222.333/0001-99")).toMatchObject({ valor: "11222333000199", valido: false });
   });
 
@@ -234,7 +226,6 @@ describe("códigos", () => {
     expect(chaveNoTexto("3526 O911 2223 33OO 0181 5500 1000 0123 4518 7654 3218")?.chave).toBe(CHAVE_NFE);
     expect(chaveNoTexto(CHAVE_NFCE)?.chave).toBe(CHAVE_NFCE);
     expect(chaveNoTexto("3526 1012 ABC3 4501 DE35 5500 1000 0000 4212 4681 3577")?.chave).toBe(CHAVE_ALFA);
-    // DV errado: devolve como lida, marcada inválida
     expect(chaveNoTexto("3526 0911 2223 3300 0181 5500 1000 0123 4518 7654 3219")).toEqual({
       chave: "35260911222333000181550010000123451876543219",
       valida: false,

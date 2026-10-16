@@ -12,12 +12,10 @@ import {
 } from "../linhas";
 import { palavrasDosTrechos } from "../pdf";
 
-/** Palavra com largura proporcional ao texto (12 px por caractere, 20 px de altura). */
 function p(texto: string, x: number, y: number, confianca: number | null = 0.9, h = 20): PalavraBruta {
   return { texto, x0: x, y0: y, x1: x + texto.length * 12, y1: y + h, confianca };
 }
 
-/** Palavras em sequência numa linha, com um espaço normal (6 px) entre elas. */
 function frase(texto: string, x: number, y: number): PalavraBruta[] {
   const saida: PalavraBruta[] = [];
   for (const t of texto.split(" ")) {
@@ -27,7 +25,6 @@ function frase(texto: string, x: number, y: number): PalavraBruta[] {
   return saida;
 }
 
-/** Gira as caixas em torno da origem (ângulo em graus, positivo = horário) e devolve a caixa alinhada aos eixos. */
 function girar(palavras: PalavraBruta[], graus: number): PalavraBruta[] {
   const a = (graus * Math.PI) / 180;
   const f = (x: number, y: number) => ({ x: x * Math.cos(a) - y * Math.sin(a), y: x * Math.sin(a) + y * Math.cos(a) + 200 });
@@ -87,7 +84,6 @@ describe("montarLinhas", () => {
   });
 
   it("corrige foto torta: o valor alinhado à direita fica na linha do item", () => {
-    // cupom com 8 linhas, valores na coluna da direita, a 3,4° (o lado direito sobe)
     const retas: PalavraBruta[] = [];
     for (let i = 0; i < 8; i++) {
       const y = 100 + i * 34;
@@ -96,12 +92,9 @@ describe("montarLinhas", () => {
     }
     const tortas = girar(retas, -3.4);
     const esperado = Array.from({ length: 8 }, (_, i) => `ITEM ${i + 1} DESCRICAO DO PRODUTO  ${i + 1}0,00`);
-    // estimada pelas palavras
     expect(montarLinhas(tortas, 1500, 600).map((l) => l.texto)).toEqual(esperado);
-    // informada pela origem (linha de base do Tesseract / vértices do Vision)
     const s = Math.tan((-3.4 * Math.PI) / 180);
     expect(montarLinhas(tortas, 1500, 600, { inclinacao: s }).map((l) => l.texto)).toEqual(esperado);
-    // sem correção, a coluna da direita escorrega para outras linhas
     expect(montarLinhas(tortas, 1500, 600, { inclinacao: 0 }).map((l) => l.texto)).not.toEqual(esperado);
   });
 
@@ -131,8 +124,8 @@ describe("montarLinhas", () => {
 describe("limiarColuna / estimarInclinacao", () => {
   it("limiar segue o espaço típico da página, dentro dos limites", () => {
     expect(limiarColuna([0.3])).toBe(VAO_COLUNA_PADRAO);
-    expect(limiarColuna(Array(20).fill(0.28))).toBe(VAO_COLUNA_MIN); // PDF: espaço ~0,3 da fonte
-    expect(limiarColuna(Array(20).fill(0.6))).toBeCloseTo(1.5); // OCR: caixas mais baixas que a fonte
+    expect(limiarColuna(Array(20).fill(0.28))).toBe(VAO_COLUNA_MIN);
+    expect(limiarColuna(Array(20).fill(0.6))).toBeCloseTo(1.5);
     expect(limiarColuna(Array(20).fill(5))).toBe(VAO_COLUNA_MAX);
   });
 
@@ -140,7 +133,7 @@ describe("limiarColuna / estimarInclinacao", () => {
     const retas = [0, 1, 2, 3].flatMap((i) => frase("UMA LINHA DE TEXTO COMUM", 40, 100 + i * 40));
     expect(estimarInclinacao(retas)).toBeCloseTo(0, 5);
     expect(estimarInclinacao(girar(retas, 2))).toBeCloseTo(Math.tan((2 * Math.PI) / 180), 2);
-    expect(estimarInclinacao(retas.slice(0, 3))).toBe(0); // poucos pares
+    expect(estimarInclinacao(retas.slice(0, 3))).toBe(0);
   });
 });
 

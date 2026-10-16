@@ -1,21 +1,10 @@
 import { BP_TOTAL } from "./rateio";
 import { avancoPonderado } from "./obra";
 
-/**
- * Cronograma físico: curva S prevista (linha de base das datas previstas das
- * etapas), curva S realizada (histórico de medições) e situação de cada etapa.
- *
- * Tudo aqui trabalha com dias no formato "aaaa-mm-dd" (`Dia`) e meses
- * "aaaa-mm" (`Mes`) — strings sem fuso horário. Quem lê do banco converte:
- * colunas `@db.Date` com `diaDoBanco` (componentes UTC) e datas de medição
- * (meio-dia local, ver `inputParaData`) com `dataParaInput` (componentes locais).
- *
- * O peso de cada etapa segue a mesma regra de `avancoPonderado`: orçamento
- * previsto; se nenhuma etapa tem orçamento, pesos iguais.
- */
+// Dias são strings sem fuso: `@db.Date` entra por diaDoBanco (UTC); medições (meio-dia local) por dataParaInput.
 
-export type Dia = string; // "aaaa-mm-dd"
-export type Mes = string; // "aaaa-mm"
+export type Dia = string;
+type Mes = string;
 
 export type EtapaPlano = {
   id: string;
@@ -29,7 +18,6 @@ export type MedicaoPonto = { etapaId: string; data: Dia; percentBp: number };
 export type PontoCurvaS = {
   mes: Mes;
   previstoBp: number;
-  /** null nos meses posteriores ao mês corrente — o realizado ainda não existe. */
   realizadoBp: number | null;
 };
 
@@ -43,42 +31,31 @@ export const ROTULO_SITUACAO: Record<SituacaoEtapa, string> = {
   SEM_DATAS: "Sem datas",
 };
 
-/** Folga tolerada entre o previsto até hoje e o realizado antes de marcar atraso (10 p.p.). */
-export const MARGEM_ATRASO_BP = 1000;
+const MARGEM_ATRASO_BP = 1000;
 
 const MS_DIA = 86_400_000;
 const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
 
-// ---------------------------------------------------------------------------
-// Datas
-
-/** Dia de uma coluna `@db.Date` (o Prisma devolve meia-noite UTC). */
+// @db.Date vem como meia-noite UTC, então aqui toISOString dá o dia certo.
 export function diaDoBanco(data: Date): Dia {
   return data.toISOString().slice(0, 10);
 }
 
-/** Date para gravar numa coluna `@db.Date` (meia-noite UTC do dia). */
 export function diaParaBanco(dia: Dia): Date {
   return new Date(`${dia}T00:00:00Z`);
 }
 
-/** "aaaa-mm-dd" válido de calendário (rejeita 2026-02-30). */
 export function diaValido(dia: string): boolean {
   if (!RE_DIA.test(dia)) return false;
   const d = new Date(`${dia}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === dia;
 }
 
-/** Número de dias desde 1970-01-01 — base de toda a aritmética de datas daqui. */
 function numeroDoDia(dia: Dia): number {
   return Math.round(Date.parse(`${dia}T00:00:00Z`) / MS_DIA);
 }
 
-function diaDoNumero(n: number): Dia {
-  return new Date(n * MS_DIA).toISOString().slice(0, 10);
-}
-
-export function mesDoDia(dia: Dia): Mes {
+function mesDoDia(dia: Dia): Mes {
   return dia.slice(0, 7);
 }
 
@@ -96,14 +73,12 @@ function proximoMes(mes: Mes): Mes {
   return m === 12 ? `${ano + 1}-01` : `${ano}-${String(m + 1).padStart(2, "0")}`;
 }
 
-/** Meses de `de` a `ate`, inclusive. */
 export function mesesEntre(de: Mes, ate: Mes): Mes[] {
   const meses: Mes[] = [];
   for (let m = de; m <= ate; m = proximoMes(m)) meses.push(m);
   return meses;
 }
 
-/** Valida as datas previstas de uma etapa: ambas opcionais, mas o fim não antecede o início. */
 export function validarDatasEtapa(
   inicio: string | null,
   fim: string | null,
@@ -122,13 +97,6 @@ function temDatas<E extends Pick<EtapaPlano, "inicioPrevisto" | "fimPrevisto">>(
   return !!e.inicioPrevisto && !!e.fimPrevisto && e.fimPrevisto >= e.inicioPrevisto;
 }
 
-// ---------------------------------------------------------------------------
-// Curva S
-
-/**
- * % previsto de uma etapa ao fim do dia informado: distribuição linear pelos
- * dias corridos entre início e fim (inclusive). Etapa sem datas → 0.
- */
 export function previstoEtapaNaData(
   etapa: Pick<EtapaPlano, "inicioPrevisto" | "fimPrevisto">,
   dia: Dia,
@@ -142,28 +110,23 @@ export function previstoEtapaNaData(
   return Math.round((decorridos / duracao) * BP_TOTAL);
 }
 
-/**
- * % acumulado previsto da obra ao fim do dia. Etapas sem datas pesam, mas não
- * avançam — a curva prevista só chega a 100% quando todas as etapas têm datas.
- */
+// Etapas sem datas pesam mas não avançam: o previsto só chega a 100% quando todas têm datas.
 export function previstoNaData(etapas: EtapaPlano[], dia: Dia): number {
   return avancoPonderado(
     etapas.map((e) => ({ orcamentoCents: e.orcamentoCents, percentBp: previstoEtapaNaData(e, dia) })),
   );
 }
 
-/** Último % medido de cada etapa até o dia informado (inclusive). */
 export function realizadoPorEtapaNaData(medicoes: MedicaoPonto[], dia: Dia): Map<string, number> {
   const ordenadas = [...medicoes].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
   const mapa = new Map<string, number>();
   for (const m of ordenadas) {
     if (m.data > dia) break;
-    mapa.set(m.etapaId, m.percentBp); // última vence
+    mapa.set(m.etapaId, m.percentBp);
   }
   return mapa;
 }
 
-/** % acumulado realizado da obra até o dia, ponderado como `avancoPonderado`. */
 export function realizadoNaData(etapas: EtapaPlano[], medicoes: MedicaoPonto[], dia: Dia): number {
   const porEtapa = realizadoPorEtapaNaData(medicoes, dia);
   return avancoPonderado(
@@ -171,12 +134,7 @@ export function realizadoNaData(etapas: EtapaPlano[], medicoes: MedicaoPonto[], 
   );
 }
 
-/**
- * Faixa de meses da curva S de uma obra: do primeiro início previsto (ou da
- * primeira medição, se anterior) até o último fim previsto — estendida até o
- * mês corrente enquanto a obra não chega a 100%, para o atraso aparecer, e até
- * a última medição. `null` quando nenhuma etapa tem datas.
- */
+// Estendida até o mês corrente enquanto a obra não chega a 100%, para o atraso aparecer.
 export function faixaDaCurvaS(
   etapas: EtapaPlano[],
   medicoes: MedicaoPonto[],
@@ -190,7 +148,6 @@ export function faixaDaCurvaS(
 
   const inicios = [...comDatas.map((e) => e.inicioPrevisto), ...datasMedicao];
   const fins = [...comDatas.map((e) => e.fimPrevisto), ...datasMedicao.filter((d) => d <= hoje)];
-  // toda etapa com datas tem início ≤ fim, então de ≤ ate
   const de = mesDoDia(inicios.reduce((a, b) => (a < b ? a : b)));
   let ate = mesDoDia(fins.reduce((a, b) => (a > b ? a : b)));
 
@@ -201,11 +158,6 @@ export function faixaDaCurvaS(
   return { de, ate };
 }
 
-/**
- * Curva S mensal: % acumulado previsto ao fim de cada mês e realizado ao fim
- * de cada mês (no mês corrente, até hoje; nos meses futuros, null).
- * Sem `faixa`, usa `faixaDaCurvaS`; retorna [] quando não há datas.
- */
 export function curvaS(
   etapas: EtapaPlano[],
   medicoes: MedicaoPonto[],
@@ -225,10 +177,6 @@ export function curvaS(
   });
 }
 
-/**
- * Agrega curvas S de várias obras (mesma faixa de meses) com a regra de
- * `avancoPonderado`: peso = orçamento total da obra; se nenhuma tem, pesos iguais.
- */
 export function agregarCurvasS(
   obras: { orcamentoCents: number; curva: PontoCurvaS[] }[],
 ): PontoCurvaS[] {
@@ -250,7 +198,6 @@ export function agregarCurvasS(
   });
 }
 
-/** União das faixas de várias obras (para agregá-las num mesmo eixo). */
 export function unirFaixas(faixas: ({ de: Mes; ate: Mes } | null)[]): { de: Mes; ate: Mes } | null {
   const validas = faixas.filter((f) => f !== null);
   if (validas.length === 0) return null;
@@ -260,18 +207,7 @@ export function unirFaixas(faixas: ({ de: Mes; ate: Mes } | null)[]): { de: Mes;
   };
 }
 
-// ---------------------------------------------------------------------------
-// Situação das etapas
-
-/**
- * Situação da etapa hoje:
- * - CONCLUIDA: medida em 100% (com ou sem datas);
- * - SEM_DATAS: falta início ou fim previsto;
- * - ATRASADA: o fim previsto já passou sem 100%, ou o previsto até hoje supera
- *   o realizado em mais que `margemBp`;
- * - NAO_INICIADA: nada medido ainda (e dentro da margem);
- * - EM_DIA: o resto.
- */
+// ATRASADA: fim previsto passou sem 100%, ou o previsto até hoje supera o realizado em mais que margemBp (10 p.p.).
 export function situacaoEtapa(
   etapa: Pick<EtapaPlano, "inicioPrevisto" | "fimPrevisto">,
   realizadoBp: number,
@@ -286,26 +222,16 @@ export function situacaoEtapa(
   return "EM_DIA";
 }
 
-// ---------------------------------------------------------------------------
-// Gantt
-
 export type EscalaGantt = {
   inicio: Dia;
   fim: Dia;
   totalDias: number;
   meses: { mes: Mes; esquerdaPct: number; larguraPct: number }[];
-  /** Posição do marcador de hoje; null quando hoje está fora da escala. */
   hojePct: number | null;
 };
 
-/** Até quantos meses depois do fim previsto o eixo se estende para mostrar o hoje. */
 const MESES_EXTENSAO_HOJE = 12;
 
-/**
- * Eixo de tempo do Gantt: meses inteiros do primeiro início ao último fim
- * previsto, estendido até o mês corrente se a obra estiver além do plano (até
- * 12 meses). `null` quando nenhuma etapa tem datas.
- */
 export function escalaGantt(
   etapas: Pick<EtapaPlano, "inicioPrevisto" | "fimPrevisto">[],
   hoje: Dia,
@@ -333,13 +259,11 @@ export function escalaGantt(
   });
 
   const nHoje = numeroDoDia(hoje) - n0;
-  // o marcador fica no meio do dia de hoje
   const hojePct = nHoje >= 0 && nHoje < totalDias ? pct(nHoje + 0.5) : null;
 
   return { inicio, fim, totalDias, meses, hojePct };
 }
 
-/** Posição (em % da largura do eixo) da barra de uma etapa de `inicio` a `fim`, inclusive. */
 export function posicaoNoGantt(
   escala: EscalaGantt,
   inicio: Dia,
@@ -354,17 +278,10 @@ export function posicaoNoGantt(
   };
 }
 
-/** Duração em dias corridos (inclusive) — para exibição. */
 export function duracaoEmDias(inicio: Dia, fim: Dia): number {
   return numeroDoDia(fim) - numeroDoDia(inicio) + 1;
 }
 
-/** Soma dias a um dia — útil em testes e para sugerir datas. */
-export function somarDias(dia: Dia, dias: number): Dia {
-  return diaDoNumero(numeroDoDia(dia) + dias);
-}
-
-/** Peso de cada etapa na obra em basis points (mesma regra de `avancoPonderado`) — exibição sem R$. */
 export function pesosDasEtapas(etapas: { id: string; orcamentoCents: number }[]): Map<string, number> {
   const total = etapas.reduce((a, e) => a + e.orcamentoCents, 0);
   return new Map(

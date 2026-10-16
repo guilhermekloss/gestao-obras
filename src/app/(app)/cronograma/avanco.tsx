@@ -9,10 +9,6 @@ import { SituacaoBadge } from "./situacao";
 import type { Cronograma } from "./dados";
 import { Trash2 } from "lucide-react";
 
-/**
- * Seção "Avanço" (antiga página Medições): lançamento do % físico acumulado
- * por etapa — o campo pode lançar — e histórico com exclusão (escritório).
- */
 export async function SecaoAvanco({
   obraId,
   role,

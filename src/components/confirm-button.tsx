@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { ActionResult } from "@/lib/acao";
 
-/** Botão que pede confirmação e executa uma server action, exibindo erro em toast. */
 export function ConfirmButton({
   action,
   mensagem,

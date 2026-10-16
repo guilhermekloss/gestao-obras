@@ -12,16 +12,13 @@ import { CUSTO_BCRYPT } from "@/services/senha";
 import { ROLE_LABELS } from "@/services/acesso";
 import { cadastroConviteSchema, obrasValidasDoConvite, tokenComFormatoValido } from "@/services/convite";
 
-/** Erro + o que foi digitado (o React limpa o form após a action; senhas não voltam). */
+// devolve o digitado: o React limpa o form após a action (senhas não voltam)
 export type EstadoCadastro = { erro?: string; campo?: string; nome?: string; email?: string };
 
 class ErroCadastro extends Error {}
 
-/**
- * Cadastro pelo link — rota pública: quem autoriza é o token. Tudo numa
- * transação, com o "consumo" do convite condicionado a ele ainda estar
- * pendente: dois envios simultâneos do mesmo link criam no máximo uma conta.
- */
+// rota pública: quem autoriza é o token. Consumo condicional na transação:
+// envios simultâneos do mesmo link criam no máximo uma conta.
 export async function aceitarConvite(
   token: string,
   _anterior: EstadoCadastro,
@@ -35,7 +32,7 @@ export async function aceitarConvite(
 
   const parsed = cadastroConviteSchema.safeParse({
     nome: formData.get("nome"),
-    // convite com e-mail definido: o campo fica travado e o valor vem do convite
+    // e-mail definido no convite prevalece sobre o enviado
     email: convite.email ?? formData.get("email"),
     senha: formData.get("senha"),
     confirmacao: formData.get("confirmacao"),
@@ -102,7 +99,6 @@ export async function aceitarConvite(
       redirectTo: usuario.role === "CAMPO" ? "/diario" : "/dashboard",
     });
   } catch (erro) {
-    // conta criada; se o login automático falhar, segue para a tela de login
     if (erro instanceof AuthError) redirect("/login?cadastro=1");
     throw erro;
   }

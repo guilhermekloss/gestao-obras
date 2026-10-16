@@ -15,12 +15,10 @@ locals {
     "storage.googleapis.com",
     "sts.googleapis.com",
   ]
-  # Vision só quando é o motor de OCR escolhido
   apis = concat(
     local.apis_base,
     var.motor_ocr == "vision" ? ["vision.googleapis.com"] : [],
-    var.gemini_habilitado ? ["aiplatform.googleapis.com"] : [], # Gemini (análise com IA)
-    # varredura automática de vulnerabilidades das imagens a cada push no Artifact Registry
+    var.gemini_habilitado ? ["aiplatform.googleapis.com"] : [],
     var.varredura_imagens ? ["containerscanning.googleapis.com"] : [],
   )
 }

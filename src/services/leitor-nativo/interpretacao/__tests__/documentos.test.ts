@@ -31,7 +31,6 @@ function ler(texto: string, opcoes: OpcoesTexto = {}): DocumentoLido {
   return lido;
 }
 
-/** Avisos de `normalizarLeitura` (falha se a leitura for recusada). */
 function avisos(lido: DocumentoLido): string[] {
   const r = normalizarLeitura(lido, HOJE);
   if (!r.ok) throw new Error(r.erro);
@@ -252,7 +251,6 @@ describe.each(VARIANTES)("NFS-e (%s)", (_nome, opcoes) => {
     expect(lido.observacoes).toBe(
       "Valor líquido R$ 4.200,00: ISS retido R$ 250,00 e INSS retido R$ 550,00. O total lançado é o valor bruto do serviço (R$ 5.000,00).",
     );
-    // a observação é o único aviso
     expect(avisos(lido)).toEqual([lido.observacoes]);
   });
 

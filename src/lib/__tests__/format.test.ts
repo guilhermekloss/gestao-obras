@@ -13,7 +13,7 @@ import {
 
 describe("formatarMoeda / moedaParaCents", () => {
   it("formata centavos como moeda BR", () => {
-    // Intl.NumberFormat("pt-BR") usa espaço não separável (U+00A0) entre "R$" e o valor.
+    // o espaço depois de "R$" é U+00A0, não espaço comum
     expect(formatarMoeda(123456)).toBe("R$ 1.234,56");
     expect(formatarMoeda(0)).toBe("R$ 0,00");
   });
@@ -68,8 +68,6 @@ describe("formatarPercentBp / percentBpParaEditavel / percentEditavelParaBp", ()
 
 describe("dataParaInput / inputParaData", () => {
   it("dataParaInput usa componentes locais, não UTC", () => {
-    // 23:30 local em 15/03 não deve virar 16/03 (o que toISOString().slice(0,10) faria
-    // em qualquer fuso a leste de UTC).
     const meiaNoiteLocal = new Date(2026, 2, 15, 23, 30);
     expect(dataParaInput(meiaNoiteLocal)).toBe("2026-03-15");
   });

@@ -9,11 +9,9 @@ import { ChevronsUpDown, Check } from "lucide-react";
 export type ComboboxOption = {
   value: string;
   label: string;
-  /** Linha secundária (ex.: CNPJ, código) — também entra na busca. */
   descricao?: string | null;
 };
 
-/** Remove acentos e normaliza para busca insensível a maiúsculas/acentos. */
 function normalizar(s: string): string {
   return s
     .normalize("NFD")
@@ -22,11 +20,6 @@ function normalizar(s: string): string {
     .trim();
 }
 
-/**
- * Select com busca dinâmica. Boas práticas aplicadas:
- * filtra por texto ou dígitos (CNPJ/código), realça no hover e por teclado,
- * confirma a escolha (check verde) e sinaliza erro de validação.
- */
 export function Combobox({
   options,
   value,
@@ -49,7 +42,6 @@ export function Combobox({
   vazio?: string;
   erro?: boolean;
   mensagemErro?: string;
-  /** Se definido, adiciona uma opção que limpa a seleção (ex.: "Todos"). */
   limparLabel?: string;
   aoSelecionar?: (opt: ComboboxOption | null) => void;
   className?: string;
@@ -83,7 +75,6 @@ export function Combobox({
       .slice(0, 50);
   }, [busca, options]);
 
-  // Lista exibida, incluindo a opção de limpar quando não há busca ativa.
   const lista = useMemo<ComboboxOption[]>(() => {
     if (limparLabel && !normalizar(busca)) {
       return [{ value: "", label: limparLabel }, ...filtrados];
@@ -91,7 +82,7 @@ export function Combobox({
     return filtrados;
   }, [filtrados, limparLabel, busca]);
 
-  // Fecha ao clicar fora (considera também a lista, que fica em um portal)
+  // a lista fica num portal: clicar nela não conta como "fora"
   useEffect(() => {
     function handler(e: MouseEvent) {
       const alvo = e.target as Node;
@@ -107,7 +98,6 @@ export function Combobox({
     return () => document.removeEventListener("mousedown", handler);
   }, [onBlur]);
 
-  // Posiciona a lista logo abaixo do campo (portal em position: fixed).
   useEffect(() => {
     if (!aberto) return;
     function medir() {
@@ -160,7 +150,6 @@ export function Combobox({
     }
   }
 
-  // Não mostra o erro enquanto o usuário está buscando/selecionando.
   const mostrarErro = erro && !aberto;
 
   return (

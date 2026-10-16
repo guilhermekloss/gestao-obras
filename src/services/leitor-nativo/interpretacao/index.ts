@@ -1,23 +1,3 @@
-/**
- * Interpretação nativa (sem LLM) de documentos de despesa: transforma o
- * `TextoExtraido` (OCR ou camada de texto do PDF, com posições e códigos de
- * barras/QR decodificados) no `DocumentoLido`, que segue para
- * `normalizarLeitura` como a leitura feita pelo modelo.
- *
- * Puro e determinístico. Regras de transcrição (as mesmas do leitor com IA):
- * só o que está impresso; ausente/ilegível = null; nada é estimado; códigos
- * com dígito verificador (chave, linha digitável, CNPJ/CPF) são o árbitro
- * das correções de OCR.
- *
- *   documento.ts       linhas, texto normalizado, tokens com posição, células
- *   normalizacao.ts    valores em reais, decimais, datas, extenso, confusões de OCR
- *   digitos.ts         DVs (CNPJ alfanumérico, CPF, chave 44/50, mód. 10/11) e correção guiada
- *   codigos.ts         chave (texto/QR/Code-128), boleto 47/44, arrecadação 48/44, fator de vencimento
- *   rotulos.ts         dicionário de rótulos e pareamento rótulo → valor
- *   classificacao.ts   tipo do documento (âncoras + pontuação)
- *   legibilidade.ts    BOA / PARCIAL / RUIM
- *   interpretes/       um intérprete por tipo (DANFE, NFC-e, NFS-e, boleto, guia, recibo, genérico)
- */
 import { documentoLidoSchema, type DocumentoLido } from "../../leitura-documento";
 import type { TextoExtraido } from "../tipos";
 import { classificar } from "./classificacao";
@@ -34,16 +14,11 @@ import type { Resultado } from "./interpretes/auxiliares";
 import { avaliarLegibilidade } from "./legibilidade";
 import { encontrarDatas } from "./normalizacao";
 
-export type OpcoesInterpretacao = {
-  /**
-   * Data de referência (AAAA-MM-DD) para decidir o ciclo do fator de
-   * vencimento de boletos quando o documento não traz data de emissão.
-   * Padrão: a data mais recente impressa no documento.
-   */
+type OpcoesInterpretacao = {
+  // Escolhe o ciclo do fator de vencimento do boleto; padrão: a data mais recente impressa.
   dataReferencia?: string | null;
 };
 
-/** Troca NaN/Infinity por null e strings vazias por null (o schema exige números finitos). */
 function sanear(lido: DocumentoLido): DocumentoLido {
   const num = (v: number | null) => (v !== null && Number.isFinite(v) ? v : null);
   const txt = (v: string | null) => (v && v.trim() ? v.trim() : null);
@@ -85,7 +60,6 @@ function sanear(lido: DocumentoLido): DocumentoLido {
   };
 }
 
-/** Interpretação sem a rede de segurança (lança em caso de erro interno; usada nos testes). */
 export function interpretarOuLancar(texto: TextoExtraido, opcoes: OpcoesInterpretacao = {}): DocumentoLido {
   const doc = construirDoc(texto);
   const ancoras = encontrarAncoras(doc);
@@ -134,7 +108,6 @@ export function interpretarDocumento(texto: TextoExtraido, opcoes: OpcoesInterpr
   try {
     return interpretarOuLancar(texto, opcoes);
   } catch {
-    // nunca deve acontecer; se acontecer, o usuário preenche à mão
     const vazio = documentoVazio("OUTRO");
     vazio.legibilidade = "RUIM";
     vazio.observacoes = "Não foi possível interpretar o texto lido; preencha os dados manualmente.";
@@ -142,4 +115,3 @@ export function interpretarDocumento(texto: TextoExtraido, opcoes: OpcoesInterpr
   }
 }
 
-export type { DocumentoLido };

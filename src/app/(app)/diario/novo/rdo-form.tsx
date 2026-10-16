@@ -29,13 +29,12 @@ const ESTILO_CONDICAO: Record<CondicaoTrabalho, string> = {
 
 type FotoLocal = { url: string; preview: string };
 
-/** Valores de um RDO existente, já convertidos para o formulário (edição). */
 export type RdoValores = {
   obraId: string;
-  data: string; // aaaa-mm-dd
+  data: string;
   climaManha: Clima | "";
   climaTarde: Clima | "";
-  /** Texto livre de RDOs antigos — só exibido, não é mais gravado. */
+  // texto livre de RDOs antigos: só exibido, não é mais gravado
   climaLegado: string | null;
   condicao: CondicaoTrabalho | "";
   efetivo: { funcao: string; qtd: number }[];
@@ -45,7 +44,6 @@ export type RdoValores = {
   fotos: { url: string }[];
 };
 
-/** Comprime a imagem no cliente (canvas) para poupar dados móveis no canteiro. */
 async function comprimirImagem(file: File, maxLado = 1600, qualidade = 0.8): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
@@ -58,10 +56,6 @@ async function comprimirImagem(file: File, maxLado = 1600, qualidade = 0.8): Pro
   );
 }
 
-/**
- * Formulário do RDO. Sem `rdo` cria um novo (com `obraInicial` opcional,
- * vindo de `/diario/novo?obra=<id>`); com `rdo` edita o existente.
- */
 export function RdoForm({
   obras,
   obraInicial,
@@ -92,10 +86,8 @@ export function RdoForm({
   );
   const [enviandoFoto, setEnviandoFoto] = useState(false);
 
-  // lembra a última obra usada — 1 toque a menos no canteiro
-  // (localStorage só existe no cliente, então roda pós-mount, fora do render síncrono).
-  // Na edição ou com a obra vinda da URL, a obra já está definida.
   const obraDefinida = Boolean(v || obraInicial);
+  // localStorage só existe no cliente: lê pós-mount, fora do render síncrono
   useEffect(() => {
     if (obraDefinida) return;
     const frame = requestAnimationFrame(() => {

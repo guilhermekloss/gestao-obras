@@ -1,21 +1,14 @@
-/**
- * Política de senha (OWASP ASVS 2.1 / NIST 800-63B): comprimento é o que mais
- * pesa, sem exigir mistura de símbolos; bloqueia as senhas mais óbvias e as
- * que repetem o e-mail ou o nome. Vale para senhas novas — as atuais seguem
- * funcionando até a próxima troca.
- */
 export const SENHA_MINIMA = 10;
 
-/** O bcrypt ignora tudo depois de 72 bytes: senha maior daria a falsa impressão de ser mais forte. */
-export const SENHA_MAXIMA_BYTES = 72;
+// O bcrypt ignora o que passa de 72 bytes: senha maior pareceria mais forte sem ser.
+const SENHA_MAXIMA_BYTES = 72;
 
-/** Custo do bcrypt para hashes novos (~250 ms num vCPU do Cloud Run). */
 export const CUSTO_BCRYPT = 12;
 
 export const DICA_SENHA =
   "Dica: não precisa de símbolos nem maiúsculas — uma frase fácil de lembrar, como “tijolo azul na janela”, é mais forte que uma palavra curta cheia de símbolos.";
 
-/** As mais usadas em vazamentos (e variações do próprio sistema). Comparadas sem acento e minúsculas. */
+// Em minúsculas e sem acento: são comparadas com a senha normalizada.
 const SENHAS_COMUNS = new Set([
   "1234567890",
   "12345678910",
@@ -68,7 +61,6 @@ function bytes(senha: string): number {
   return new TextEncoder().encode(senha).length;
 }
 
-/** Senha óbvia: um caractere repetido ou da lista das mais usadas. */
 function ehComum(senha: string): boolean {
   const n = normalizar(senha);
   return new Set(n).size <= 2 || SENHAS_COMUNS.has(n) || SENHAS_COMUNS.has(n.replace(/[^a-z0-9]/g, ""));
@@ -85,12 +77,8 @@ function ehNome(senha: string, contexto: Contexto): boolean {
   return nomes.some((p) => n === p || n.replace(/[^a-z]/g, "") === p);
 }
 
-export type RequisitoSenha = { chave: "tamanho" | "comum" | "pessoal"; rotulo: string; ok: boolean };
+type RequisitoSenha = { chave: "tamanho" | "comum" | "pessoal"; rotulo: string; ok: boolean };
 
-/**
- * Regras da senha como lista para mostrar ao usuário enquanto ele digita
- * (componente `RequisitosSenha`). As mesmas checagens de `problemaSenha`.
- */
 export function requisitosSenha(senha: string, contexto: Contexto = {}): RequisitoSenha[] {
   return [
     {
@@ -111,7 +99,6 @@ export function requisitosSenha(senha: string, contexto: Contexto = {}): Requisi
   ];
 }
 
-/** Mensagem do primeiro problema da senha nova, ou `null` se ela é aceitável. */
 export function problemaSenha(senha: string, contexto: Contexto = {}): string | null {
   if (senha.length < SENHA_MINIMA) return `A senha precisa ter no mínimo ${SENHA_MINIMA} caracteres`;
   if (bytes(senha) > SENHA_MAXIMA_BYTES) return `A senha pode ter no máximo ${SENHA_MAXIMA_BYTES} caracteres`;

@@ -15,7 +15,6 @@ export const STATUS_CONVITE_LABELS: Record<StatusConvite, string> = {
   REVOGADO: "Cancelado",
 };
 
-/** Formato de um token gerado por `gerarToken` (lib/token.ts) — barra lixo antes de ir ao banco. */
 export function tokenComFormatoValido(token: string): boolean {
   return /^[A-Za-z0-9_-]{43}$/.test(token);
 }
@@ -40,7 +39,6 @@ export function normalizarEmail(email: string): string {
 
 const papelSchema = z.enum(["ADMIN", "ESCRITORIO", "CAMPO"]);
 
-/** O que o admin preenche ao gerar o convite. */
 export const novoConviteSchema = z
   .object({
     nome: z.string().trim().max(120).optional(),
@@ -61,9 +59,6 @@ export const novoConviteSchema = z
     message: "Escolha ao menos uma obra ou marque “Todas as obras”",
   });
 
-export type NovoConvite = z.infer<typeof novoConviteSchema>;
-
-/** O que o convidado preenche na página do link. */
 export const cadastroConviteSchema = z
   .object({
     nome: z.string().trim().min(2, "Informe seu nome").max(120),
@@ -79,16 +74,11 @@ export const cadastroConviteSchema = z
     }
   });
 
-/**
- * Obras do convite que ainda existem: uma obra excluída entre o convite e o
- * cadastro é descartada em silêncio em vez de quebrar o cadastro.
- */
 export function obrasValidasDoConvite(obraIds: string[], existentes: string[]): string[] {
   const set = new Set(existentes);
   return [...new Set(obraIds)].filter((id) => set.has(id));
 }
 
-/** Texto pronto para WhatsApp/e-mail. */
 export function mensagemConvite(opcoes: {
   link: string;
   papel: string;

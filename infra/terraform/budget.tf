@@ -1,6 +1,4 @@
-# Alerta de orçamento. Ignora créditos de propósito: você vê o custo real
-# e é avisado bem antes de os créditos acabarem. Não bloqueia gastos — só avisa
-# (os e-mails vão para os administradores da conta de faturamento).
+# Ignora créditos de propósito: mostra o custo real e avisa antes de os créditos acabarem.
 resource "google_billing_budget" "mensal" {
   count           = var.billing_account_id == "" ? 0 : 1
   billing_account = var.billing_account_id

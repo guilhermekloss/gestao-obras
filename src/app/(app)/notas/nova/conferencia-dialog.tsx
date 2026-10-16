@@ -47,7 +47,6 @@ import {
 
 export type LeituraConferida = Extract<LerDocumentoResult, { ok: true }> & {
   arquivo: { nome: string; url: string };
-  /** quem leu: o leitor nativo (padrão) ou a análise com IA pedida pelo usuário */
   origem?: "nativa" | "ia";
 };
 
@@ -58,11 +57,6 @@ const TIPOS_ITEM: { value: TipoItem; label: string }[] = [
   { value: "ENCARGO", label: "Encargo" },
 ];
 
-/**
- * Pop-up de conferência humana: logo após a leitura automática, mostra tudo o
- * que vai entrar no sistema ao lado do documento, permite corrigir cada campo
- * e resolve o fornecedor contra o cadastro. Só grava ao confirmar.
- */
 export function ConferenciaDialog({
   aberto,
   onAbertoChange,
@@ -83,15 +77,13 @@ export function ConferenciaDialog({
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
   onLevarParaFormulario: () => void;
-  /** a análise com IA (Gemini) está configurada no servidor */
   analiseIa: boolean;
-  /** nova leitura do mesmo documento (análise com IA): o pai troca os dados e a conferência */
   onReleitura: (r: Extract<LerDocumentoResult, { ok: true }>) => void;
 }) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const [erros, setErros] = useState<string[]>([]);
-  // fornecedor já resolvido no servidor (criado/completado) — não refaz numa nova tentativa
+  // já resolvido no servidor: uma nova tentativa não recria/completa o fornecedor de novo
   const [fornecedorResolvido, setFornecedorResolvido] = useState<string | null>(null);
   const [analisando, startAnalise] = useTransition();
 
@@ -191,7 +183,6 @@ export function ConferenciaDialog({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:overflow-hidden">
-          {/* Documento original */}
           <div className="border-b bg-muted/30 p-3 lg:overflow-y-auto lg:border-r lg:border-b-0">
             <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span className="flex min-w-0 items-center gap-1 truncate">
@@ -209,7 +200,6 @@ export function ConferenciaDialog({
             )}
           </div>
 
-          {/* Dados */}
           <div className="space-y-5 p-4 lg:overflow-y-auto">
             {notaExistente && (
               <Alerta tom="erro">
@@ -476,7 +466,6 @@ export function ConferenciaDialog({
           </div>
         </div>
 
-        {/* Rodapé */}
         <div className="space-y-3 border-t bg-background px-4 py-3">
           {erros.length > 0 && (
             <ul id="conferencia-erros" role="alert" className="max-h-28 space-y-0.5 overflow-y-auto text-sm text-destructive">
@@ -512,9 +501,6 @@ export function ConferenciaDialog({
     </Dialog>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Fornecedor
 
 function FornecedorConferencia({
   lido,
@@ -709,9 +695,6 @@ function Destinatario({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Peças visuais
-
 function Secao({
   titulo,
   icone,
@@ -817,10 +800,6 @@ const NIVEL_ESTILO = {
 
 const NIVEL_LABEL = { alto: "alto", medio: "médio", baixo: "baixo" } as const;
 
-/**
- * Índice de acerto da leitura e o botão de análise com IA — em destaque
- * quando o índice não é alto. Depois da análise, informa que a IA preencheu.
- */
 function IndiceLeitura({
   indice,
   origem,

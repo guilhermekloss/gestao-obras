@@ -6,14 +6,13 @@ import { Input } from "@/components/ui/input";
 import { salvarDatasEtapas } from "./actions";
 import { CalendarRange } from "lucide-react";
 
-export type EtapaDatas = {
+type EtapaDatas = {
   id: string;
   nome: string;
-  inicioPrevisto: string | null; // "aaaa-mm-dd"
+  inicioPrevisto: string | null;
   fimPrevisto: string | null;
 };
 
-/** Edição das datas previstas (linha de base) de todas as etapas da obra de uma vez. */
 export function EditarDatasDialog({ obraId, etapas }: { obraId: string; etapas: EtapaDatas[] }) {
   return (
     <FormDialog
@@ -37,7 +36,7 @@ export function EditarDatasDialog({ obraId, etapas }: { obraId: string; etapas: 
       </div>
       <div className="grid gap-3 sm:gap-2">
         {etapas.map((e) => (
-          // a key muda com as datas salvas: remonta os inputs não controlados em vez de trocar o defaultValue
+          // key muda com as datas salvas: remonta os inputs não controlados (defaultValue não atualiza)
           <div
             key={`${e.id}:${e.inicioPrevisto}:${e.fimPrevisto}`}
             className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[1fr_9.5rem_9.5rem]"

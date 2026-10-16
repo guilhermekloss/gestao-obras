@@ -127,7 +127,7 @@ Cada agente roda em **git worktree próprio** (branch `feat/<agente>`) e com **b
 |---|---|---|
 | **A1 Financeiro** | `src/app/(app)/notas/` (exceto `importar-xml/`), `src/app/(app)/contas/`, `src/services/parcelas.ts`, `financeiro.ts`, `src/schemas/nota.ts` | `rateio.ts`, `custos.ts` |
 | **A2 NF-e** | `src/app/(app)/notas/importar-xml/`, `src/services/nfe-xml.ts` (+ testes) | `schemas/nota.ts`, `services/fornecedores.ts`, `rateio.ts` |
-| **A3 Planejamento** | `src/app/(app)/medicoes/`, `src/app/(app)/cronograma/`, `obras/[id]/abas/cronograma.tsx`, `src/services/cronograma.ts`, `services/obra.ts`, `dashboard/widgets/curva-s.tsx` | `custos.ts` |
+| **A3 Planejamento** | `src/app/(app)/cronograma/`, `obras/[id]/abas/cronograma.tsx`, `src/services/cronograma.ts`, `services/obra.ts`, `dashboard/widgets/curva-s.tsx` | `custos.ts` |
 | **A4 Diário** | `src/app/(app)/diario/`, `obras/[id]/abas/diario.tsx`, `src/services/rdo.ts` | `lib/storage.ts`, `api/upload` |
 | **A5 Análises** | `src/app/(app)/dashboard/` (exceto `widgets/curva-s.tsx`), `src/app/(app)/orcamento/`, `src/services/analises.ts`, `custos.ts` | todo o resto |
 
@@ -144,7 +144,7 @@ Regras para todos os agentes:
 ### Status da Onda 1 — ✅ integrada
 
 Os 5 branches foram integrados sem conflito (cada agente ficou nas suas pastas). Pedidos dos
-handoffs (`docs/handoff/A*.md`) aplicados pelo integrador: menu "Lançamentos", botões "Importar XML",
+handoffs dos agentes aplicados pelo integrador: menu "Lançamentos", botões "Importar XML",
 chave NF-e na edição, links RDO/Cronograma na aba Resumo, textos de Avanço, README.
 Validação: `tsc`, `eslint` (0 erros), 217 testes Vitest, `next build`, e2e Playwright (2/2) e
 smoke de todas as rotas como ADMIN e CAMPO.

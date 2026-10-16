@@ -18,7 +18,6 @@ import type { AbaObraProps } from "./tipos";
 
 const LIMITE = 100;
 
-/** Aba Diário da obra: os RDOs da obra, do mais recente para o mais antigo. */
 export async function AbaDiario({ obraId }: AbaObraProps) {
   const [rdos, total, porCondicao] = await Promise.all([
     prisma.diarioObra.findMany({

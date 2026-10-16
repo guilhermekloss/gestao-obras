@@ -1,8 +1,3 @@
-/**
- * Orquestração do modo "vision" sem rede: o cliente HTTP (`../vision`) é
- * trocado por respostas feitas à mão; os códigos continuam sendo lidos
- * localmente pelo zxing-wasm, e o Tesseract não pode ser chamado.
- */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnotacaoVision } from "../vision-conversao";
 
@@ -28,7 +23,6 @@ const { codigoPng, imagemDocumento, pdfComTexto, pdfEscaneado } = await import("
 
 const URL_NFCE = "https://www.nfce.fazenda.sp.gov.br/qrcode?p=35261034567890000195550010000123451123456789|2|1|1|ABC";
 
-/** Anotação com uma linha só ("Valor a pagar R$ 91,30"), em pixels. */
 function anotacao(pageNumber?: number): AnotacaoVision {
   const w = (text: string, x0: number, x1: number, quebra: string) => ({
     confidence: 0.98,

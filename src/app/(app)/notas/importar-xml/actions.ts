@@ -22,31 +22,27 @@ const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 const importarSchema = z.object({
   xml: z.string().min(1, "Selecione o arquivo XML"),
   nomeArquivo: z.string().optional(),
-  /** tipo de cada item, na mesma ordem dos itens da prévia */
+  // na mesma ordem dos itens do XML
   tipos: z.array(z.enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"])),
   rateios: z.array(rateioSchema).min(1, "Defina o rateio entre obras"),
   parcelas: z.array(parcelaSchema).min(1, "A nota precisa de ao menos 1 parcela"),
 });
 
-export type ImportarNfeInput = z.infer<typeof importarSchema>;
+type ImportarNfeInput = z.infer<typeof importarSchema>;
 
-export type ImportarNfeResult = ActionResult & {
-  /** quando a NF-e já está lançada — a tela oferece o link para ela */
+type ImportarNfeResult = ActionResult & {
   notaExistenteId?: string;
 };
 
-/** Nota já lançada com esta chave de acesso, se houver. */
 async function notaPorChave(chave: string) {
   return prisma.notaFiscal.findUnique({ where: { chaveNfe: chave }, select: { id: true, numero: true } });
 }
-
 
 export type SituacaoImportacao = {
   notaExistente: { id: string; numero: string } | null;
   fornecedor: { id: string; nome: string } | null;
 };
 
-/** Leitura para a prévia: a chave já foi importada? o fornecedor já existe? */
 export async function consultarSituacaoImportacao(
   chave: string,
   documento: string,
@@ -59,13 +55,8 @@ export async function consultarSituacaoImportacao(
   return { notaExistente, fornecedor };
 }
 
-/**
- * Cria a nota a partir do XML. O XML é reprocessado aqui (a prévia do client
- * não é confiável); do client vêm só as escolhas do usuário: tipos dos itens,
- * rateio e parcelas (pré-preenchidas com as duplicatas, editáveis).
- * No sucesso, revalida e redireciona para a nota criada — por isso o
- * `revalidar` do wrapper fica de fora (ver `acaoDeEscrita`).
- */
+// XML reprocessado aqui (a prévia do client não é confiável); do client vêm só as escolhas.
+// Sem `revalidar` no wrapper: revalida e redireciona por conta própria no sucesso.
 export const importarNfe = acaoDeEscrita(
   { papeis: [...PAPEIS], atividade: "nota.importar_xml" },
   async (user, input: ImportarNfeInput): Promise<ImportarNfeResult> => {
@@ -104,7 +95,6 @@ export const importarNfe = acaoDeEscrita(
       };
     }
 
-    // Fornecedor: pelo CNPJ/CPF; se não existir, cadastra com os dados do emitente.
     let fornecedorId = (await buscarFornecedorPorDocumento(nfe.emitente.documento))?.id;
     let fornecedorCriado = false;
     if (!fornecedorId) {
@@ -120,7 +110,7 @@ export const importarNfe = acaoDeEscrita(
       fornecedorCriado = true;
     }
 
-    // Mesma NF lançada à mão antes (sem chave): o @@unique(fornecedor, número) recusaria.
+    // mesma NF lançada à mão antes (sem chave): o @@unique(fornecedor, número) recusaria
     const manual = await prisma.notaFiscal.findFirst({
       where: { fornecedorId, numero: nfe.numero },
       select: { id: true },
@@ -133,7 +123,6 @@ export const importarNfe = acaoDeEscrita(
       };
     }
 
-    // O próprio XML fica como anexo da nota (servido para download em /api/fotos).
     const anexoUrl = await storage.salvar(Buffer.from(d.xml, "utf8"), "xml");
 
     let notaId: string;
@@ -164,7 +153,6 @@ export const importarNfe = acaoDeEscrita(
           })),
         });
 
-        // totalCents já vem de calcularTotalItem no parser (ver services/nfe-xml.ts)
         await tx.itemNota.createMany({
           data: nfe.itens.map((item, i) => ({
             notaId: nota.id,

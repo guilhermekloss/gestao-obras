@@ -47,7 +47,6 @@ describe("gerarNumeroDocumento", () => {
   });
 
   it("segue a partir do maior número do mesmo prefixo, ignorando lacunas", () => {
-    // REC-0002 foi excluído: o próximo continua sendo 4, não 3 (que já existe)
     expect(gerarNumeroDocumento("RECIBO", ["REC-0001", "REC-0003"])).toBe("REC-0004");
   });
 

@@ -16,16 +16,14 @@ import { ConferenciaDialog, type LeituraConferida } from "./conferencia-dialog";
 import { conferenciaDaReleitura, conferenciaInicial, type Conferencia } from "./conferencia-model";
 import { ArrowLeft, Camera, ClipboardCheck, Loader2, Paperclip, ScanLine, Upload } from "lucide-react";
 
-/** Mesmo limite do /api/upload. */
+// mesmo limite do /api/upload
 const MAX_BYTES = 8 * 1024 * 1024;
 
 type Estado =
   | { etapa: "inicio" }
   | { etapa: "processando"; passo: string; nome: string }
   | { etapa: "xml"; arquivo: File }
-  /** leitura indisponível ou falhou: o arquivo ficou só anexado ao formulário */
   | { etapa: "anexado"; arquivo: { nome: string; url: string }; motivo: string }
-  /** lido: os dados esperam a conferência no pop-up */
   | { etapa: "conferencia"; dados: LeituraConferida; levadoAoFormulario: boolean };
 
 type Formulario = { valores?: Partial<NotaFormValues>; sugerido?: { nome: string; documento: string | null } };
@@ -38,13 +36,6 @@ function ehFotoOuPdf(f: File) {
   return f.type.startsWith("image/") || f.type === "application/pdf" || /\.(pdf|jpe?g|png|webp|heic|heif)$/i.test(f.name);
 }
 
-/**
- * Novo lançamento com envio único: foto (câmera do celular), PDF ou XML da
- * NF-e. XML segue para a importação exata (`ImportarXmlForm`). Foto e PDF são
- * lidos automaticamente e abrem o pop-up de conferência: o usuário compara com
- * o documento, corrige, resolve o fornecedor e só então o lançamento é gravado.
- * O formulário manual fica sempre logo abaixo — quem não tem arquivo só preenche.
- */
 export function NovoLancamento({
   fornecedores,
   obras,
@@ -54,7 +45,6 @@ export function NovoLancamento({
   fornecedores: FornecedorOption[];
   obras: ObraOption[];
   leituraAutomatica: boolean;
-  /** botão "Analisar com IA" na conferência (Gemini configurado no servidor) */
   analiseIa: boolean;
 }) {
   const [estado, setEstado] = useState<Estado>({ etapa: "inicio" });
@@ -139,7 +129,6 @@ export function NovoLancamento({
     setDialogAberto(true);
   }
 
-  /** A IA releu o documento: troca os dados lidos e a conferência (mantém obra e rateio). */
   function aplicarReleitura(r: Extract<LerDocumentoResult, { ok: true }>) {
     if (estado.etapa !== "conferencia") return;
     const { arquivo } = estado.dados;
@@ -155,7 +144,6 @@ export function NovoLancamento({
     setEstado({ ...estado, dados: { ...r, arquivo, origem: "ia" } });
   }
 
-  /** Saída do pop-up para o formulário completo (casos que o pop-up não cobre). */
   function levarParaFormulario() {
     if (!conferencia || estado.etapa !== "conferencia") return;
     const f = conferencia.fornecedor;

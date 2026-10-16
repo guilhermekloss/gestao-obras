@@ -1,17 +1,8 @@
-/**
- * Aritmética dos documentos do corpus: dígitos verificadores (CNPJ, CPF,
- * chave de acesso NF-e/NFC-e/NFS-e, boleto de cobrança, arrecadação),
- * fator de vencimento, hash do QR Code v2 da NFC-e e formatação pt-BR.
- *
- * Tudo aqui é recalculado e conferido pelo gerador — nenhum DV do corpus é
- * copiado "de olho" da especificação.
- */
 import { createHash } from "node:crypto";
 
 export const so = (s: string) => s.replace(/\D/g, "");
 
-/** Módulo 11, pesos 2..9 da direita para a esquerda; resto < 2 → 0 (CNPJ, chave NF-e). */
-export function dvMod11Padrao(base: string): number {
+function dvMod11Padrao(base: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base.length - 1; i >= 0; i--) {
@@ -38,20 +29,18 @@ export function completarCpf(base9: string): string {
   return `${base9}${d1}${dv(base9 + d1)}`;
 }
 
-/** Chave NF-e/NFC-e: 43 posições + DV módulo 11. */
 export function completarChave(base43: string): string {
   if (base43.length !== 43) throw new Error(`chave base com ${base43.length} posições`);
   return base43 + dvMod11Padrao(base43);
 }
 
-/** Chave NFS-e nacional: 49 posições + DV módulo 11 (mesmo algoritmo da NF-e — [VERIFICAR] na especificação). */
+// [VERIFICAR] na especificação: DV da chave NFS-e assumido igual ao da NF-e (módulo 11).
 export function completarChaveNfse(base49: string): string {
   if (base49.length !== 49) throw new Error(`chave NFS-e base com ${base49.length} posições`);
   return base49 + dvMod11Padrao(base49);
 }
 
-/** Módulo 10 (boleto e arrecadação id 6/7): pesos 2,1,2,1… da direita, soma dos dígitos dos produtos. */
-export function dvMod10(base: string): number {
+function dvMod10(base: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base.length - 1; i >= 0; i--) {
@@ -63,8 +52,7 @@ export function dvMod10(base: string): number {
   return (10 - (soma % 10)) % 10;
 }
 
-/** DV geral do boleto de cobrança: módulo 11 pesos 2..9; 0, 10 e 11 → 1. */
-export function dvBoletoGeral(base43: string): number {
+function dvBoletoGeral(base43: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base43.length - 1; i >= 0; i--) {
@@ -75,8 +63,7 @@ export function dvBoletoGeral(base43: string): number {
   return d === 0 || d === 10 || d === 11 ? 1 : d;
 }
 
-/** Módulo 11 de arrecadação (id 8/9): resto 0 ou 1 → 0; senão 11 − resto. */
-export function dvArrecadacaoMod11(base: string): number {
+function dvArrecadacaoMod11(base: string): number {
   let soma = 0;
   let peso = 2;
   for (let i = base.length - 1; i >= 0; i--) {
@@ -89,19 +76,14 @@ export function dvArrecadacaoMod11(base: string): number {
 
 const DIA_MS = 86_400_000;
 
-/** Fator de vencimento (ciclo reiniciado em 22/02/2025 = 1000). */
-export function fatorVencimento(iso: string): number {
+function fatorVencimento(iso: string): number {
   const dias = Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse("2025-02-22T00:00:00Z")) / DIA_MS);
   if (dias >= 0) return 1000 + dias;
   return Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse("1997-10-07T00:00:00Z")) / DIA_MS);
 }
 
-export type Boleto = { barras: string; linha: string; linhaFormatada: string };
+type Boleto = { barras: string; linha: string; linhaFormatada: string };
 
-/**
- * Boleto de cobrança: banco(3) moeda(1) [DV] fator(4) valor(10) campoLivre(25).
- * Devolve o código de barras (44) e a linha digitável (47).
- */
 export function montarBoleto(banco: string, vencimentoIso: string, valorCents: number, campoLivre: string): Boleto {
   if (campoLivre.length !== 25) throw new Error("campo livre deve ter 25 dígitos");
   const fator = String(fatorVencimento(vencimentoIso)).padStart(4, "0");
@@ -118,13 +100,11 @@ export function montarBoleto(banco: string, vencimentoIso: string, valorCents: n
   return { barras, linha, linhaFormatada };
 }
 
-/** Linha digitável (47) → código de barras (44). */
-export function linhaParaBarras(linha: string): string {
+function linhaParaBarras(linha: string): string {
   const l = so(linha);
   return l.slice(0, 4) + l.slice(32, 33) + l.slice(33, 47) + l.slice(4, 9) + l.slice(10, 20) + l.slice(21, 31);
 }
 
-/** Confere os três DVs módulo 10 e o DV geral de uma linha digitável de cobrança. */
 export function boletoValido(linha: string): boolean {
   const l = so(linha);
   if (l.length !== 47) return false;
@@ -134,12 +114,8 @@ export function boletoValido(linha: string): boolean {
   return dvBoletoGeral(b.slice(0, 4) + b.slice(5)) === Number(b[4]);
 }
 
-export type Arrecadacao = { barras: string; linha: string; linhaFormatada: string };
+type Arrecadacao = { barras: string; linha: string; linhaFormatada: string };
 
-/**
- * Código de arrecadação (começa com 8): produto(1)=8 segmento(1) idValor(1) [DV] valor(11) resto(29).
- * idValor 6/7 → módulo 10; 8/9 → módulo 11.
- */
 export function montarArrecadacao(segmento: string, idValor: string, valorCents: number, resto29: string): Arrecadacao {
   if (resto29.length !== 29) throw new Error("arrecadação: resto deve ter 29 dígitos");
   const mod = idValor === "6" || idValor === "7" ? dvMod10 : dvArrecadacaoMod11;
@@ -166,13 +142,9 @@ export function arrecadacaoValida(linha: string): boolean {
   return mod(barras.slice(0, 3) + barras.slice(4)) === Number(barras[3]);
 }
 
-/** cHashQRCode do QR v2 (NFC-e online): SHA-1 hex maiúsculo de `chave|2|tpAmb|cIdToken` + CSC. */
 export function hashQrV2(chave: string, tpAmb: string, idToken: string, csc: string): string {
   return createHash("sha1").update(`${chave}|2|${tpAmb}|${Number(idToken)}${csc}`).digest("hex").toUpperCase();
 }
-
-// ---------------------------------------------------------------------------
-// Formatação pt-BR
 
 export function moeda(cents: number): string {
   const neg = cents < 0;
@@ -183,7 +155,6 @@ export function moeda(cents: number): string {
   return `${neg ? "-" : ""}${inteiro},${String(abs % 100).padStart(2, "0")}`;
 }
 
-/** Número com casas fixas e vírgula decimal (quantidades/unitários do DANFE: 20,0000). */
 export function decimal(v: number, casas: number): string {
   const [i, d] = v.toFixed(casas).split(".");
   const inteiro = i.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -219,22 +190,13 @@ export function fmtCpf(d: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
-export function fmtDoc(d: string): string {
-  return d.length === 14 ? fmtCnpj(d) : fmtCpf(d);
-}
-
-/** Chave em 11 grupos de 4. */
 export function grupos4(chave: string): string {
   return chave.replace(/(.{4})(?=.)/g, "$1 ");
 }
 
-/** "000.012.345" (nNF formatado do DANFE). */
 export function numeroNf(n: number): string {
   return String(n).padStart(9, "0").replace(/(\d{3})(\d{3})(\d{3})/, "$1.$2.$3");
 }
-
-// ---------------------------------------------------------------------------
-// Valor por extenso (reais), para o recibo
 
 const UNID = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze",
   "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];

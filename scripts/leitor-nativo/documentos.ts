@@ -1,12 +1,3 @@
-/**
- * Documentos do corpus: os dados (verdade de referência, no formato
- * `DocumentoLido`) e o modelo HTML/CSS que imita o leiaute real de cada um.
- *
- * Os dados são a fonte: o HTML é gerado a partir deles, e o `esperado.json`
- * é exatamente o objeto `esperado` (validado contra `documentoLidoSchema`).
- * Todos os nomes são fictícios; CNPJ/CPF/chaves/linhas têm DV calculado em
- * `aritmetica.ts`.
- */
 import type { DocumentoLido } from "@/services/leitura-documento";
 import {
   completarChave,
@@ -29,49 +20,36 @@ import {
 } from "./aritmetica";
 import { svgCodigo, type FormatoEscrita } from "./codigos";
 
-export type Pagina = "A4" | "A5-paisagem" | "cupom-80mm";
+type Pagina = "A4" | "A5-paisagem" | "cupom-80mm";
 
 export type ParametrosFoto = {
-  /** graus, positivo = horário */
   angulo: number;
-  /** sigma do desfoque gaussiano */
   desfoque: number;
-  /** 0..1: quanto escurece o canto mais sombreado */
   sombra: number;
-  /** direção da sombra (graus do gradiente) */
   direcaoSombra: number;
-  /** cisalhamento leve (perspectiva aproximada) */
   cisalhamento: number;
   qualidade: number;
-  /** cor do fundo (mesa) em volta do papel */
   fundo: string;
-  /** cor do papel */
   papel?: string;
 };
 
 export type DocCorpus = {
   id: string;
   titulo: string;
-  /** o que o fixture exercita (vai para o README) */
   exercita: string[];
   pagina: Pagina;
   esperado: DocumentoLido;
   html: string;
-  /** códigos impressos — o gerador confere que decodificam de volta */
   codigos: { formato: FormatoEscrita; texto: string }[];
-  /** trechos que precisam estar na camada de texto do PDF */
   textosNoPdf: string[];
   foto: ParametrosFoto;
 };
 
-// ---------------------------------------------------------------------------
-// Partes comuns (fictícias)
-
-export const CNPJ_EMITENTE = completarCnpj("112223330001"); // 11.222.333/0001-81 (da especificação)
-export const CNPJ_CONSTRUTORA = completarCnpj("987654320001"); // 98.765.432/0001-98
-export const CNPJ_TRANSPORTADORA = completarCnpj("456789010001");
-export const CPF_CONSUMIDOR = completarCpf("123456789"); // 123.456.789-09
-export const CPF_PEDREIRO = completarCpf("529982247"); // 529.982.247-25
+const CNPJ_EMITENTE = completarCnpj("112223330001");
+const CNPJ_CONSTRUTORA = completarCnpj("987654320001");
+const CNPJ_TRANSPORTADORA = completarCnpj("456789010001");
+const CPF_CONSUMIDOR = completarCpf("123456789");
+const CPF_PEDREIRO = completarCpf("529982247");
 
 const CONSTRUTORA = {
   nome: "CONSTRUTORA EXEMPLO LTDA",
@@ -93,13 +71,9 @@ html,body{margin:0;padding:0;background:#fff;color:#000;-webkit-print-color-adju
 ${css}</style></head><body>${corpo}</body></html>`;
 }
 
-/** Célula de DANFE: rótulo pequeno em cima, valor embaixo. */
 function cx(rotulo: string, valor: string, attrs = "", classeValor = "") {
   return `<td ${attrs}><div class="r">${rotulo}</div><div class="v ${classeValor}">${valor || "&nbsp;"}</div></td>`;
 }
-
-// ---------------------------------------------------------------------------
-// 1. DANFE NF-e (modelo 55), A4 retrato
 
 type ItemNfe = {
   cod: string;
@@ -164,7 +138,6 @@ async function montarNfe(): Promise<DocCorpus> {
   const emissao = "2026-09-15";
   const nNF = 12345;
   const serie = 1;
-  // cUF 35 · AAMM 2609 · CNPJ · mod 55 · série 001 · nNF · tpEmis 1 · cNF 87654321
   const chave = completarChave(`352609${CNPJ_EMITENTE}55${"001"}${String(nNF).padStart(9, "0")}1${"87654321"}`);
 
   const itens: ItemNfe[] = [
@@ -332,9 +305,6 @@ ${linhas
   };
 }
 
-// ---------------------------------------------------------------------------
-// 2. NFC-e (modelo 65) — cupom térmico 80 mm
-
 const CSS_CUPOM = `
 @page{size:80mm auto;margin:0}
 body{font-family:"DejaVu Sans Mono","Liberation Mono",monospace;font-size:7pt;line-height:1.38;width:80mm}
@@ -460,9 +430,6 @@ ${itens
   };
 }
 
-// ---------------------------------------------------------------------------
-// 3. NFS-e padrão nacional (DANFSe v1.0)
-
 const CSS_DANFSE = `
 @page{size:A4;margin:0}
 body{font-family:"Liberation Sans",Arial,sans-serif}
@@ -495,7 +462,6 @@ body{font-family:"Liberation Sans",Arial,sans-serif}
 
 async function montarNfseNacional(): Promise<DocCorpus> {
   const emissao = "2026-10-15";
-  // IBGE 3550308 · amb 2 · tpInsc 2 · CNPJ · nNFSe 13 · AAMM · código 9
   const chave = completarChaveNfse(`3550308${"2"}${"2"}${CNPJ_EMITENTE}${"123".padStart(13, "0")}2610${"123456789"}`);
   const urlQr = `https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave=${chave}`;
   const bruto = 500000;
@@ -515,7 +481,7 @@ async function montarNfseNacional(): Promise<DocCorpus> {
     destinatario: { nome: CONSTRUTORA.nome, documento: CNPJ_CONSTRUTORA },
     numero: "123",
     serie: null,
-    // a chave da NFS-e nacional tem 50 posições; o campo do schema é a chave de 44 da NF-e/NFC-e
+    // a chave da NFS-e nacional tem 50 posições; o campo do schema é a de 44 da NF-e/NFC-e
     chaveAcesso: null,
     dataEmissao: emissao,
     valorTotal: reais(bruto),
@@ -614,9 +580,6 @@ ${campo("Federais", "R$ 680,00")}${campo("Estaduais", "-")}${campo("Municipais",
     foto: { angulo: 1.4, desfoque: 1.0, sombra: 0.35, direcaoSombra: 120, cisalhamento: 0.008, qualidade: 70, fundo: "#58626b" },
   };
 }
-
-// ---------------------------------------------------------------------------
-// 4. NFS-e São Paulo (leiaute municipal)
 
 const CSS_NFSE_SP = `
 @page{size:A4;margin:0}
@@ -722,9 +685,6 @@ Endereço: AV DO CANTEIRO 00500 - JARDIM OBRA - CEP: ${CONSTRUTORA.cep}<br>
   };
 }
 
-// ---------------------------------------------------------------------------
-// 5. Boleto de cobrança (Ficha de Compensação)
-
 const CSS_BOLETO = `
 @page{size:A4;margin:0}
 body{font-family:"Liberation Sans",Arial,sans-serif}
@@ -829,13 +789,9 @@ ${cabecalho(bol.linhaFormatada, "linha")}
   };
 }
 
-/** Boleto da especificação (§9.5): Itaú, carteira/campo livre fictícios. */
 function montarBoleto_(vencimento: string, valorCents: number) {
   return montarBoleto("341", vencimento, valorCents, "1091234567821234567890000");
 }
-
-// ---------------------------------------------------------------------------
-// 6. DAS (Simples Nacional) — arrecadação, linha de 48
 
 const CSS_DAS = `
 @page{size:A4;margin:0}
@@ -873,7 +829,6 @@ async function montarDas(): Promise<DocCorpus> {
     { cod: "1010", den: "ISS - SIMPLES NACIONAL", v: 15040 },
   ];
   const total = comp.reduce((a, c) => a + c.v, 0);
-  // segmento 5 (órgãos governamentais) · id 8 (valor efetivo, mód. 11) · órgão 0328 · resto fictício (§9.6)
   const arr = montarArrecadacao("5", "8", total, "03280720260912345678901234567");
   const contribuinte = { nome: "ENGENHARIA FICTICIA SERVICOS LTDA" };
 
@@ -887,7 +842,6 @@ async function montarDas(): Promise<DocCorpus> {
     numero,
     serie: null,
     chaveAcesso: null,
-    // a guia não imprime data de emissão
     dataEmissao: null,
     valorTotal: reais(total),
     valorFrete: null,
@@ -945,9 +899,6 @@ Documento gerado pelo PGDAS-D 2018 - versão fictícia para testes.</div>
     foto: { angulo: -1.8, desfoque: 0.9, sombra: 0.3, direcaoSombra: 70, cisalhamento: 0.01, qualidade: 70, fundo: "#6b5f73" },
   };
 }
-
-// ---------------------------------------------------------------------------
-// 7. Recibo impresso (A5 paisagem)
 
 const CSS_RECIBO = `
 @page{size:210mm 148mm;margin:0}

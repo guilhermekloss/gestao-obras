@@ -44,16 +44,12 @@ describe("decimalParaInteiro", () => {
 describe("unitarioCoerente", () => {
   it("mantém o unitário do XML quando ele reproduz vProd", () => {
     expect(unitarioCoerente(40, 3890, 155600)).toEqual({ unitCents: 3890, ajusteCents: 0 });
-    // 0,5 × 3,333 = 1,67 → unitário 333 dá round(166,5) = 167 ✓
     expect(unitarioCoerente(0.5, 333, 167)).toEqual({ unitCents: 333, ajusteCents: 0 });
   });
 
   it("frações de centavo: menor unitário que alcança vProd, excesso vira desconto", () => {
-    // 3 × 0,3333 = 1,00 → 3 × 0,34 = 1,02, 2 centavos de ajuste
     expect(unitarioCoerente(3, 33, 100)).toEqual({ unitCents: 34, ajusteCents: 2 });
-    // 1000 parafusos × 0,0149 = 14,90 → 1000 × 0,02 = 20,00, 5,10 de ajuste
     expect(unitarioCoerente(1000, 1, 1490)).toEqual({ unitCents: 2, ajusteCents: 510 });
-    // unitário informado errado mas vProd exato: 4 × 2,50 = 10,00
     expect(unitarioCoerente(4, 249, 1000)).toEqual({ unitCents: 250, ajusteCents: 0 });
   });
 
@@ -151,7 +147,6 @@ describe("parseNfeXml — vários itens e duplicatas, <NFe> sem envelope", () =>
   it("lê cabeçalho; data de emissão no fuso do emissor", () => {
     expect(nfe.chave).toBe("35260912345678000195550010000045211123456789");
     expect(nfe.numero).toBe("4521");
-    // 23:30 de 14/09 em -03:00 já é 15/09 em UTC — vale a data impressa no DANFE
     expect(nfe.dataEmissao).toBe("2026-09-14");
     expect(nfe.emitente.documento).toBe("12345678000195");
     expect(nfe.totalCents).toBe(223635);

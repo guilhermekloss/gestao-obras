@@ -2,12 +2,7 @@ import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import type { InsumoAbc } from "@/services/analises";
 
-/**
- * Maiores insumos da curva ABC com barra de participação no custo total
- * (a barra cheia seria 100% do custo, para não exagerar a diferença entre eles).
- * Barras em CSS (não Recharts): são 5 linhas com rótulo longo, que caberiam
- * mal no eixo de um gráfico.
- */
+// barra cheia = 100% do custo total (não o maior insumo), para não exagerar a diferença
 export function TopInsumos({ insumos }: { insumos: InsumoAbc[] }) {
   return (
     <ol className="space-y-3">

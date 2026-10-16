@@ -1,26 +1,11 @@
-/**
- * Códigos de barras e QR com zxing-wasm (porte do zxing-cpp), sempre local —
- * inclusive no modo "vision".
- *
- * - Code-128 do DANFE: os 44 dígitos da chave de acesso;
- * - ITF (intercalado 2 de 5) do boleto: os 44 dígitos do código de barras;
- * - QR da NFC-e: a URL de consulta com `p=chave|...`.
- *
- * O .wasm é lido do disco (`wasmBinary`): sem isso o zxing-wasm busca o
- * arquivo no jsDelivr. Atenção: `purgeZXingModule()` também apaga essa
- * configuração, por isso ela é reaplicada antes de cada leitura.
- *
- * O heap do WASM cresce com a maior imagem lida e nunca encolhe; o módulo é
- * descartado (e recriado sob demanda) depois de um tempo ocioso ou de muitas
- * leituras, para o coletor de lixo devolver essa memória.
- */
+// Sem `wasmBinary` o zxing-wasm baixa o .wasm do jsDelivr, e `purgeZXingModule()` apaga essa config (reaplicada a cada leitura).
+// O heap do WASM não encolhe: o módulo é descartado após ociosidade ou muitas leituras.
 import fs from "node:fs";
 import { prepareZXingModule, purgeZXingModule, readBarcodes, type ReaderOptions } from "zxing-wasm/reader";
 import type { CodigoLido, FormatoCodigo } from "../tipos";
 import { arquivoDoPacote } from "./caminhos";
 import { unicoNoProcesso } from "./semaforo";
 
-/** Imagem crua RGBA (4 bytes por pixel), como sai do sharp com `ensureAlpha().raw()`. */
 export type ImagemRgba = { data: Uint8Array; width: number; height: number };
 
 const OPCOES: ReaderOptions = {
@@ -47,11 +32,9 @@ function preparar() {
     const bytes = new Uint8Array(fs.readFileSync(arquivoDoPacote("zxing-wasm", "dist/reader/zxing_reader.wasm")));
     estado.overrides = { wasmBinary: bytes.buffer };
   }
-  // mesma referência de `overrides` → não recria o módulo se já existir
   prepareZXingModule({ overrides: estado.overrides, equalityFn: Object.is, fireImmediately: false });
 }
 
-/** Descarta a instância do WASM (a memória volta quando o GC passar). */
 export function descartarZxing() {
   if (estado.timer) clearTimeout(estado.timer);
   estado.timer = null;
@@ -69,14 +52,13 @@ function agendarDescarte() {
   estado.timer.unref?.();
 }
 
-export function formatoCodigo(formato: string): FormatoCodigo {
+function formatoCodigo(formato: string): FormatoCodigo {
   if (formato.startsWith("Code128")) return "CODE128";
   if (formato.startsWith("ITF")) return "ITF";
   if (formato.startsWith("QR")) return "QR";
   return "OUTRO";
 }
 
-/** Lê os códigos de uma imagem RGBA. Falha do leitor não derruba a leitura: devolve []. */
 export async function lerCodigos(imagem: ImagemRgba, pagina: number): Promise<CodigoLido[]> {
   try {
     preparar();
@@ -96,7 +78,6 @@ export async function lerCodigos(imagem: ImagemRgba, pagina: number): Promise<Co
   }
 }
 
-/** Remove repetidos (mesmo formato e conteúdo), mantendo a primeira ocorrência. */
 export function semRepetidos(codigos: CodigoLido[]): CodigoLido[] {
   const vistos = new Set<string>();
   return codigos.filter((c) => {

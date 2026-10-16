@@ -34,26 +34,19 @@ declare module "next-auth" {
   }
 }
 
-/**
- * Hash de uma senha aleatória descartada: comparado quando o e-mail não existe,
- * para a resposta levar o mesmo tempo e não revelar quais contas existem.
- */
+// Hash de senha descartada: comparado quando o e-mail não existe, para o tempo não revelar quais contas existem.
 const HASH_FALSO = "$2b$12$3jha7dHldLxAzlLApFbReeifFbAPaw.SDhWQIBIGnaYKiBHLYEUgm";
 
-/** Login recusado por excesso de tentativas: a tela de login mostra o aviso próprio. */
 export class LoginBloqueado extends CredentialsSignin {
   code = "bloqueado";
 }
 
-/** Proxies confiáveis à frente do app (ver `ipDoCliente`). */
 const SALTOS_PROXY = Number(process.env.PROXY_SALTOS ?? 1) || 1;
 
-/** IP do cliente na requisição atual (server action ou página). */
 export async function ipDaRequisicao(): Promise<string | null> {
   return ipDoCliente((await headers()).get("x-forwarded-for"), SALTOS_PROXY);
 }
 
-/** Situação de bloqueio do e-mail/IP (usada no login e na troca de senha). */
 export async function situacaoDoLogin(email: string, ip: string | null) {
   const desde = new Date(Date.now() - JANELA_MS);
   const [doEmail, doIp] = await Promise.all([
@@ -79,7 +72,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "E-mail", type: "email" },
         senha: { label: "Senha", type: "password" },
       },
-      // vale para o form de login e para POST direto em /api/auth/callback/credentials
       async authorize(credentials, request) {
         const email = typeof credentials?.email === "string" ? chaveEmail(credentials.email) : "";
         const senha = typeof credentials?.senha === "string" ? credentials.senha : "";
@@ -92,11 +84,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new LoginBloqueado();
         }
 
-        // e-mails são gravados em minúsculas pelo convite; contas antigas podem ter maiúsculas
+        // contas antigas podem ter e-mail com maiúsculas
         const usuario = await prisma.usuario.findFirst({
           where: { email: { equals: email, mode: "insensitive" } },
         });
-        // compara sempre (mesmo sem conta) para o tempo de resposta não revelar o e-mail
         const senhaCerta = await compare(senha, usuario?.senhaHash ?? HASH_FALSO);
         const ok = !!usuario && usuario.ativo && senhaCerta;
 
@@ -106,7 +97,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // hash antigo com custo menor é refeito no login, quando a senha está disponível
         const senhaHash = getRounds(usuario.senhaHash) < CUSTO_BCRYPT ? await hash(senha, CUSTO_BCRYPT) : undefined;
         await prisma.usuario.update({
           where: { id: usuario.id },
@@ -134,16 +124,10 @@ export type UsuarioAtual = {
   nome: string;
   email: string;
   role: Role;
-  /** obras que pode ver — `null` = todas (ver services/acesso.ts) */
   obrasPermitidas: RestricaoObras;
 };
 
-/**
- * Usuário da sessão lido do banco a cada requisição: papel, desativação e
- * obras liberadas valem na hora, sem esperar o JWT expirar. `null` quando não
- * há sessão, a conta foi desativada/removida ou a sessão foi revogada (troca
- * de senha, "sair de todos os dispositivos"). Memoizado por requisição.
- */
+// Lido do banco a cada requisição (papel/desativação/revogação valem sem esperar o JWT); cache() memoiza por requisição.
 export const usuarioAtual = cache(async (): Promise<UsuarioAtual | null> => {
   const session = await auth();
   if (!session?.user?.id) return null;
@@ -183,7 +167,6 @@ export const usuarioAtual = cache(async (): Promise<UsuarioAtual | null> => {
   };
 });
 
-/** Exige sessão com um dos papéis dados; lança erro caso contrário. Usar em toda server action. */
 export async function exigirPapel(...papeis: Role[]) {
   const usuario = await usuarioAtual();
   if (!usuario) throw new Error("Não autenticado");
@@ -193,10 +176,7 @@ export async function exigirPapel(...papeis: Role[]) {
   return usuario;
 }
 
-/**
- * Exige que o usuário possa ver a obra (CAMPO com acesso por obra). A mensagem
- * é a mesma de registro inexistente: quem não tem acesso não descobre se a obra existe.
- */
+// Mesma mensagem de registro inexistente: quem não tem acesso não descobre se a obra existe.
 export function exigirAcessoObra(usuario: UsuarioAtual, obraId: string, mensagem = "Registro não encontrado") {
   if (usuario.obrasPermitidas !== null && !usuario.obrasPermitidas.includes(obraId)) {
     throw new Error(mensagem);

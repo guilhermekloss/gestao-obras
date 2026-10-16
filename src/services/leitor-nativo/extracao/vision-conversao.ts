@@ -1,21 +1,4 @@
-/**
- * Conversão (pura) da resposta do Cloud Vision `DOCUMENT_TEXT_DETECTION`
- * para o formato do leitor, e das falhas da API para mensagens ao usuário.
- *
- * O `fullTextAnnotation` vem em páginas → blocos → parágrafos → palavras →
- * símbolos. Aproveitamos só as palavras (texto, caixa e confiança) e
- * remontamos as linhas com as mesmas regras do PDF e do Tesseract
- * (`linhas.ts`), para a interpretação ver um formato só.
- *
- * Detalhes do Vision tratados aqui:
- * - o Vision quebra pontuação em "palavras" separadas ("34.567.890", "/",
- *   "0001", "-", "95"); o que separa de verdade é o `detectedBreak` do
- *   último símbolo — sem quebra, a próxima palavra é colada a esta;
- * - imagens vêm com `vertices` em pixels; PDFs (`files:annotate`) com
- *   `normalizedVertices` (0..1). Campos zero são omitidos no JSON;
- * - foto deitada sem EXIF: os vértices seguem a direção do texto, então a
- *   página é girada para o texto ficar na horizontal antes de montar linhas.
- */
+// Vision: imagens trazem `vertices` em pixels e PDFs `normalizedVertices` (0..1); campos zero são omitidos no JSON.
 import type { Pagina } from "../tipos";
 import { montarLinhas, type PalavraBruta } from "./linhas";
 import { MSG_OCUPADO } from "./semaforo";
@@ -34,18 +17,15 @@ type ParagrafoVision = { words?: PalavraVision[] };
 type BlocoVision = { paragraphs?: ParagrafoVision[] };
 export type PaginaVision = { width?: number; height?: number; blocks?: BlocoVision[]; confidence?: number };
 
-export type ErroStatusVision = { code?: number; message?: string };
+type ErroStatusVision = { code?: number; message?: string };
 
-/** `AnnotateImageResponse` (o que usamos). */
 export type AnotacaoVision = {
   fullTextAnnotation?: { pages?: PaginaVision[]; text?: string };
   error?: ErroStatusVision;
   context?: { pageNumber?: number; uri?: string };
 };
 
-/** Resposta de `images:annotate`. */
 export type RespostaImagensVision = { responses?: AnotacaoVision[] };
-/** Resposta de `files:annotate`. */
 export type RespostaArquivosVision = { responses?: { responses?: AnotacaoVision[]; totalPages?: number; error?: ErroStatusVision }[] };
 
 type PalavraOrientada = { texto: string; pontos: { x: number; y: number }[]; confianca: number | null; colaNaProxima: boolean };
@@ -57,7 +37,7 @@ function pontos(caixa: CaixaVision | undefined, largura: number, altura: number)
   return (caixa?.vertices ?? []).map((v) => ({ x: v.x ?? 0, y: v.y ?? 0 }));
 }
 
-/** Quadrante da direção do texto (0 = normal, 1 = descendo, 2 = de cabeça para baixo, 3 = subindo). */
+// 0 = normal, 1 = descendo, 2 = de cabeça para baixo, 3 = subindo.
 function quadrante(p: { x: number; y: number }[]): number | null {
   if (p.length < 2) return null;
   const dx = p[1].x - p[0].x;
@@ -67,7 +47,6 @@ function quadrante(p: { x: number; y: number }[]): number | null {
   return (((Math.round(graus / 90) % 4) + 4) % 4) as number;
 }
 
-/** Gira um ponto para o texto do quadrante `q` ficar na horizontal (devolve também as novas dimensões). */
 function endireitar(q: number, largura: number, altura: number) {
   switch (q) {
     case 1:
@@ -93,8 +72,7 @@ function medianaPonderada(medidas: { s: number; peso: number }[]): number | unde
   return undefined;
 }
 
-/** Uma página do `fullTextAnnotation` → `Pagina` com linhas montadas. */
-export function paginaDoVision(pagina: PaginaVision, numero: number): Pagina {
+function paginaDoVision(pagina: PaginaVision, numero: number): Pagina {
   // PDF pode vir sem dimensões; 1×1 mantém as coordenadas normalizadas
   const largura = pagina.width || 1;
   const altura = pagina.height || 1;
@@ -118,7 +96,6 @@ export function paginaDoVision(pagina: PaginaVision, numero: number): Pagina {
       });
     }
 
-  // direção predominante do texto (voto das palavras)
   const votos = [0, 0, 0, 0];
   for (const p of orientadas) {
     const q = quadrante(p.pontos);
@@ -178,11 +155,6 @@ export function paginaDoVision(pagina: PaginaVision, numero: number): Pagina {
   };
 }
 
-/**
- * Lista de `AnnotateImageResponse` (uma por imagem ou por página do PDF) →
- * páginas. A página do PDF vem em `context.pageNumber`; imagem é a página 1.
- * Lança `ErroVisionResposta` se alguma resposta trouxer `error`.
- */
 export function paginasDoVision(anotacoes: AnotacaoVision[]): Pagina[] {
   const paginas: Pagina[] = [];
   anotacoes.forEach((a, i) => {
@@ -194,7 +166,6 @@ export function paginasDoVision(anotacoes: AnotacaoVision[]): Pagina[] {
   return paginas.sort((a, b) => a.numero - b.numero);
 }
 
-/** Respostas de `files:annotate` (PDF) achatadas numa lista de anotações por página. */
 export function anotacoesDoArquivo(resposta: RespostaArquivosVision): AnotacaoVision[] {
   return (resposta.responses ?? []).flatMap((r) => {
     if (r.error?.code) throw new ErroVisionResposta(r.error);
@@ -202,7 +173,7 @@ export function anotacoesDoArquivo(resposta: RespostaArquivosVision): AnotacaoVi
   });
 }
 
-/** Erro devolvido dentro do corpo (HTTP 200) pelo Vision, com o código google.rpc. */
+// O Vision devolve erro no corpo com HTTP 200 (código google.rpc).
 export class ErroVisionResposta extends Error {
   constructor(readonly status: ErroStatusVision) {
     super(`Cloud Vision: ${status.code} ${status.message ?? ""}`.trim());
@@ -218,12 +189,6 @@ export const MSG_VISION_ARQUIVO = "O arquivo não pôde ser lido (formato ou tam
 export const MSG_VISION_CONEXAO = "Sem conexão com o serviço de leitura — tente de novo em instantes.";
 export const MSG_VISION_INSTAVEL = "O serviço de leitura está instável — tente de novo em instantes.";
 
-/**
- * Mensagem para o usuário a partir da falha: `http` é o status HTTP (quando
- * houve resposta), `rpc` o código google.rpc de um erro no corpo, `rede` o
- * código de erro do Node (ECONNRESET, ETIMEDOUT...) e `mensagem` o texto
- * técnico (só para reconhecer a falta de credencial).
- */
 export function mensagemErroVision(f: { http?: number; rpc?: number; rede?: string; mensagem?: string }): string {
   if (f.mensagem && /default credentials|could not load the default|no credentials/i.test(f.mensagem)) {
     return MSG_VISION_SEM_CREDENCIAL;

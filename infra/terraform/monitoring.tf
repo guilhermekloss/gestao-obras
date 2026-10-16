@@ -1,4 +1,3 @@
-# Verificação de disponibilidade em /api/health + alerta por e-mail (opcional).
 resource "google_monitoring_uptime_check_config" "app" {
   display_name = "${var.app_name} /api/health"
   timeout      = "10s"

@@ -1,37 +1,23 @@
-/**
- * PDF com unpdf (pdf.js 6 empacotado para servidor, sem dependência nativa).
- *
- * - PDF digital: os trechos de texto vêm com posição (`getTextContent`) e
- *   viram palavras com caixa, montadas em linhas por `linhas.ts`. É exato e
- *   barato (~20 ms por página) — cobre DANFE, DANFSe, boleto e guias
- *   gerados por sistema.
- * - PDF escaneado (sem camada de texto): as imagens embutidas da página
- *   são extraídas para o OCR local e para o leitor de códigos.
- *
- * Armadilha: o pdf.js transfere (desanexa) o buffer recebido; por isso
- * sempre recebe uma cópia.
- */
 import { getDocumentProxy, getResolvedPDFJS } from "unpdf";
 import type { Pagina } from "../tipos";
 import { montarLinhas, type PalavraBruta } from "./linhas";
 import { ErroLeitura } from "./semaforo";
 
 export const MAX_PAGINAS = 5;
-/** Página com menos que isso de caracteres visíveis é considerada sem camada de texto. */
 export const MIN_CARACTERES_PAGINA = 40;
-/** Maior imagem que o pdf.js decodifica (pixels); acima disso é ignorada. */
 const MAX_PIXELS_IMAGEM = 40_000_000;
 
-export const MSG_PDF_SENHA = "O PDF está protegido por senha. Envie o arquivo sem senha ou uma foto do documento.";
+const MSG_PDF_SENHA = "O PDF está protegido por senha. Envie o arquivo sem senha ou uma foto do documento.";
 export const MSG_PDF_INVALIDO =
   "Não foi possível ler o arquivo PDF (arquivo corrompido ou incompleto). Tente outro PDF ou uma foto do documento.";
 
-export type DocumentoPdf = Awaited<ReturnType<typeof getDocumentProxy>>;
+type DocumentoPdf = Awaited<ReturnType<typeof getDocumentProxy>>;
 
 export async function abrirPdf(arquivo: Buffer | Uint8Array): Promise<DocumentoPdf> {
   try {
+    // pdf.js desanexa o buffer recebido: sempre passar uma cópia.
     return await getDocumentProxy(new Uint8Array(arquivo), {
-      verbosity: 0, // só erros no log
+      verbosity: 0,
       isOffscreenCanvasSupported: false, // imagens como bytes crus, não ImageBitmap
       maxImageSize: MAX_PIXELS_IMAGEM,
       stopAtErrors: false,
@@ -54,15 +40,8 @@ const multiplicar = (m1: number[], m2: number[]): Matriz => [
   m1[1] * m2[4] + m1[3] * m2[5] + m1[5],
 ];
 
-/** Trecho de texto do pdf.js (o que importa dele). */
-export type TrechoPdf = { str: string; transform: number[]; width: number };
+type TrechoPdf = { str: string; transform: number[]; width: number };
 
-/**
- * Trechos do pdf.js → palavras em coordenadas da página (origem no topo).
- * `transformacaoPagina` é o `viewport.transform` (escala 1), que já aplica
- * o /Rotate e inverte o eixo y. Texto vertical (ex.: canhoto girado do
- * DANFE em paisagem) é ignorado: atrapalharia a montagem das linhas.
- */
 export function palavrasDosTrechos(trechos: TrechoPdf[], transformacaoPagina: number[]): PalavraBruta[] {
   const palavras: PalavraBruta[] = [];
   for (const t of trechos) {
@@ -75,7 +54,6 @@ export function palavrasDosTrechos(trechos: TrechoPdf[], transformacaoPagina: nu
     const largura = t.width || tamanho * 0.5 * t.str.length;
     const xIni = espelhado ? m[4] - largura : m[4];
     const base = m[5];
-    // largura proporcional ao número de caracteres: boa o bastante para separar palavras e colunas
     const porCaractere = largura / t.str.length;
     for (const achado of t.str.matchAll(/\S+/g)) {
       const i = achado.index ?? 0;
@@ -92,7 +70,6 @@ export function palavrasDosTrechos(trechos: TrechoPdf[], transformacaoPagina: nu
   return palavras;
 }
 
-/** Linhas de texto das primeiras `MAX_PAGINAS` páginas (camada de texto do PDF). */
 export async function paginasDoTexto(pdf: DocumentoPdf): Promise<Pagina[]> {
   const paginas: Pagina[] = [];
   const total = Math.min(pdf.numPages, MAX_PAGINAS);
@@ -115,7 +92,7 @@ export type ImagemPdf = { data: Uint8Array | Uint8ClampedArray; width: number; h
 
 type ObjetoImagemPdf = { width?: number; height?: number; kind?: number; data?: Uint8Array | Uint8ClampedArray };
 
-/** Bits empacotados (1 = branco, como o pdf.js desenha) → 1 byte por pixel. */
+// pdf.js: 1 bit por pixel, bit 1 = branco.
 function desempacotar1Bit(data: Uint8Array | Uint8ClampedArray, width: number, height: number): Uint8Array {
   const porLinha = (width + 7) >> 3;
   const saida = new Uint8Array(width * height);
@@ -140,10 +117,6 @@ function converterImagem(obj: ObjetoImagemPdf | null | undefined): ImagemPdf | n
   return null;
 }
 
-/**
- * Imagens embutidas na página, da maior para a menor (só as com pelo menos
- * `ladoMinimo` px no menor lado). Num PDF escaneado a maior é a página.
- */
 export async function imagensDaPagina(pdf: DocumentoPdf, numero: number, ladoMinimo = 40): Promise<ImagemPdf[]> {
   const { OPS } = await getResolvedPDFJS();
   const pagina = await pdf.getPage(numero);

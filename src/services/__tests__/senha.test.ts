@@ -23,7 +23,6 @@ describe("problemaSenha", () => {
   it("recusa senha com o e-mail ou igual ao nome", () => {
     expect(problemaSenha("joaosilva2026", { email: "joaosilva@obra.com" })).toMatch(/e-mail/);
     expect(problemaSenha("Cavalcanti", { nome: "Maria Cavalcanti" })).toMatch(/nome/);
-    // parte do nome dentro de uma frase longa é aceita
     expect(problemaSenha("a casa da Maria é azul", { nome: "Maria Cavalcanti" })).toBeNull();
   });
 });

@@ -1,13 +1,7 @@
-/**
- * Legibilidade (BOA / PARCIAL / RUIM) a partir da confiança do OCR, da
- * cobertura dos campos essenciais de cada tipo e da consistência entre
- * eles (DVs, somas).
- */
 import type { DocumentoLido } from "../../leitura-documento";
 import { documentoValido } from "./digitos";
 import type { Doc } from "./documento";
 
-/** Confiança média 0..1 (camada de texto do PDF = 1). */
 export function confianca(doc: Doc): number {
   if (doc.confiancaMedia !== null && doc.confiancaMedia !== undefined) {
     // aceita também a escala 0..100 do Tesseract
@@ -21,7 +15,6 @@ export function confianca(doc: Doc): number {
   return media > 1 ? media / 100 : media;
 }
 
-/** Fração dos campos essenciais do tipo que foram encontrados. */
 export function cobertura(lido: DocumentoLido, temCodigoPagamento: boolean): number {
   const vencimento = lido.parcelas.some((p) => p.vencimento);
   const campos: boolean[] = (() => {
@@ -62,7 +55,6 @@ export function cobertura(lido: DocumentoLido, temCodigoPagamento: boolean): num
 
 const perto = (a: number, b: number) => Math.abs(a - b) < 0.015;
 
-/** Os validadores aplicáveis passaram? (DV dos documentos, parcelas × total, itens × total) */
 export function consistente(lido: DocumentoLido): boolean {
   if (lido.emitente.documento && !documentoValido(lido.emitente.documento)) return false;
   if (lido.destinatario.documento && !documentoValido(lido.destinatario.documento)) return false;
@@ -79,13 +71,8 @@ export function consistente(lido: DocumentoLido): boolean {
   return true;
 }
 
-export type Legibilidade = DocumentoLido["legibilidade"];
+type Legibilidade = DocumentoLido["legibilidade"];
 
-/**
- * BOA: confiança ≥ 0,80, cobertura ≥ 0,9 e tudo consistente.
- * RUIM: confiança < 0,55, cobertura < 0,35 ou quase nenhum texto.
- * PARCIAL: o resto — e sempre que faltam páginas.
- */
 export function avaliarLegibilidade(
   doc: Doc,
   lido: DocumentoLido,

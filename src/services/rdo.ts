@@ -1,15 +1,9 @@
 import type { CondicaoTrabalho, Role } from "@prisma/client";
 import { urlArquivoValida } from "./arquivos";
 
-/**
- * Regras do RDO (diário de obra). Funções puras: normalização dos campos Json
- * (efetivo e equipamentos), rótulos de clima/condição e permissão de edição.
- */
+type EfetivoItem = { funcao: string; qtd: number };
+type EquipamentoItem = { nome: string; qtd: number };
 
-export type EfetivoItem = { funcao: string; qtd: number };
-export type EquipamentoItem = { nome: string; qtd: number };
-
-/** Valores gravados em `climaManha`/`climaTarde`. A coluna é String, então valores fora da lista são exibidos como vieram. */
 export const CLIMAS = ["SOL", "NUBLADO", "CHUVA", "CHUVA_FORTE"] as const;
 export type Clima = (typeof CLIMAS)[number];
 
@@ -28,7 +22,6 @@ const ROTULO_CONDICAO: Record<CondicaoTrabalho, string> = {
   IMPRATICAVEL: "Impraticável",
 };
 
-/** Prazo, em dias desde a criação, em que o CAMPO ainda pode editar/excluir o próprio RDO. */
 export const PRAZO_EDICAO_CAMPO_DIAS = 7;
 
 const MAX_QTD = 999;
@@ -37,7 +30,6 @@ export function ehClima(valor: string): valor is Clima {
   return (CLIMAS as readonly string[]).includes(valor);
 }
 
-/** Rótulo do clima de um turno. Vazio → null; valor desconhecido → o próprio valor. */
 export function rotuloClima(valor: string | null | undefined): string | null {
   if (!valor) return null;
   return ehClima(valor) ? ROTULO_CLIMA[valor] : valor;
@@ -47,11 +39,6 @@ export function rotuloCondicao(valor: CondicaoTrabalho | null | undefined): stri
   return valor ? ROTULO_CONDICAO[valor] : null;
 }
 
-/**
- * Resumo do clima do dia para listagens. Usa os turnos quando preenchidos
- * ("Manhã: Sol · Tarde: Chuva", ou só "Sol" se os dois forem iguais) e cai
- * no texto livre legado (`clima`) para RDOs antigos.
- */
 export function resumoClima(rdo: {
   clima?: string | null;
   climaManha?: string | null;
@@ -65,12 +52,6 @@ export function resumoClima(rdo: {
   return rdo.clima?.trim() || null;
 }
 
-/**
- * Normaliza uma lista `[{<chave>, qtd}]` vinda do Json do banco ou do
- * formulário: descarta entradas malformadas, nome vazio e quantidade não
- * positiva; apara espaços; trunca quantidades fracionárias; e soma
- * duplicadas (comparação sem caixa/acentos), mantendo a grafia da primeira.
- */
 function normalizarLista<K extends string>(json: unknown, chave: K): ({ [P in K]: string } & { qtd: number })[] {
   if (!Array.isArray(json)) return [];
   const porNome = new Map<string, { nome: string; qtd: number }>();
@@ -101,23 +82,17 @@ function chaveComparacao(s: string): string {
     .toLowerCase();
 }
 
-/** Efetivo (`[{funcao, qtd}]`) normalizado a partir do Json — tolerante a dados antigos/malformados. */
 export function normalizarEfetivo(json: unknown): EfetivoItem[] {
   return normalizarLista(json, "funcao");
 }
 
-/** Equipamentos (`[{nome, qtd}]`) normalizados a partir do Json. */
 export function normalizarEquipamentos(json: unknown): EquipamentoItem[] {
   return normalizarLista(json, "nome");
 }
 
 type Validacao<T> = { ok: true; itens: T[] } | { ok: false; erro: string };
 
-/**
- * Validação estrita para gravação: diferente da normalização (que tolera e
- * descarta), aqui entrada inválida vira erro para o usuário corrigir.
- * Itens com qtd 0 são só descartados (o contador do formulário chega a zero).
- */
+// Entrada inválida vira erro, mas qtd 0 só é descartada: o contador do formulário chega a zero.
 function validarLista<K extends string>(
   itens: unknown,
   chave: K,
@@ -148,17 +123,10 @@ export function validarEquipamentos(itens: unknown): Validacao<EquipamentoItem> 
   return validarLista(itens, "nome", "Equipamentos");
 }
 
-/** Total de pessoas no efetivo do dia. Aceita o Json cru do banco. */
 export function totalPessoas(efetivo: unknown): number {
   return normalizarEfetivo(efetivo).reduce((acc, e) => acc + e.qtd, 0);
 }
 
-/**
- * Quem pode editar/excluir um RDO: ADMIN e ESCRITORIO sempre; CAMPO só o
- * próprio RDO e só até `PRAZO_EDICAO_CAMPO_DIAS` após a criação — o RDO é
- * registro do dia e não deve ser reescrito pelo campo semanas depois; correções
- * tardias passam pelo escritório.
- */
 export function permissaoRdo(
   usuario: { id: string; role: Role },
   rdo: { autorId: string | null; createdAt: Date },
@@ -186,29 +154,16 @@ export function podeAlterarRdo(
   return permissaoRdo(usuario, rdo, agora).ok;
 }
 
-/**
- * `DiarioObra.data` é `@db.Date`: o Prisma devolve meia-noite UTC. Formatada
- * com componentes locais num servidor a oeste de UTC (ex.: America/Sao_Paulo),
- * viraria o dia anterior. Esta função reancora o dia civil ao meio-dia local,
- * como `inputParaData` faz na gravação.
- */
+// @db.Date volta como meia-noite UTC (a oeste de UTC viraria o dia anterior): reancora ao meio-dia local.
 export function dataDoRdo(data: Date): Date {
   return new Date(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate(), 12);
 }
 
-/**
- * URL de foto aceitável para gravar: só arquivo enviado pelo próprio app
- * (`/api/fotos/<nome>`). Endereço externo viraria pixel de rastreio ou link de
- * phishing no RDO aberto pelo escritório.
- */
+// Só arquivos do app: URL externa viraria pixel de rastreio ou link de phishing no RDO.
 export function urlFotoValida(url: string): boolean {
   return urlArquivoValida(url);
 }
 
-/**
- * Diferença entre as fotos gravadas e as enviadas na edição: quais registros
- * apagar e quais URLs criar. Compara por URL (o upload gera nomes únicos).
- */
 export function diffFotos(
   atuais: { id: string; url: string }[],
   enviadas: { url: string; legenda?: string | null }[],

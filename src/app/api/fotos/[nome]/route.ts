@@ -5,12 +5,8 @@ import { storage } from "@/lib/storage";
 import { eventoSeguranca } from "@/lib/log-seguranca";
 import { TIPO_MIME, extensaoDoNome, urlDoArquivo } from "@/services/arquivos";
 
-/**
- * Quem pode abrir o arquivo:
- * - ADMIN e ESCRITORIO: todos (veem todas as obras e os lançamentos).
- * - CAMPO: o que ele mesmo enviou e as fotos de RDO das obras liberadas para
- *   ele — nunca anexos de lançamentos (valores financeiros) nem fotos de outras obras.
- */
+// ADMIN/ESCRITORIO: tudo. CAMPO: o que enviou e fotos de RDO das suas obras,
+// nunca anexos de lançamentos (valores financeiros).
 async function podeVer(usuario: UsuarioAtual, nome: string): Promise<boolean> {
   if (usuario.role !== "CAMPO") return true;
 
@@ -38,7 +34,7 @@ export async function GET(
   const extensao = extensaoDoNome(nome);
   if (!extensao) return new NextResponse(null, { status: 404 });
 
-  // sem acesso = 404, como arquivo inexistente: não revela que o arquivo existe
+  // sem acesso = 404: não revela que o arquivo existe
   if (!(await podeVer(usuario, nome))) {
     eventoSeguranca("acesso_negado_arquivo", { usuarioId: usuario.id, arquivo: nome });
     return new NextResponse(null, { status: 404 });
@@ -50,7 +46,7 @@ export async function GET(
       headers: {
         "Content-Type": TIPO_MIME[extensao],
         "Content-Disposition": `inline; filename="${nome}"`,
-        // cache só no navegador do próprio usuário e por pouco tempo: acesso retirado deixa de valer logo
+        // cache privado e curto: acesso retirado deixa de valer logo
         "Cache-Control": "private, max-age=3600",
       },
     });

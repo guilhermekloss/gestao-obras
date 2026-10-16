@@ -10,10 +10,6 @@ export type ObraOpcao = { id: string; nome: string };
 
 const ROLES: Role[] = ["ADMIN", "ESCRITORIO", "CAMPO"];
 
-/**
- * Papel + obras liberadas. A escolha de obras só aparece para CAMPO
- * (ADMIN e ESCRITORIO veem todas). Campos enviados: `role`, `todasObras`, `obraIds`.
- */
 export function CamposAcesso({
   obras,
   role: roleInicial = "ESCRITORIO",

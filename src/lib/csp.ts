@@ -1,14 +1,4 @@
-/**
- * Content-Security-Policy das páginas (aplicada pelo `proxy.ts`).
- *
- * - Scripts: só os que levam o nonce da requisição (`strict-dynamic` estende a
- *   confiança aos chunks que eles carregam). Em dev o React precisa de `eval`.
- * - Estilos: `unsafe-inline` porque gráficos, Gantt e toasts usam `style=`; CSS
- *   não executa código, e o risco residual (exfiltração por seletor) é baixo.
- * - Imagens/frames: o próprio app (`/api/fotos`) e `blob:`/`data:` das prévias de foto.
- * - Nada de plugins, `<base>` trocado, formulário para outro site ou o app
- *   dentro de iframe de outra origem (clickjacking).
- */
+// strict-dynamic estende o nonce aos chunks carregados; style unsafe-inline porque gráficos/Gantt/toasts usam style=.
 export function politicaDeConteudo(nonce: string, dev = false): string {
   return [
     "default-src 'self'",

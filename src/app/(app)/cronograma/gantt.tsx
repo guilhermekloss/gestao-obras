@@ -6,11 +6,6 @@ import { COR_SITUACAO } from "./situacao";
 
 const ORDEM_LEGENDA: SituacaoEtapa[] = ["NAO_INICIADA", "EM_DIA", "ATRASADA", "CONCLUIDA"];
 
-/**
- * Gantt simples em HTML/CSS: uma linha por etapa, barra do início ao fim
- * previsto, preenchida até o % realizado e colorida pela situação, com
- * marcador vertical de hoje. Etapas sem datas aparecem sem barra.
- */
 export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma; compacto?: boolean }) {
   const { escala, etapas } = cronograma;
 
@@ -22,7 +17,6 @@ export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma
     );
   }
 
-  // com muitos meses, rotula só alguns para não encavalar (menos ainda no celular)
   const passoRotulo = Math.ceil(escala.meses.length / (compacto ? 6 : 12));
   const passoCelular = Math.ceil(escala.meses.length / 3);
   const colunaNome = compacto ? "w-24 sm:w-32" : "w-24 sm:w-44";
@@ -46,7 +40,6 @@ export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma
   return (
     <div className="space-y-3">
       <div className="text-xs">
-        {/* eixo de meses */}
         <div className="flex">
           <div className={cn("shrink-0", colunaNome)} />
           {rotulos(passoCelular, "sm:hidden")}
@@ -73,7 +66,6 @@ export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma
               <div key={e.id} className="flex items-center border-t py-1.5" title={dica}>
                 <span className={cn("shrink-0 truncate pr-2 text-sm", colunaNome)}>{e.nome}</span>
                 <div className="relative h-5 flex-1">
-                  {/* linhas dos meses */}
                   {escala.meses.map((m) => (
                     <div
                       key={m.mes}
