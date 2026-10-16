@@ -201,7 +201,7 @@ export function Combobox({
                         selecionar(o);
                       }}
                       className={cn(
-                        "flex w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent hover:text-accent-foreground",
+                        "flex min-h-9 w-full cursor-pointer items-center rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent hover:text-accent-foreground pointer-coarse:min-h-12 pointer-coarse:px-3 pointer-coarse:text-base",
                         i === destaque && "bg-accent text-accent-foreground",
                         ativo && "font-medium",
                         !o.value && "text-muted-foreground",

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LabelAjuda } from "@/components/campo-ajuda";
 import { cn } from "@/lib/utils";
 import { Minus, Plus } from "lucide-react";
 
@@ -13,16 +12,15 @@ function mesmoNome(a: string, b: string) {
   return a.localeCompare(b, "pt-BR", { sensitivity: "base" }) === 0;
 }
 
+// alvo de 48 px também em ponteiro grosso (o `Button` icon cai para 40 px lá)
+const BOTAO_CONTAR = "size-12 pointer-coarse:size-12 [&_svg:not([class*='size-'])]:size-5";
+
 export function ContadorLista({
-  titulo,
-  ajuda,
   sugestoes,
   itens,
   onChange,
   placeholderOutro,
 }: {
-  titulo: string;
-  ajuda: string;
   sugestoes: string[];
   itens: ItemContado[];
   onChange: (itens: ItemContado[]) => void;
@@ -52,61 +50,77 @@ export function ContadorLista({
   }
 
   return (
-    <div className="grid gap-1.5">
-      <LabelAjuda titulo={titulo} ajuda={ajuda}>
-        {titulo}
-      </LabelAjuda>
-      <div className="grid gap-2">
-        {linhas.map((nome) => {
-          const qtd = itens.find((i) => mesmoNome(i.nome, nome))?.qtd ?? 0;
-          return (
-            <div key={nome} className="flex items-center justify-between rounded-md border px-3 py-1.5">
-              <span className={cn("text-sm", qtd > 0 && "font-medium")}>{nome}</span>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-9"
-                  aria-label={`Diminuir ${nome}`}
-                  onClick={() => ajustar(nome, -1)}
-                  disabled={qtd === 0}
-                >
-                  <Minus className="size-4" />
-                </Button>
-                <span className="w-6 text-center font-medium">{qtd}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-9"
-                  aria-label={`Aumentar ${nome}`}
-                  onClick={() => ajustar(nome, 1)}
-                >
-                  <Plus className="size-4" />
-                </Button>
-              </div>
+    <div className="grid gap-2">
+      {linhas.map((nome) => {
+        const qtd = itens.find((i) => mesmoNome(i.nome, nome))?.qtd ?? 0;
+        return (
+          <div
+            key={nome}
+            className={cn(
+              "flex min-h-16 items-center justify-between gap-3 rounded-lg border-2 py-2 pr-2 pl-3",
+              qtd > 0 ? "border-primary bg-nav-ativo" : "border-input bg-card",
+            )}
+          >
+            <span className={cn("min-w-0 text-base leading-tight", qtd > 0 ? "font-semibold text-primary" : "font-medium")}>
+              {nome}
+            </span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={BOTAO_CONTAR}
+                aria-label={`Diminuir ${nome}`}
+                onClick={() => ajustar(nome, -1)}
+                disabled={qtd === 0}
+              >
+                <Minus />
+              </Button>
+              <span
+                role="status"
+                aria-label={`${nome}: ${qtd}`}
+                className="num w-10 text-center text-2xl"
+              >
+                {qtd}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={BOTAO_CONTAR}
+                aria-label={`Aumentar ${nome}`}
+                onClick={() => ajustar(nome, 1)}
+              >
+                <Plus />
+              </Button>
             </div>
-          );
-        })}
-        <div className="flex gap-2">
-          <Input
-            value={outro}
-            onChange={(e) => setOutro(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                adicionarOutro();
-              }
-            }}
-            placeholder={placeholderOutro}
-            className="h-11"
-            maxLength={60}
-          />
-          <Button type="button" variant="secondary" className="h-11" onClick={adicionarOutro} disabled={!outro.trim()}>
-            <Plus className="size-4" /> Incluir
-          </Button>
-        </div>
+          </div>
+        );
+      })}
+      <div className="flex gap-2 pt-1">
+        <Input
+          value={outro}
+          onChange={(e) => setOutro(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              adicionarOutro();
+            }
+          }}
+          placeholder={placeholderOutro}
+          aria-label={placeholderOutro}
+          className="h-14 min-w-0 flex-1"
+          maxLength={60}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-14 px-4 pointer-coarse:h-14"
+          onClick={adicionarOutro}
+          disabled={!outro.trim()}
+        >
+          <Plus /> Incluir
+        </Button>
       </div>
     </div>
   );

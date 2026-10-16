@@ -218,6 +218,9 @@
        espaçamentos e alturas dos controles escalam juntos. */
     font-size: 112.5%;
     -webkit-text-size-adjust: 100%;
+    /* o cabeçalho e a barra inferior são fixos: o foco e a rolagem por âncora não podem parar atrás deles */
+    scroll-padding-top: 4.5rem;
+    scroll-padding-bottom: calc(var(--altura-bottom-nav, 0px) + 1rem);
   }
   /* Títulos: Archivo aberta (largura 112), como letra de prancheta. */
   h1, h2, h3, h4, [data-slot="card-title"], [data-slot="dialog-title"] {
