@@ -42,7 +42,7 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
         </Link>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-semibold">{material.nome}</h1>
+            <h1 className="text-2xl md:text-3xl">{material.nome}</h1>
             <p className="text-sm text-muted-foreground">
               {material.unidade} · {material.categoria ?? "Sem categoria"} · usado em {material._count.itens} item(ns)
             </p>

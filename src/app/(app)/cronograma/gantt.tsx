@@ -75,7 +75,7 @@ export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma
                   ))}
                   {pos ? (
                     <div
-                      className={cn("absolute inset-y-0.5 overflow-hidden rounded", cor.trilho)}
+                      className={cn("absolute inset-y-0.5 overflow-hidden rounded-sm", cor.trilho)}
                       style={{ left: `${pos.esquerdaPct}%`, width: `max(${pos.larguraPct}%, 4px)` }}
                     >
                       <div
@@ -89,7 +89,7 @@ export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma
                     </span>
                   )}
                 </div>
-                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                <span className="w-12 shrink-0 text-right text-sm num text-foreground">
                   {formatarPercentBp(e.realizadoBp)}
                 </span>
               </div>
@@ -114,7 +114,7 @@ export function Gantt({ cronograma, compacto = false }: { cronograma: Cronograma
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {ORDEM_LEGENDA.map((s) => (
           <span key={s} className="flex items-center gap-1.5">
-            <span className={cn("inline-block size-2.5 rounded-sm", COR_SITUACAO[s].barra)} />
+            <span className={cn("inline-block h-2.5 w-4 rounded-sm", COR_SITUACAO[s].barra)} />
             {ROTULO_SITUACAO[s]}
           </span>
         ))}

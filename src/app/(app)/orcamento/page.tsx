@@ -61,7 +61,7 @@ export default async function OrcamentoPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Orçamento vs. realizado</h1>
+        <h1 className="text-2xl md:text-3xl">Orçamento vs. realizado</h1>
         <Button variant="outline" render={<Link href="/orcamento/abc" />}>
           <ChartColumn className="size-4" /> Curva ABC de insumos
         </Button>

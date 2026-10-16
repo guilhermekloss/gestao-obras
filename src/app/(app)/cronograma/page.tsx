@@ -49,7 +49,7 @@ export default async function CronogramaPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Cronograma</h1>
+        <h1 className="text-2xl md:text-3xl">Cronograma</h1>
         <span className="text-sm text-muted-foreground">
           Previsto até hoje:{" "}
           <strong className="text-foreground">{formatarPercentBp(cronograma.previstoHojeBp)}</strong>
@@ -88,7 +88,7 @@ export default async function CronogramaPage({
             key={a.key}
             href={a.key === "planejamento" ? `/cronograma?obra=${obraId}` : `/cronograma?obra=${obraId}&aba=${a.key}`}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm font-medium",
+              "-mb-px inline-flex min-h-10 items-center border-b-2 px-3 py-2 text-sm font-medium",
               a.key === aba.key
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",

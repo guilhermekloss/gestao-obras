@@ -15,8 +15,8 @@ export type PontoCurvaSChart = { mes: string; previsto: number; realizado: numbe
 
 const eixoTick = { fontSize: 12, fill: "var(--muted-foreground)" };
 
-const COR_PREVISTO = "#2a78d6";
-const COR_REALIZADO = "#eda100";
+const COR_PREVISTO = "var(--chart-5)";
+const COR_REALIZADO = "var(--chart-1)";
 
 function pct(v: unknown): string {
   return `${Number(v ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;

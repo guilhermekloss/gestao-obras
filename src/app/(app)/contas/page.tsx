@@ -120,7 +120,7 @@ export default async function ContasPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Contas a pagar</h1>
+        <h1 className="text-2xl md:text-3xl">Contas a pagar</h1>
         <Button variant="outline" render={<Link href="/contas/fluxo" />}>
           Fluxo mensal
         </Button>
@@ -132,7 +132,7 @@ export default async function ContasPage({
             key={v.key}
             href={`/contas?visao=${v.key}${filtrosQuery ? `&${filtrosQuery}` : ""}`}
             className={cn(
-              "rounded-full border px-3 py-1 text-sm",
+              "inline-flex min-h-10 items-center rounded-md border px-3 py-1 text-sm",
               visao === v.key
                 ? "border-primary bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent",

@@ -1,4 +1,5 @@
 import { formatarMoeda, formatarPercentBp } from "@/lib/format";
+import { ReguaCota } from "@/components/regua-cota";
 import { Badge } from "@/components/ui/badge";
 import type { InsumoAbc } from "@/services/analises";
 
@@ -15,16 +16,11 @@ export function TopInsumos({ insumos }: { insumos: InsumoAbc[] }) {
             <span className="min-w-0 flex-1 truncate font-medium" title={i.descricao}>
               {i.descricao}
             </span>
-            <span className="shrink-0 tabular-nums">{formatarMoeda(i.custoCents)}</span>
+            <span className="shrink-0 num">{formatarMoeda(i.custoCents)}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-[#2a78d6]"
-                style={{ width: `${i.participacaoBp / 100}%` }}
-              />
-            </div>
-            <span className="w-12 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+            <ReguaCota percent={i.participacaoBp / 100} rotulo={`Participação de ${i.descricao}`} />
+            <span className="w-12 shrink-0 text-right text-sm num">
               {formatarPercentBp(i.participacaoBp)}
             </span>
           </div>

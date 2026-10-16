@@ -239,7 +239,7 @@ export function ImportarXmlForm({
           <PreviaCabecalho nfe={nfe} situacao={situacao} />
 
           {nfe.avisos.length > 0 && (
-            <ul className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+            <ul className="space-y-1 rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
               {nfe.avisos.map((a, i) => (
                 <li key={i} className="flex gap-2">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {a}
@@ -279,7 +279,7 @@ export function ImportarXmlForm({
               </CardTitle>
               <span
                 className={
-                  somaRateioBp === BP_TOTAL ? "text-sm text-green-600" : "text-sm font-medium text-destructive"
+                  somaRateioBp === BP_TOTAL ? "text-sm text-estado-no-prazo-fg" : "text-sm font-medium text-destructive"
                 }
               >
                 {percentBpParaEditavel(somaRateioBp)}% de 100%

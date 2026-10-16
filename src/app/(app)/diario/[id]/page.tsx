@@ -91,7 +91,7 @@ export default async function RdoDetalhePage({
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               Relatório Diário de Obra (RDO)
             </p>
-            <h1 className="text-2xl font-semibold">{rdo.obra.nome}</h1>
+            <h1 className="text-2xl md:text-3xl">{rdo.obra.nome}</h1>
             <p className="text-sm text-muted-foreground">
               Código {rdo.obra.codigo}
               {rdo.obra.cno ? ` · CNO ${rdo.obra.cno}` : ""}

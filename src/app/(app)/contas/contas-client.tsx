@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -87,16 +88,19 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <input
-                  type="checkbox"
-                  className="size-4"
-                  checked={todasSelecionadas}
-                  onChange={() =>
-                    setSelecionadas(
-                      todasSelecionadas ? new Set() : new Set(abertas.map((p) => p.id)),
-                    )
-                  }
-                />
+                <label className="-m-2 flex size-10 cursor-pointer items-center justify-center">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar todas"
+                    className="size-4 pointer-coarse:size-6"
+                    checked={todasSelecionadas}
+                    onChange={() =>
+                      setSelecionadas(
+                        todasSelecionadas ? new Set() : new Set(abertas.map((p) => p.id)),
+                      )
+                    }
+                  />
+                </label>
               </TableHead>
               <TableHead>Vencimento</TableHead>
               <TableHead>Fornecedor</TableHead>
@@ -110,22 +114,28 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
           </TableHeader>
           <TableBody>
             {parcelas.map((p) => (
-              <TableRow key={p.id} className={p.vencida ? "bg-red-50 dark:bg-red-950/30" : ""}>
+              <TableRow key={p.id} className={p.vencida ? "bg-estado-vencido/40 shadow-[inset_4px_0_0_var(--estado-vencido-borda)]" : ""}>
                 <TableCell>
                   {p.status === "ABERTA" && (
-                    <input
-                      type="checkbox"
-                      className="size-4"
-                      checked={selecionadas.has(p.id)}
-                      onChange={() => toggle(p.id)}
-                    />
+                    <label className="-m-2 flex size-10 cursor-pointer items-center justify-center">
+                      <input
+                        type="checkbox"
+                        aria-label={`Selecionar parcela ${p.numero}/${p.totalParcelas} de ${p.fornecedor}`}
+                        className="size-4 pointer-coarse:size-6"
+                        checked={selecionadas.has(p.id)}
+                        onChange={() => toggle(p.id)}
+                      />
+                    </label>
                   )}
                 </TableCell>
-                <TableCell className={p.vencida ? "font-medium text-red-600 dark:text-red-400" : ""}>
+                <TableCell className={p.vencida ? "font-bold text-estado-vencido-fg" : ""}>
                   {formatarData(p.vencimento)}
                 </TableCell>
                 <TableCell className="max-w-36 truncate font-medium md:max-w-none">
-                  <Link href={`/notas/${p.notaId}`} className="hover:underline">
+                  <Link
+                    href={`/notas/${p.notaId}`}
+                    className="hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center"
+                  >
                     {p.fornecedor}
                   </Link>
                 </TableCell>
@@ -145,11 +155,11 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
                   {p.numero}/{p.totalParcelas}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={p.status === "PAGA" ? "secondary" : p.vencida ? "destructive" : "outline"}>
+                  <StatusBadge estado={p.status === "PAGA" ? "pago" : p.vencida ? "vencido" : "neutro"}>
                     {p.status === "PAGA" ? "Paga" : p.vencida ? "Vencida" : "Aberta"}
-                  </Badge>
+                  </StatusBadge>
                 </TableCell>
-                <TableCell className="text-right font-medium">
+                <TableCell className="text-right num text-base">
                   {formatarMoeda(p.valorCents)}
                 </TableCell>
                 <TableCell>

@@ -44,15 +44,15 @@ export default async function DiarioPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Diário de obra</h1>
+        <h1 className="text-2xl md:text-3xl">Diário de obra</h1>
         <Button render={<Link href={obra ? `/diario/novo?obra=${obra}` : "/diario/novo"} />}>
-          <Plus className="size-4" /> RDO
+          <Plus className="size-4" /> Registrar RDO
         </Button>
       </div>
 
       <form method="get" className="flex items-end gap-2">
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Obra</label>
+          <label className="text-sm text-muted-foreground">Obra</label>
           <ComboboxFiltro
             name="obra"
             defaultValue={obra ?? ""}
@@ -63,7 +63,7 @@ export default async function DiarioPage({
             options={obras.map((o) => ({ value: o.id, label: o.nome }))}
           />
         </div>
-        <Button type="submit" variant="secondary" size="sm">Filtrar</Button>
+        <Button type="submit" variant="secondary">Filtrar</Button>
       </form>
 
       {rdos.length === 0 ? (
@@ -118,8 +118,8 @@ export default async function DiarioPage({
 
                   <p className="whitespace-pre-wrap text-sm">{rdo.atividades}</p>
                   {rdo.ocorrencias && (
-                    <p className="whitespace-pre-wrap rounded-md bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                      ⚠ {rdo.ocorrencias}
+                    <p className="whitespace-pre-wrap rounded-md border-2 border-estado-atencao-borda bg-estado-atencao p-2 text-sm text-estado-atencao-fg">
+                      <strong>Ocorrência:</strong> {rdo.ocorrencias}
                     </p>
                   )}
                   {efetivo.length > 0 && (

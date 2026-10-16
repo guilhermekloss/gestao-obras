@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Gestão de obras: notas fiscais, contas a pagar, RDO e medições",
     start_url: "/diario",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#171717",
+    background_color: "#f3f5f6",
+    theme_color: "#0f4c81",
     orientation: "portrait",
     icons: [
       {

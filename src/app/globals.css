@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-newsreader);
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-heading: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -18,6 +18,7 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-6: var(--chart-6);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -39,6 +40,27 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-estado-no-prazo: var(--estado-no-prazo);
+  --color-estado-no-prazo-fg: var(--estado-no-prazo-fg);
+  --color-estado-no-prazo-borda: var(--estado-no-prazo-borda);
+  --color-estado-atencao: var(--estado-atencao);
+  --color-estado-atencao-fg: var(--estado-atencao-fg);
+  --color-estado-atencao-borda: var(--estado-atencao-borda);
+  --color-estado-atrasado: var(--estado-atrasado);
+  --color-estado-atrasado-fg: var(--estado-atrasado-fg);
+  --color-estado-atrasado-borda: var(--estado-atrasado-borda);
+  --color-estado-vencido: var(--estado-vencido);
+  --color-estado-vencido-fg: var(--estado-vencido-fg);
+  --color-estado-vencido-borda: var(--estado-vencido-borda);
+  --color-estado-pago: var(--estado-pago);
+  --color-estado-pago-fg: var(--estado-pago-fg);
+  --color-estado-pago-borda: var(--estado-pago-borda);
+  --color-estado-andamento: var(--estado-andamento);
+  --color-estado-andamento-fg: var(--estado-andamento-fg);
+  --color-estado-andamento-borda: var(--estado-andamento-borda);
+  --color-estado-neutro: var(--estado-neutro);
+  --color-estado-neutro-fg: var(--estado-neutro-fg);
+  --color-estado-neutro-borda: var(--estado-neutro-borda);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,81 +71,74 @@
 }
 
 :root {
-  --background: #fbfbfa;
-  --foreground: #2f3437;
-  --card: #ffffff;
-  --card-foreground: #2f3437;
+  /* Prancheta: papel frio, tinta nanquim, azul de planta. */
+  --background: #f3f5f6; /* Papel */
+  --foreground: #14202b; /* Nanquim */
+  --card: #ffffff; /* Folha */
+  --card-foreground: #14202b;
   --popover: #ffffff;
-  --popover-foreground: #2f3437;
-  --primary: #111111;
+  --popover-foreground: #14202b;
+  --primary: #0f4c81; /* Azul-planta */
   --primary-foreground: #ffffff;
-  --secondary: #f7f6f3;
-  --secondary-foreground: #2f3437;
-  --muted: #f7f6f3;
-  --muted-foreground: #726f6b;
-  --accent: #f7f6f3;
-  --accent-foreground: #2f3437;
-  --destructive: #b42318;
-  --border: #eaeaea;
-  --input: #eaeaea;
-  --ring: #726f6b;
-  --chart-1: #1f6c9f;
-  --chart-2: #346538;
-  --chart-3: #956400;
-  --chart-4: #9f2f2d;
-  --chart-5: #787774;
-  --radius: 0.5rem;
-  --sidebar: #f7f6f3;
-  --sidebar-foreground: #2f3437;
-  --sidebar-primary: #111111;
+  --secondary: #e6ecf0;
+  --secondary-foreground: #14202b;
+  --muted: #e6ecf0;
+  --muted-foreground: #4a5967; /* Grafite */
+  --accent: #dde6ed;
+  --accent-foreground: #14202b;
+  --destructive: #b3261e;
+  --border: #c5cfd6; /* Cota */
+  /* borda de campo precisa de 3:1 contra a Folha (WCAG 1.4.11); Cota sozinha dá 1,6:1 */
+  --input: #7c8b97;
+  --ring: #0f4c81;
+  --chart-1: #0f4c81;
+  --chart-2: #1f8a5b;
+  --chart-3: #b7860b;
+  --chart-4: #5b4b9a;
+  --chart-5: #6b7b88;
+  --chart-6: #2f8db5;
+  --radius: 0.333rem; /* 6 px: controles. Cartão ~8 px (xl), etiqueta ~4 px (sm). */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #14202b;
+  --sidebar-primary: #0f4c81;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaeaea;
-  --sidebar-accent-foreground: #2f3437;
-  --sidebar-border: #eaeaea;
-  --sidebar-ring: #726f6b;
-}
+  --sidebar-accent: #dde6ed;
+  --sidebar-accent-foreground: #14202b;
+  --sidebar-border: #c5cfd6;
+  --sidebar-ring: #0f4c81;
 
-.dark {
-  --background: #1c1b1a;
-  --foreground: #ededec;
-  --card: #211f1e;
-  --card-foreground: #ededec;
-  --popover: #211f1e;
-  --popover-foreground: #ededec;
-  --primary: #f5f5f4;
-  --primary-foreground: #171717;
-  --secondary: #2a2827;
-  --secondary-foreground: #ededec;
-  --muted: #2a2827;
-  --muted-foreground: #a39e97;
-  --accent: #2a2827;
-  --accent-foreground: #ededec;
-  --destructive: #d64545;
-  --border: #33302e;
-  --input: #33302e;
-  --ring: #787774;
-  --chart-1: #5fa8d3;
-  --chart-2: #6fa873;
-  --chart-3: #d9a441;
-  --chart-4: #d97674;
-  --chart-5: #a39e97;
-  --sidebar: #1c1b1a;
-  --sidebar-foreground: #ededec;
-  --sidebar-primary: #f5f5f4;
-  --sidebar-primary-foreground: #171717;
-  --sidebar-accent: #2a2827;
-  --sidebar-accent-foreground: #ededec;
-  --sidebar-border: #33302e;
-  --sidebar-ring: #787774;
+  /* Estados: fundo claro + borda + ícone + palavra. Sólido é só para ação. */
+  --estado-no-prazo: #ddf1e6;
+  --estado-no-prazo-fg: #0b5d3b;
+  --estado-no-prazo-borda: #1f8a5b;
+  --estado-atencao: #fbe9b5;
+  --estado-atencao-fg: #6b4a00;
+  --estado-atencao-borda: #b7860b;
+  --estado-atrasado: #ffdcc2;
+  --estado-atrasado-fg: #8a3500;
+  --estado-atrasado-borda: #c2540a;
+  --estado-vencido: #fbd5d1;
+  --estado-vencido-fg: #8c1d18;
+  --estado-vencido-borda: #b3261e;
+  --estado-pago: #e4eaee;
+  --estado-pago-fg: #2f4858;
+  --estado-pago-borda: #8fa1ae;
+  --estado-andamento: #dce8f3;
+  --estado-andamento-fg: #0f4c81;
+  --estado-andamento-borda: #0f4c81;
+  --estado-neutro: #f3f5f6;
+  --estado-neutro-fg: #4a5967;
+  --estado-neutro-borda: #c5cfd6;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
     line-height: 1.6;
+    font-stretch: 100%;
   }
   html {
     @apply font-sans;
@@ -133,4 +148,36 @@
     font-size: 112.5%;
     -webkit-text-size-adjust: 100%;
   }
+  /* Títulos: Archivo aberta (largura 112), como letra de prancheta. */
+  h1, h2, h3, h4, [data-slot="card-title"], [data-slot="dialog-title"] {
+    font-stretch: 112%;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  /* Valores alinham em coluna. */
+  td, th, input, [data-num] {
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="checkbox"], input[type="radio"] {
+    accent-color: var(--primary);
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Números e cotas: Archivo condensada, algarismos tabulares. */
+@utility num {
+  font-stretch: 80%;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }

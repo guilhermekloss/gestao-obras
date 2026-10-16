@@ -51,7 +51,7 @@ export function formatarDataXml(data: string): string {
 
 export function AvisoNotaExistente({ notaId, mensagem }: { notaId: string; mensagem: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
       <AlertTriangle className="size-4 shrink-0" />
       <span>{mensagem}</span>
       <Link href={`/notas/${notaId}`} className="inline-flex items-center gap-1 font-medium underline underline-offset-2">

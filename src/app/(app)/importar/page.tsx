@@ -11,7 +11,7 @@ export default async function ImportarPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-2xl font-semibold">Importar planilhas</h1>
+      <h1 className="text-2xl md:text-3xl">Importar planilhas</h1>
       <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
         <p className="font-medium text-foreground">Formato esperado (CSV com cabeçalho, separado por ; ou ,):</p>
         <p className="mt-2">

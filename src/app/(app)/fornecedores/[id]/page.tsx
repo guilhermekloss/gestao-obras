@@ -98,7 +98,7 @@ export default async function FornecedorDetalhePage({
           >
             <ArrowLeft className="size-4" />
           </Button>
-          <h1 className="text-2xl font-semibold">{fornecedor.nome}</h1>
+          <h1 className="text-2xl md:text-3xl">{fornecedor.nome}</h1>
           {dep && <DependenciaBadge nivel={dep.nivel} score={dep.score} />}
         </div>
         <EditarFornecedorDialog

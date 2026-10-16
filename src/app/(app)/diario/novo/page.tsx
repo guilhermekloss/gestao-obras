@@ -15,7 +15,7 @@ export default async function NovoRdoPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Novo RDO</h1>
+      <h1 className="text-2xl md:text-3xl">Novo RDO</h1>
       <RdoForm obras={obras} obraInicial={obraInicial} />
     </div>
   );

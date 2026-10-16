@@ -10,7 +10,7 @@ export default async function ImportarXmlPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Importar XML da NF-e</h1>
+        <h1 className="text-2xl md:text-3xl">Importar XML da NF-e</h1>
         <p className="text-sm text-muted-foreground">
           Envie o arquivo .xml que o fornecedor manda junto com a nota. Fornecedor, itens, total e
           parcelas são preenchidos a partir dele; você só define o rateio entre as obras.

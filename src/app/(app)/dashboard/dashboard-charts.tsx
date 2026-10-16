@@ -13,13 +13,14 @@ import {
 } from "recharts";
 import { formatarMoeda } from "@/lib/format";
 
+// sem vermelho: vermelho é estado (vencido), não série
 const CORES_SERIES = [
-  "#2a78d6",
-  "#1baf7a",
-  "#eda100",
-  "#008300",
-  "#4a3aa7",
-  "#e34948",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-6)",
+  "var(--chart-5)",
 ];
 
 const eixoTick = { fontSize: 12, fill: "var(--muted-foreground)" };
@@ -47,7 +48,7 @@ export function GastoMensalChart({
         <YAxis tick={eixoTick} tickLine={false} axisLine={false} tickFormatter={moedaCompacta} width={72} />
         <Tooltip
           formatter={(v) => formatarMoeda(Number(v ?? 0))}
-          contentStyle={{ borderRadius: 8, fontSize: 13 }}
+          contentStyle={{ borderRadius: 6, fontSize: 13, borderColor: "var(--border)" }}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         {obras.map((nome, i) => (
@@ -58,7 +59,7 @@ export function GastoMensalChart({
             fill={CORES_SERIES[i % CORES_SERIES.length]}
             stroke="var(--background)"
             strokeWidth={2}
-            radius={i === obras.length - 1 ? [4, 4, 0, 0] : 0}
+            radius={i === obras.length - 1 ? [2, 2, 0, 0] : 0}
           />
         ))}
       </BarChart>
@@ -79,10 +80,10 @@ export function OrcadoRealizadoChart({
         <YAxis tick={eixoTick} tickLine={false} axisLine={false} tickFormatter={moedaCompacta} width={72} />
         <Tooltip
           formatter={(v) => formatarMoeda(Number(v ?? 0))}
-          contentStyle={{ borderRadius: 8, fontSize: 13 }}
+          contentStyle={{ borderRadius: 6, fontSize: 13, borderColor: "var(--border)" }}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="Orçado" fill="#2a78d6" radius={[4, 4, 0, 0]}>
+        <Bar dataKey="Orçado" fill="var(--chart-5)" radius={[2, 2, 0, 0]}>
           <LabelList
             dataKey="Orçado"
             position="top"
@@ -90,39 +91,11 @@ export function OrcadoRealizadoChart({
             style={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           />
         </Bar>
-        <Bar dataKey="Realizado" fill="#eda100" radius={[4, 4, 0, 0]}>
+        <Bar dataKey="Realizado" fill="var(--chart-1)" radius={[2, 2, 0, 0]}>
           <LabelList
             dataKey="Realizado"
             position="top"
             formatter={(v) => (Number(v) > 0 ? moedaCompacta(Number(v)) : "")}
-            style={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-          />
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function AvancoChart({
-  data,
-}: {
-  data: { obra: string; avanco: number }[];
-}) {
-  return (
-    <ResponsiveContainer width="100%" height={Math.max(160, data.length * 44)}>
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-        <XAxis type="number" domain={[0, 100]} tick={eixoTick} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
-        <YAxis type="category" dataKey="obra" tick={eixoTick} tickLine={false} axisLine={false} width={70} />
-        <Tooltip
-          formatter={(v) => `${Number(v ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`}
-          contentStyle={{ borderRadius: 8, fontSize: 13 }}
-        />
-        <Bar dataKey="avanco" name="Avanço físico" fill="#2a78d6" radius={[0, 4, 4, 0]} barSize={20}>
-          <LabelList
-            dataKey="avanco"
-            position="right"
-            formatter={(v) => `${Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`}
             style={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           />
         </Bar>

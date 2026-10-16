@@ -43,7 +43,7 @@ export function EscolhaMaterial({
     const material = catalogo.find((m) => m.id === vinculo.id);
     return (
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <Check className="size-3.5 text-green-600" />
+        <Check className="size-3.5 text-estado-no-prazo-fg" />
         <span>
           Material: <b>{material?.nome ?? "—"}</b>
         </span>
@@ -91,7 +91,7 @@ export function EscolhaMaterial({
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+    <div className="space-y-2 rounded-md border border-estado-atencao-borda bg-estado-atencao p-2 text-xs text-estado-atencao-fg">
       <p className="font-medium">
         Material não reconhecido no catálogo — escolha com qual material este item corresponde.
       </p>

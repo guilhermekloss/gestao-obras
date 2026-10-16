@@ -64,7 +64,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold">{usuario.nome}</h1>
+            <h1 className="text-2xl md:text-3xl">{usuario.nome}</h1>
             <Badge variant="secondary">{ROLE_LABELS[usuario.role]}</Badge>
             <Badge variant={situacao.variante}>{situacao.rotulo}</Badge>
           </div>
@@ -122,9 +122,9 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
                     title={`Semana de ${formatarDataCurta(s.inicio)}: ${s.lancamentos} lançamento(s), ${s.rdos} RDO(s), ${s.avancos} avanço(s)`}
                   >
                     <div className="flex flex-col overflow-hidden rounded-sm" style={{ height: `${(total / maxSemana) * 100}%` }}>
-                      <div className="bg-emerald-500" style={{ flexGrow: s.lancamentos }} />
-                      <div className="bg-amber-500" style={{ flexGrow: s.rdos }} />
-                      <div className="bg-sky-500" style={{ flexGrow: s.avancos }} />
+                      <div className="bg-estado-no-prazo-borda" style={{ flexGrow: s.lancamentos }} />
+                      <div className="bg-estado-atencao-borda" style={{ flexGrow: s.rdos }} />
+                      <div className="bg-estado-andamento-borda" style={{ flexGrow: s.avancos }} />
                     </div>
                     {total === 0 && <div className="h-0.5 rounded-sm bg-muted" />}
                   </div>
@@ -136,9 +136,9 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
               <span>esta semana</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-              <Legenda cor="bg-emerald-500">Lançamentos</Legenda>
-              <Legenda cor="bg-amber-500">RDOs</Legenda>
-              <Legenda cor="bg-sky-500">Avanços</Legenda>
+              <Legenda cor="bg-estado-no-prazo-borda">Lançamentos</Legenda>
+              <Legenda cor="bg-estado-atencao-borda">RDOs</Legenda>
+              <Legenda cor="bg-estado-andamento-borda">Avanços</Legenda>
             </div>
           </CardContent>
         </Card>
@@ -158,7 +158,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
               {restricao === null ? (
                 <p>{descreverAcessoObras(usuario.role, usuario.todasObras, nomesObras)}</p>
               ) : nomesObras.length === 0 ? (
-                <p className="text-amber-600 dark:text-amber-400">Nenhuma obra liberada</p>
+                <p className="text-estado-atencao-fg">Nenhuma obra liberada</p>
               ) : (
                 <ul className="mt-1 flex flex-wrap gap-1">
                   {usuario.obras.map((o) => (
@@ -172,7 +172,7 @@ export default async function UsuarioPerfilPage({ params }: { params: Promise<{ 
               )}
             </div>
             {semAcessoHoje.length > 0 && (
-              <p className="flex gap-2 rounded-md bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
+              <p className="flex gap-2 rounded-md bg-estado-atencao p-2 text-xs text-estado-atencao-fg">
                 <AlertTriangle className="size-4 shrink-0" />
                 Tem registros em {semAcessoHoje.map((p) => p.nome).join(", ")}, mas não tem mais acesso a{" "}
                 {semAcessoHoje.length === 1 ? "essa obra" : "essas obras"}.
@@ -309,7 +309,7 @@ function Numero({ titulo, valor, detalhe }: { titulo: string; valor: string; det
     <Card>
       <CardContent className="pt-4">
         <p className="text-xs text-muted-foreground">{titulo}</p>
-        <p className="text-2xl font-semibold">{valor}</p>
+        <p className="text-2xl num">{valor}</p>
         {detalhe && <p className="text-xs text-muted-foreground">{detalhe}</p>}
       </CardContent>
     </Card>

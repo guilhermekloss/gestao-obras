@@ -52,7 +52,7 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Usuários e acessos</h1>
+          <h1 className="text-2xl md:text-3xl">Usuários e acessos</h1>
           <p className="text-sm text-muted-foreground">Quem acessa a plataforma, o que pode ver e o que tem feito.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -123,7 +123,7 @@ function Indicador({
     <Card className={cn("h-full", href && "transition-colors hover:bg-accent/50")}>
       <CardContent className="pt-4">
         <p className="text-xs text-muted-foreground">{titulo}</p>
-        <p className={cn("text-2xl font-semibold", alerta && "text-amber-600 dark:text-amber-400")}>{valor}</p>
+        <p className={cn("text-2xl num", alerta && "text-estado-atencao-fg")}>{valor}</p>
         {detalhe && <p className="text-xs text-muted-foreground">{detalhe}</p>}
       </CardContent>
     </Card>
@@ -137,7 +137,7 @@ function UltimoAcesso({ u, agora }: { u: UsuarioDaLista; agora: Date }) {
   if (!u.ultimoAcessoEm) return <span className="text-muted-foreground">—</span>;
   return (
     <span
-      className={cn(situacao === "parado" && "text-amber-600 dark:text-amber-400")}
+      className={cn(situacao === "parado" && "text-estado-atencao-fg")}
       title={formatarData(u.ultimoAcessoEm)}
     >
       {formatarTempoRelativo(u.ultimoAcessoEm, agora)}

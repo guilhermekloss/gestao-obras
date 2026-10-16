@@ -97,7 +97,7 @@ export function ImportarClient() {
 
             {(preview.inconsistencias?.length ?? 0) > 0 && (
               <div>
-                <p className="mb-1 text-sm font-medium text-amber-700 dark:text-amber-400">
+                <p className="mb-1 text-sm font-medium text-estado-atencao-fg">
                   {preview.inconsistencias!.length} inconsistência(s) — importadas mesmo assim, revise depois:
                 </p>
                 <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2 text-xs">

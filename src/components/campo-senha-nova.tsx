@@ -80,7 +80,7 @@ export function CampoSenhaNova({
                 key={r.chave}
                 className={cn(
                   "flex items-start gap-1.5",
-                  r.ok ? "text-emerald-700 dark:text-emerald-400" : senha ? "text-destructive" : "text-muted-foreground",
+                  r.ok ? "text-estado-no-prazo-fg" : senha ? "text-destructive" : "text-muted-foreground",
                 )}
               >
                 <Icone className="mt-px size-3.5 shrink-0" aria-hidden />

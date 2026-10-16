@@ -20,7 +20,7 @@ export default async function NovaNotaPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <h1 className="text-2xl font-semibold">Novo lançamento</h1>
+      <h1 className="text-2xl md:text-3xl">Novo lançamento</h1>
       <NovoLancamento
         fornecedores={fornecedores}
         obras={obras}
