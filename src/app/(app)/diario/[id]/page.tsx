@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatarCno } from "@/services/cno";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
@@ -97,7 +98,7 @@ export default async function RdoDetalhePage({
             <h1 className="text-2xl md:text-3xl">{rdo.obra.nome}</h1>
             <p className="text-sm text-muted-foreground">
               Código {rdo.obra.codigo}
-              {rdo.obra.cno ? ` · CNO ${rdo.obra.cno}` : ""}
+              {rdo.obra.cno ? ` · CNO ${formatarCno(rdo.obra.cno)}` : ""}
               {rdo.obra.endereco ? ` · ${rdo.obra.endereco}` : ""}
             </p>
           </div>

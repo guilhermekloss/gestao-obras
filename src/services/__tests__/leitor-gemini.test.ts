@@ -40,6 +40,7 @@ const DOC = {
   serie: null,
   chaveAcesso: null,
   dataEmissao: "2026-10-10",
+  cno: null,
   valorTotal: 1500,
   valorFrete: null,
   valorOutrasDespesas: null,

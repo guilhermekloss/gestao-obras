@@ -31,9 +31,10 @@ import { vinculosParaAction } from "../nova/conferencia-model";
 import { consultarSituacaoImportacao, importarNfe, sugerirMateriais, type SituacaoImportacao } from "./actions";
 import { AvisoNotaExistente, PreviaCabecalho, PreviaItens, formatarDataXml } from "./previa-nfe";
 import { linhasDeConferencia } from "../conferencia-lancamento";
+import { AvisoCno } from "../aviso-cno";
 import { AlertTriangle, FileCode2, ListChecks, Percent, Plus, Trash2, Upload, Wallet, Wand2 } from "lucide-react";
 
-type ObraRateio = { id: string; nome: string; etapas: { id: string; nome: string }[] };
+type ObraRateio = { id: string; nome: string; cno?: string | null; etapas: { id: string; nome: string }[] };
 type RateioLinha = { obraId: string; etapaId: string; percent: string };
 type ParcelaLinha = { rotulo: string; valor: string; vencimento: string };
 type SecaoXml = "itens" | "rateio" | "parcelas";
@@ -83,8 +84,20 @@ export function ImportarXmlForm({
     { obraId: obras[0]?.id ?? "", etapaId: "", percent: "100" },
   ]);
   const [parcelas, setParcelas] = useState<ParcelaLinha[]>([]);
+  // a obra do CNO só é pré-escolhida enquanto o usuário não mexeu no rateio desta nota
+  const rateioTocado = useRef(false);
+
+  function mexerNoRateio(atualizar: (prev: RateioLinha[]) => RateioLinha[]) {
+    rateioTocado.current = true;
+    setRateios(atualizar);
+  }
+
+  function usarObra(obraId: string) {
+    mexerNoRateio(() => [{ obraId, etapaId: "", percent: "100" }]);
+  }
 
   function limpar() {
+    rateioTocado.current = false;
     setArquivo(null);
     setNfe(null);
     setSituacao(null);
@@ -137,10 +150,14 @@ export function ImportarXmlForm({
       );
       setLendo(false);
       const [s, correspondencias] = await Promise.all([
-        consultarSituacaoImportacao(n.chave, n.emitente.documento),
+        consultarSituacaoImportacao(n.chave, n.emitente.documento, n.cno),
         sugerirMateriais(n.emitente.documento, n.itens.map((i) => ({ descricao: i.descricao, codigo: i.codigo }))),
       ]);
       setSituacao(s);
+      const ativas = s.obrasDoCno.filter((o) => o.ativa);
+      if (ativas.length === 1 && !rateioTocado.current) {
+        setRateios([{ obraId: ativas[0].id, etapaId: "", percent: "100" }]);
+      }
       setVinculos(n.itens.map((i, idx) => vinculoInicial(correspondencias[idx], i.tipoSugerido)));
       if (s.notaExistente) {
         setExistente({
@@ -157,7 +174,7 @@ export function ImportarXmlForm({
   }
 
   function alterarRateio(i: number, campos: Partial<RateioLinha>) {
-    setRateios((prev) => prev.map((r, j) => (j === i ? { ...r, ...campos } : r)));
+    mexerNoRateio((prev) => prev.map((r, j) => (j === i ? { ...r, ...campos } : r)));
   }
 
   function alterarParcela(i: number, campos: Partial<ParcelaLinha>) {
@@ -170,7 +187,7 @@ export function ImportarXmlForm({
       return;
     }
     const fracoes = dividirIgualmente(rateios.length);
-    setRateios((prev) => prev.map((r, i) => ({ ...r, percent: percentBpParaEditavel(fracoes[i]) })));
+    mexerNoRateio((prev) => prev.map((r, i) => ({ ...r, percent: percentBpParaEditavel(fracoes[i]) })));
   }
 
   const somaRateioBp = rateios.reduce((acc, r) => acc + bpDaLinha(r), 0);
@@ -386,6 +403,15 @@ export function ImportarXmlForm({
                   Divide o valor da nota entre uma ou mais obras, em percentual. A soma precisa fechar 100%.
                   Informe a etapa se o custo for de um estágio específico.
                 </p>
+                {nfe.cno && situacao && (
+                  <AvisoCno
+                    cno={nfe.cno}
+                    obrasDoCno={situacao.obrasDoCno}
+                    obraEscolhida={rateios.length === 1 ? obras.find((o) => o.id === rateios[0].obraId) : undefined}
+                    onUsarObra={usarObra}
+                    onCnoGravado={(obra) => setSituacao((s) => s && { ...s, obrasDoCno: [obra] })}
+                  />
+                )}
                 {rateios.map((r, i) => {
                   const obra = obras.find((o) => o.id === r.obraId);
                   const id = (campo: string) => `xml-rateio-${i}-${campo}`;
@@ -433,7 +459,7 @@ export function ImportarXmlForm({
                         size="sm"
                         className="justify-self-end md:mt-7"
                         disabled={rateios.length === 1}
-                        onClick={() => setRateios((prev) => prev.filter((_, j) => j !== i))}
+                        onClick={() => mexerNoRateio((prev) => prev.filter((_, j) => j !== i))}
                       >
                         <Trash2 className="size-4 text-muted-foreground" /> Remover
                       </Button>
@@ -449,7 +475,7 @@ export function ImportarXmlForm({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setRateios((prev) => [...prev, { obraId: "", etapaId: "", percent: "" }])}
+                    onClick={() => mexerNoRateio((prev) => [...prev, { obraId: "", etapaId: "", percent: "" }])}
                   >
                     <Plus className="size-4" /> Adicionar obra
                   </Button>

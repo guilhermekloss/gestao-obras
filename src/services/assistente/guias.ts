@@ -65,7 +65,7 @@ export const GUIAS: Guia[] = [
     regras: [
       "Só obras em Planejamento ou Em andamento aparecem na hora de lançar notas.",
       "O código da obra é único.",
-      "O código CNO é opcional.",
+      "O CNO é opcional, mas com ele as notas que citam o CNO já chegam ligadas à obra.",
     ],
     dicas: ["O Resumo mostra o custo acumulado, o orçamento previsto e o avanço físico da obra."],
   },

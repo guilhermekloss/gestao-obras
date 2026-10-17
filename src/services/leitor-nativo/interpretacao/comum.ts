@@ -93,6 +93,7 @@ export function documentoVazio(tipo: DocumentoLido["tipo"]): DocumentoLido {
     serie: null,
     chaveAcesso: null,
     dataEmissao: null,
+    cno: null,
     valorTotal: null,
     valorFrete: null,
     valorOutrasDespesas: null,

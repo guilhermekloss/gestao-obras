@@ -350,6 +350,17 @@ describe("gravarDocumento", () => {
     expect(banco.documentos[0]).toMatchObject({ situacao: "COMPLETO", manifestacao: "DISPENSADA", xmlUrl: expect.stringMatching(/\.xml$/) });
   });
 
+  it("completo guarda o CNO citado no XML, para a caixa de recebidas mostrar a obra", async () => {
+    const xml = procNfeFixture().replace("</pag>", "</pag><infAdic><infCpl>CNO 90.000.12345/67</infCpl></infAdic>");
+    await gravarDocumento(classificarDocumento(doc("2", "procNFe_v4.00.xsd", xml)), CNPJ_EMPRESA);
+    expect(banco.documentos[0]).toMatchObject({ cno: "900001234567" });
+  });
+
+  it("completo sem CNO grava nulo", async () => {
+    await gravarDocumento(completo(), CNPJ_EMPRESA);
+    expect(banco.documentos[0].cno).toBeNull();
+  });
+
   it("completo repetido não grava o XML duas vezes", async () => {
     await gravarDocumento(completo(), CNPJ_EMPRESA);
     expect(await gravarDocumento(completo(), CNPJ_EMPRESA)).toBe("IGNORADO");

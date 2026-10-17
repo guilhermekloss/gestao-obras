@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatarCno } from "@/services/cno";
 import { startOfDay, addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { realizadoPorEtapa, avancoPorEtapa } from "@/services/custos";
@@ -63,7 +64,7 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
           />
         )}
         <InfoCard titulo="Avanço físico" valor={formatarPercentBp(avancoObra)} destaque />
-        <InfoCard titulo="Código / CNO" valor={`${obra.codigo}${obra.cno ? ` · ${obra.cno}` : ""}`} />
+        <InfoCard titulo="Código / CNO" valor={`${obra.codigo}${obra.cno ? ` · ${formatarCno(obra.cno)}` : ""}`} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -447,3 +447,19 @@ Pagamento: Cartão de Crédito`);
     expect(lido.formaPagamento).toBe("CARTAO");
   });
 });
+
+describe("CNO da obra", () => {
+  it("NFS-e nacional: CNO citado na descrição do serviço", () => {
+    expect(ler(NFSE_NACIONAL).cno).toBe("900001234567");
+  });
+
+  it("DANFE: CNO nas informações complementares", () => {
+    const danfe = DANFE.replace("PEDIDO 4471.", "PEDIDO 4471. OBRA LOTE 12 - CNO: 90.000.12345/67");
+    expect(danfe).not.toBe(DANFE);
+    expect(ler(danfe).cno).toBe("900001234567");
+  });
+
+  it("DANFE sem CNO", () => {
+    expect(ler(DANFE).cno).toBeNull();
+  });
+});

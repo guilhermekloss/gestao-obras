@@ -13,6 +13,7 @@ import { interpretarRecibo } from "./interpretes/recibo";
 import type { Resultado } from "./interpretes/auxiliares";
 import { avaliarLegibilidade } from "./legibilidade";
 import { encontrarDatas } from "./normalizacao";
+import { extrairCnos } from "../../cno";
 
 type OpcoesInterpretacao = {
   // Escolhe o ciclo do fator de vencimento do boleto; padrão: a data mais recente impressa.
@@ -37,6 +38,7 @@ function sanear(lido: DocumentoLido): DocumentoLido {
     serie: txt(lido.serie),
     chaveAcesso: txt(lido.chaveAcesso),
     dataEmissao: txt(lido.dataEmissao),
+    cno: txt(lido.cno),
     valorTotal: num(lido.valorTotal),
     valorFrete: num(lido.valorFrete),
     valorOutrasDespesas: num(lido.valorOutrasDespesas),
@@ -97,6 +99,8 @@ export function interpretarOuLancar(texto: TextoExtraido, opcoes: OpcoesInterpre
       r = { lido: documentoVazio("NAO_E_DOCUMENTO") };
   }
   const lido = sanear(r.lido);
+  // o CNO vem rotulado em qualquer parte do documento (dados adicionais, campo Obra da NFS-e)
+  if (lido.tipo !== "NAO_E_DOCUMENTO") lido.cno ??= extrairCnos(doc.textoCompleto)[0] ?? null;
   lido.legibilidade = avaliarLegibilidade(doc, lido, {
     temCodigoPagamento: ancoras.pagamento !== null,
     incompleto: r.incompleto,

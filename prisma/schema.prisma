@@ -185,6 +185,9 @@ model Obra {
   rateios  RateioNota[]
   diarios  DiarioObra[]
   usuarios UsuarioObra[]
+
+  /// `cno` só em dígitos (12): a nota que cita o CNO é ligada à obra por ele. Não é único: um CNO pode cobrir várias obras.
+  @@index([cno])
 }
 
 model Etapa {
@@ -438,6 +441,8 @@ model DocumentoSefaz {
   serie            String
   dataEmissao      DateTime
   valorCents       Int
+  /// CNO da obra citado no XML (só dígitos), para mostrar a obra na caixa de recebidas.
+  cno              String?
   situacao         SituacaoDocumentoSefaz
   manifestacao     ManifestacaoSefaz      @default(PENDENTE)
   manifestacaoErro String?

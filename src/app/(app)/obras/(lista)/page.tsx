@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatarCno } from "@/services/cno";
 import { podeEditarCadastros } from "@/services/acesso";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -59,7 +60,7 @@ export default async function ObrasPage() {
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
                   <p>Código: {obra.codigo}</p>
-                  {obra.cno && <p>CNO: {obra.cno}</p>}
+                  {obra.cno && <p>CNO: {formatarCno(obra.cno)}</p>}
                   {obra.inicioEm && <p>Início: {formatarData(obra.inicioEm)}</p>}
                   <p className="mt-2">
                     {obra._count.etapas} etapas · {obra._count.diarios} RDOs

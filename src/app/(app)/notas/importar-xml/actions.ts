@@ -15,6 +15,7 @@ import { buscarFornecedorPorDocumento, fornecedorSchema } from "@/services/forne
 import { formatarDocumento, parseNfeXml } from "@/services/nfe-xml";
 import { correspondenciaItem, type CorrespondenciaItem } from "@/services/materiais";
 import { carregarBaseMateriais } from "@/services/materiais-db";
+import { obrasPorCno, type ObraDoCno } from "@/services/obras";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -62,18 +63,21 @@ export async function sugerirMateriais(
 export type SituacaoImportacao = {
   notaExistente: { id: string; numero: string } | null;
   fornecedor: { id: string; nome: string } | null;
+  obrasDoCno: ObraDoCno[];
 };
 
 export async function consultarSituacaoImportacao(
   chave: string,
   documento: string,
+  cno: string | null = null,
 ): Promise<SituacaoImportacao> {
   await exigirPapel(...PAPEIS);
-  const [notaExistente, fornecedor] = await Promise.all([
+  const [notaExistente, fornecedor, obrasDoCno] = await Promise.all([
     notaPorChave(chave),
     buscarFornecedorPorDocumento(documento),
+    obrasPorCno(cno),
   ]);
-  return { notaExistente, fornecedor };
+  return { notaExistente, fornecedor, obrasDoCno };
 }
 
 // XML reprocessado aqui (a prévia do client não é confiável); do client vêm só as escolhas.

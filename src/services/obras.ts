@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma, StatusObra } from "@prisma/client";
 import { whereObrasPermitidas, type RestricaoObras } from "./acesso";
+import { normalizarCno } from "./cno";
 
 type ObraOption = { id: string; nome: string };
-type ObraParaRateio = ObraOption & { etapas: { id: string; nome: string }[] };
+type ObraParaRateio = ObraOption & { cno: string | null; etapas: { id: string; nome: string }[] };
+export type ObraDoCno = { id: string; nome: string; ativa: boolean };
 
 const STATUS_ATIVA: StatusObra[] = ["PLANEJAMENTO", "ANDAMENTO"];
 
@@ -42,9 +44,22 @@ export async function listarObrasParaRateio(idsJaUsados: string[] = []): Promise
     select: {
       id: true,
       nome: true,
+      cno: true,
       etapas: { orderBy: { ordem: "asc" }, select: { id: true, nome: true } },
     },
   });
+}
+
+// Obras com o CNO citado na nota; `ativa` = aparece no rateio (concluída/pausada não é pré-escolhida).
+export async function obrasPorCno(cno: string | null): Promise<ObraDoCno[]> {
+  const digitos = normalizarCno(cno);
+  if (!digitos) return [];
+  const obras = await prisma.obra.findMany({
+    where: { cno: digitos },
+    orderBy: { codigo: "asc" },
+    select: { id: true, nome: true, status: true },
+  });
+  return obras.map((o) => ({ id: o.id, nome: o.nome, ativa: STATUS_ATIVA.includes(o.status) }));
 }
 
 export async function erroEtapasDoRateio(

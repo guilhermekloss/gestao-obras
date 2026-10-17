@@ -14,6 +14,7 @@
   "serie": null,
   "chaveAcesso": null,
   "dataEmissao": null,
+  "cno": null,
   "valorTotal": 456.78,
   "valorFrete": null,
   "valorOutrasDespesas": null,

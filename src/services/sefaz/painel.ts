@@ -215,11 +215,17 @@ export async function listarDocumentos(filtro: FiltroDocumentos, pagina: number)
 
 /** Caixa de entrada: notas a lançar (completas) e as que ainda esperam o XML depois da Ciência. */
 export async function listarRecebidas() {
-  return prisma.documentoSefaz.findMany({
+  const documentos = await prisma.documentoSefaz.findMany({
     where: { status: "NOVA", situacao: { in: ["COMPLETO", "RESUMO"] } },
     orderBy: [{ situacao: "asc" }, { dataEmissao: "desc" }],
     take: 200,
   });
+  // a obra de cada nota pelo CNO citado no XML, numa consulta só
+  const cnos = [...new Set(documentos.flatMap((d) => (d.cno ? [d.cno] : [])))];
+  const obras = cnos.length
+    ? await prisma.obra.findMany({ where: { cno: { in: cnos } }, orderBy: { codigo: "asc" }, select: { nome: true, cno: true } })
+    : [];
+  return documentos.map((d) => ({ ...d, obrasDoCno: obras.filter((o) => o.cno === d.cno).map((o) => o.nome) }));
 }
 
 export async function contarRecebidas(): Promise<number> {

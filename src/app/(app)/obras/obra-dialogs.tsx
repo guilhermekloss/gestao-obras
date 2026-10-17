@@ -1,5 +1,6 @@
 "use client";
 
+import { formatarCno } from "@/services/cno";
 import type { Obra } from "@prisma/client";
 import { FormDialog } from "@/components/form-dialog";
 import { Button } from "@/components/ui/button";
@@ -37,11 +38,17 @@ function CamposObra({ obra }: { obra?: Obra }) {
           <LabelAjuda
             htmlFor="cno"
             titulo="CNO — Cadastro Nacional de Obras"
-            ajuda="Registro da obra na Receita Federal (substituiu a antiga matrícula CEI). Serve para o INSS da construção e para emitir a CND da obra. Como preencher: informe os 12 dígitos do CNO gerado no portal e-CAC. Deixe vazio se a obra ainda não foi registrada."
+            ajuda="Registro da obra na Receita Federal (substituiu a antiga matrícula CEI). Serve para o INSS da construção e para emitir a CND da obra. Como preencher: informe os 12 dígitos do CNO gerado no portal e-CAC. As notas que citam este CNO já chegam ligadas à obra no lançamento. Deixe vazio se a obra ainda não foi registrada."
           >
             CNO
           </LabelAjuda>
-          <Input id="cno" name="cno" defaultValue={obra?.cno ?? ""} />
+          <Input
+            id="cno"
+            name="cno"
+            inputMode="numeric"
+            placeholder="00.000.00000/00"
+            defaultValue={obra?.cno ? formatarCno(obra.cno) : ""}
+          />
         </div>
       </div>
       <div className="grid gap-2">

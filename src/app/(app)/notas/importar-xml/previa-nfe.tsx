@@ -8,6 +8,7 @@ import { SelectNativo } from "@/components/select-nativo";
 import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { formatarDocumento, type Nfe } from "@/services/nfe-xml";
+import { formatarCno } from "@/services/cno";
 import type { SituacaoImportacao } from "./actions";
 import { AlertTriangle, CheckCircle2, ExternalLink, UserPlus } from "lucide-react";
 
@@ -89,6 +90,12 @@ export function PreviaCabecalho({ nfe, situacao }: { nfe: Nfe; situacao: Situaca
           <p className="text-lg font-semibold">{formatarMoeda(nfe.totalCents)}</p>
           <p className="text-xs text-muted-foreground">{FORMA_LABELS[nfe.formaPagto]}</p>
         </div>
+        {nfe.cno && (
+          <div className="sm:col-span-2 lg:col-span-4">
+            <p className="text-xs text-muted-foreground">CNO da obra</p>
+            <p className="font-medium num">{formatarCno(nfe.cno)}</p>
+          </div>
+        )}
         <div className="sm:col-span-2 lg:col-span-4">
           <p className="text-xs text-muted-foreground">Chave de acesso</p>
           <p className="font-mono text-xs break-all">{formatarChave(nfe.chave)}</p>
