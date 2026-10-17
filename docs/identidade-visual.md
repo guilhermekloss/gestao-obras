@@ -109,3 +109,16 @@ Use `ListaDeDados` (`src/components/lista-de-dados.tsx`) em vez de `<Table>` sol
 - **Erro:** `src/app/(app)/error.tsx` (dentro da casca) e `src/app/error.tsx` (fora dela e falha do próprio layout) usam `ErroDePagina`. Nada do erro vai para a tela. O texto cobre falha do sistema e falta de acesso, porque `exigirPapel` lança erro e em produção o Next esconde a mensagem. Esta versão do Next entrega `retry` (não `reset`).
 - **Não encontrado:** `not-found.tsx` com casca (`notFound()` nas telas) e sem casca (endereço que não existe). Também cobre "sem acesso", porque o app responde igual para registro inexistente e registro proibido.
 - Limitação: em dashboard, contas e cronograma, as telas filhas (`/dashboard/alertas`, `/contas/fluxo`) mostram o esqueleto da seção até ganharem o próprio `loading.tsx`.
+
+## Assistente de navegação
+
+Ajuda embutida (ver [`assistente-e-fluxos.md`](assistente-e-fluxos.md)). Visual discreto: não
+compete com o conteúdo e segue o estilo do app (bordas em vez de sombras).
+
+| Elemento | Especificação |
+|---|---|
+| **Botão fixo** | Ícone `Compass`, 44 px, com borda, **sem sombra**, canto inferior direito. Fica acima da BottomNav usando `--altura-bottom-nav`; **sobe** nas telas com `BarraDeAcao` para não cobrir os botões. |
+| **Pop-up de boas-vindas** | `Dialog`. Botões: **"Fazer o tour (2 min)"** (primário), **"Ver os guias"** e **"Agora não"**. |
+| **Tour** | Moldura de destaque no 1º elemento visível do passo; cartão com **"Passo x de y"**. `Esc` fecha; o foco vai para o cartão e volta ao fim. Respeita `prefers-reduced-motion` (sem animação). Alvos ocultos são **pulados**. |
+| **Central de ajuda** | Folha lateral (desktop) ou de baixo (celular); guias em `Accordion`. |
+| **Texto por papel** | Cada papel lê só o seu conteúdo. O **CAMPO nunca vê valores**, notas ou contas — nem em guia, tour ou resposta da IA. |
