@@ -2,11 +2,12 @@ import { test as base, expect } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 
 // Quem já existe antes do teste conta como tendo passado pelo assistente: o pop-up de boas-vindas
-// cobriria a tela. Quem testa o pop-up cria a própria pessoa dentro do teste.
+// cobriria a tela. Quem testa o pop-up cria a própria pessoa (e-mail "assistente.*") dentro do teste;
+// ela fica de fora, senão outro worker a marcaria como vista no meio da execução.
 async function dispensarAssistente() {
   const prisma = new PrismaClient();
   try {
-    await prisma.usuario.updateMany({ where: { assistenteVistoEm: null }, data: { assistenteVistoEm: new Date() } });
+    await prisma.usuario.updateMany({ where: { assistenteVistoEm: null, NOT: { email: { startsWith: "assistente." } } }, data: { assistenteVistoEm: new Date() } });
   } finally {
     await prisma.$disconnect();
   }
