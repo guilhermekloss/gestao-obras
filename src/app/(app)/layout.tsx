@@ -8,6 +8,8 @@ import { Sidebar, BottomNav, TituloDaPagina } from "@/components/nav";
 import { BotaoTema } from "@/components/botao-tema";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
+import { Assistente } from "@/components/assistente/assistente";
+import { analiseIaDisponivel } from "@/services/gemini";
 import { LogOut, UserRound } from "lucide-react";
 
 export default async function AppLayout({
@@ -40,7 +42,7 @@ export default async function AppLayout({
           <TituloDaPagina />
           <div className="flex shrink-0 items-center gap-1">
             <BotaoTema inicial={tema} />
-            <Button variant="ghost" size="sm" render={<Link href="/conta" />} aria-label="Minha conta">
+            <Button variant="ghost" size="sm" render={<Link href="/conta" />} aria-label="Minha conta" data-assistente="conta">
               <UserRound className="size-4" />
               <span className="hidden md:inline">Minha conta</span>
             </Button>
@@ -57,6 +59,12 @@ export default async function AppLayout({
         </main>
       </div>
       <BottomNav role={user.role} />
+      <Assistente
+        role={user.role}
+        nome={user.nome}
+        pendente={user.assistentePendente}
+        iaDisponivel={analiseIaDisponivel()}
+      />
       <Toaster />
     </div>
   );

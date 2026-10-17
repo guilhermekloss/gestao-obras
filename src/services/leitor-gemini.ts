@@ -1,14 +1,13 @@
-import { ApiError, GoogleGenAI } from "@google/genai";
+import { ApiError } from "@google/genai";
 import { z } from "zod";
 import { documentoLidoSchema, type DocumentoLido } from "./leitura-documento";
 import type { MidiaDocumento } from "./leitor-nativo/tipos";
+import { analiseIaDisponivel, clienteGemini } from "./gemini";
+
+export { analiseIaDisponivel };
 
 export const MODELO_PADRAO = "gemini-3.5-flash-lite";
 export const MODELO_REFORCO_PADRAO = "gemini-3.5-flash";
-
-export function analiseIaDisponivel(): boolean {
-  return Boolean(process.env.GEMINI_PROJETO || process.env.GEMINI_API_KEY);
-}
 
 const INSTRUCOES = `Você transcreve documentos de despesa brasileiros (DANFE de NF-e, cupom NFC-e, NFS-e de prefeitura, recibo, boleto, guia de imposto) enviados por uma construtora — geralmente fotos de celular ou PDFs.
 
@@ -41,14 +40,6 @@ export function interpretarResposta(texto: string | undefined): DocumentoLido {
   const r = documentoLidoSchema.safeParse(json);
   if (!r.success) throw new Error("A IA devolveu os dados num formato inesperado. Tente de novo.");
   return r.data;
-}
-
-function cliente(): GoogleGenAI {
-  const projeto = process.env.GEMINI_PROJETO;
-  if (projeto) {
-    return new GoogleGenAI({ vertexai: true, project: projeto, location: process.env.GEMINI_LOCAL || "global" });
-  }
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 }
 
 const TOLERANCIA_REAIS = 0.02;
@@ -101,7 +92,7 @@ export async function analisarComGemini(arquivo: Buffer, midia: MidiaDocumento):
 async function lerComModelo(modelo: string, arquivo: Buffer, midia: MidiaDocumento): Promise<DocumentoLido> {
   let resposta;
   try {
-    resposta = await cliente().models.generateContent({
+    resposta = await clienteGemini().models.generateContent({
       model: modelo,
       contents: [
         {

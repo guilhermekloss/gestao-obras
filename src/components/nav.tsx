@@ -37,6 +37,7 @@ export function Sidebar({
             <li key={item.href}>
               <Link
                 href={item.href}
+                data-assistente={`menu:${item.href}`}
                 aria-current={ativo ? "page" : undefined}
                 className={cn(
                   "flex min-h-11 items-center gap-3 rounded-md border-l-4 px-3 py-2 text-sm transition-colors",
@@ -112,6 +113,7 @@ export function BottomNav({ role }: { role: Role }) {
             <li key={item.href}>
               <Link
                 href={item.href}
+                data-assistente={`menu:${item.href}`}
                 aria-current={ativo ? "page" : undefined}
                 className={cn(TAB, ativo ? "font-semibold text-primary" : "text-muted-foreground")}
               >
@@ -129,6 +131,7 @@ export function BottomNav({ role }: { role: Role }) {
               type="button"
               onClick={() => setAberto(true)}
               aria-haspopup="dialog"
+              data-assistente="menu:mais"
               aria-expanded={aberto}
               className={cn(
                 TAB,
@@ -158,6 +161,7 @@ export function BottomNav({ role }: { role: Role }) {
                   <Link
                     href={item.href}
                     onClick={() => setAberto(false)}
+                    data-assistente={`menu:${item.href}`}
                     aria-current={ativo ? "page" : undefined}
                     className={cn(
                       "flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm",
