@@ -881,7 +881,7 @@ function Alerta({ tom, children }: { tom: "erro" | "aviso"; children: React.Reac
       className={cn(
         "flex gap-2 rounded-md border p-3 text-sm",
         tom === "erro"
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          ? "border-estado-vencido-borda bg-estado-vencido text-estado-vencido-fg"
           : "border-estado-atencao-borda bg-estado-atencao text-estado-atencao-fg",
       )}
     >

@@ -203,7 +203,7 @@ export default async function FornecedorDetalhePage({
                 ) : (
                   <ul className="divide-y">
                     {tipos.map(([tipo, cents]) => (
-                      <li key={tipo} className="flex items-center justify-between py-2 text-sm">
+                      <li key={tipo} className="flex items-center justify-between gap-3 py-2 text-sm">
                         <span>{TIPO_LABELS[tipo]}</span>
                         <span className="font-medium">{formatarMoeda(cents)}</span>
                       </li>
@@ -223,9 +223,9 @@ export default async function FornecedorDetalhePage({
                 ) : (
                   <ul className="divide-y">
                     {obras.map((o) => (
-                      <li key={o.nome} className="flex items-center justify-between py-2 text-sm">
-                        <span className="truncate">{o.nome}</span>
-                        <span className="font-medium">{formatarMoeda(o.cents)}</span>
+                      <li key={o.nome} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <span className="min-w-0 truncate">{o.nome}</span>
+                        <span className="num shrink-0 font-medium">{formatarMoeda(o.cents)}</span>
                       </li>
                     ))}
                   </ul>

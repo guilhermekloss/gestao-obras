@@ -72,8 +72,12 @@ function alvosPequenos() {
     const alvo = el.matches("input[type=checkbox], input[type=radio]") ? (el.closest("label") ?? el) : el;
     const r = alvo.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
-    if (r.width < 43.5 || r.height < 43.5) {
-      achados.push(`${el.tagName.toLowerCase()} «${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30)}» ${Math.round(r.width)}×${Math.round(r.height)}`);
+    // o botão de ajuda é pequeno, mas amplia a área de toque com um ::before absoluto
+    const ampliada = getComputedStyle(alvo, "::before");
+    const largura = ampliada.position === "absolute" ? Math.max(r.width, parseFloat(ampliada.width) || 0) : r.width;
+    const altura = ampliada.position === "absolute" ? Math.max(r.height, parseFloat(ampliada.height) || 0) : r.height;
+    if (largura < 43.5 || altura < 43.5) {
+      achados.push(`${el.tagName.toLowerCase()} «${(el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 30)}» ${Math.round(largura)}×${Math.round(altura)}`);
     }
   }
   return achados;
