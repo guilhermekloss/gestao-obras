@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     realizadoPorMes(inicio12Meses),
     realizadoPorObra(),
     avancoPorEtapa(),
-    carregarAlertas(hoje),
+    carregarAlertas(hoje, { paraAdmin: user.role === "ADMIN" }),
     carregarCurvaAbc(),
   ]);
 

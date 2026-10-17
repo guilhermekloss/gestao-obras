@@ -40,3 +40,27 @@ resource "google_secret_manager_secret_version" "auth_secret" {
   secret      = google_secret_manager_secret.auth_secret.id
   secret_data = random_password.auth_secret.result
 }
+
+# Chave do cofre (lib/cofre.ts): cifra no banco o certificado A1 que o Admin envia na tela Empresa.
+# Sem ela o app usa uma chave derivada do AUTH_SECRET; o cifrado guarda qual das duas usou.
+# Trocar esta chave torna o certificado guardado ilegível: é preciso enviá-lo de novo.
+resource "random_bytes" "chave_cofre" {
+  length = 32
+}
+
+resource "google_secret_manager_secret" "chave_cofre" {
+  secret_id = "${var.app_name}-chave-cofre"
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "chave_cofre" {
+  secret      = google_secret_manager_secret.chave_cofre.id
+  secret_data = random_bytes.chave_cofre.base64
+}

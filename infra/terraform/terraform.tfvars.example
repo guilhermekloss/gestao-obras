@@ -21,3 +21,6 @@ email_alertas = ""
 
 # Varredura de vulnerabilidades das imagens (cobrada por imagem)
 # varredura_imagens = true
+
+# Captura automática de NF-e na Sefaz: empresa, certificado A1 e liga/desliga ficam na tela Empresa do app.
+# sefaz_agendador = false   # desliga o agendador (padrão: ligado)

@@ -55,10 +55,13 @@ export function ImportarXmlForm({
   obras,
   materiais = [],
   arquivoInicial,
+  xmlInicial,
 }: {
   obras: ObraRateio[];
   materiais?: MaterialCatalogo[];
   arquivoInicial?: File;
+  /** XML já em mãos no servidor (NF-e recebida da Sefaz). */
+  xmlInicial?: { nome: string; xml: string };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
@@ -94,9 +97,11 @@ export function ImportarXmlForm({
 
   const inicialLido = useRef(false);
   useEffect(() => {
-    if (arquivoInicial && !inicialLido.current) {
+    const inicial =
+      arquivoInicial ?? (xmlInicial ? new File([xmlInicial.xml], xmlInicial.nome, { type: "text/xml" }) : undefined);
+    if (inicial && !inicialLido.current) {
       inicialLido.current = true;
-      void escolherArquivo(arquivoInicial);
+      void escolherArquivo(inicial);
     }
     // só ao montar: o arquivo inicial não muda depois
     // eslint-disable-next-line react-hooks/exhaustive-deps

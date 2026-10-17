@@ -55,6 +55,45 @@ enum StatusParcela {
   PAGA
 }
 
+enum AmbienteSefaz {
+  HOMOLOGACAO
+  PRODUCAO
+}
+
+enum OrigemExecucaoSefaz {
+  AGENDADA
+  MANUAL
+}
+
+enum StatusExecucaoSefaz {
+  SUCESSO
+  SEM_NOVIDADES
+  PULADA
+  ERRO
+  BLOQUEADA
+}
+
+enum SituacaoDocumentoSefaz {
+  /// Só o resNFe: o XML completo chega depois da Ciência da Operação.
+  RESUMO
+  COMPLETO
+  CANCELADA
+}
+
+enum ManifestacaoSefaz {
+  PENDENTE
+  CIENCIA_ENVIADA
+  ERRO
+  /// Cancelada ou denegada: não há o que manifestar.
+  DISPENSADA
+}
+
+enum StatusDocumentoSefaz {
+  NOVA
+  LANCADA
+  DESCARTADA
+}
+
 model Usuario {
   id                String        @id @default(cuid())
   nome              String
@@ -167,24 +206,25 @@ model Fornecedor {
 }
 
 model NotaFiscal {
-  id            String        @id @default(cuid())
-  fornecedorId  String
-  fornecedor    Fornecedor    @relation(fields: [fornecedorId], references: [id])
-  numero        String
-  tipoDocumento TipoDocumento @default(NF)
-  chaveNfe      String?       @unique
-  dataCompra    DateTime
-  totalCents    Int
-  formaPagto    FormaPagto
-  obs           String?
-  anexoUrl      String?
-  anexoNome     String?
-  itens         ItemNota[]
-  rateios       RateioNota[]
-  parcelas      Parcela[]
-  createdBy     String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String           @id @default(cuid())
+  fornecedorId    String
+  fornecedor      Fornecedor       @relation(fields: [fornecedorId], references: [id])
+  numero          String
+  tipoDocumento   TipoDocumento    @default(NF)
+  chaveNfe        String?          @unique
+  dataCompra      DateTime
+  totalCents      Int
+  formaPagto      FormaPagto
+  obs             String?
+  anexoUrl        String?
+  anexoNome       String?
+  itens           ItemNota[]
+  rateios         RateioNota[]
+  parcelas        Parcela[]
+  documentosSefaz DocumentoSefaz[]
+  createdBy       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@unique([fornecedorId, numero])
   @@index([dataCompra])
@@ -341,4 +381,99 @@ model TentativaLogin {
   @@index([email, criadoEm])
   @@index([ip, criadoEm])
   @@index([criadoEm])
+}
+
+/// Posição na fila de distribuição da Sefaz (NFeDistribuicaoDFe), uma por CNPJ consultado.
+/// Consultar fora da sequência de NSU ou antes da janela de 1 h leva a bloqueio (cStat 656).
+model CursorSefaz {
+  cnpj              String    @id
+  ultNsu            String    @default("000000000000000")
+  maxNsu            String    @default("000000000000000")
+  /// Antes disso a Sefaz não deve ser consultada (fim da fila ou resposta 137).
+  proximaConsultaEm DateTime?
+  bloqueadoAte      DateTime?
+  /// Trava de execução: duas consultas simultâneas quebrariam a sequência de NSU.
+  travadoAte        DateTime?
+  ultimoCStat       String?
+  ultimoMotivo      String?
+  ultimaConsultaEm  DateTime?
+  atualizadoEm      DateTime  @updatedAt
+}
+
+model ExecucaoSefaz {
+  id             String              @id @default(cuid())
+  cnpj           String
+  origem         OrigemExecucaoSefaz
+  status         StatusExecucaoSefaz
+  iniciadaEm     DateTime            @default(now())
+  finalizadaEm   DateTime?
+  nsuInicial     String?
+  nsuFinal       String?
+  lotes          Int                 @default(0)
+  docsRecebidos  Int                 @default(0)
+  ciencias       Int                 @default(0)
+  cStat          String?
+  mensagem       String?
+  duracaoMs      Int?
+  disparadaPorId String?
+
+  @@index([iniciadaEm])
+  @@index([cnpj, iniciadaEm])
+}
+
+/// NF-e emitida contra o CNPJ da empresa, achada na distribuição da Sefaz. Vira NotaFiscal pelo fluxo de importação.
+model DocumentoSefaz {
+  id               String                 @id @default(cuid())
+  chave            String                 @unique
+  nsu              String
+  cnpjDestinatario String
+  emitenteDoc      String
+  emitenteNome     String
+  numero           String
+  serie            String
+  dataEmissao      DateTime
+  valorCents       Int
+  situacao         SituacaoDocumentoSefaz
+  manifestacao     ManifestacaoSefaz      @default(PENDENTE)
+  manifestacaoErro String?
+  manifestadoEm    DateTime?
+  /// procNFe guardado no storage (só quando COMPLETO).
+  xmlUrl           String?
+  status           StatusDocumentoSefaz   @default(NOVA)
+  notaFiscalId     String?
+  notaFiscal       NotaFiscal?            @relation(fields: [notaFiscalId], references: [id], onDelete: SetNull)
+  descartadoPorId  String?
+  recebidoEm       DateTime               @default(now())
+  atualizadoEm     DateTime               @updatedAt
+
+  @@index([status, situacao])
+  @@index([dataEmissao])
+  @@index([manifestacao])
+  @@index([notaFiscalId])
+}
+
+/// Empresa dona da plataforma (registro único, id "principal"): dados, CNPJs e o certificado A1 da captura Sefaz.
+model Empresa {
+  id                      String        @id @default("principal")
+  razaoSocial             String
+  nomeFantasia            String?
+  /// CNPJ da matriz, só dígitos e letras (CNPJ alfanumérico).
+  cnpj                    String
+  /// CNPJs das filiais que também recebem notas.
+  filiais                 String[]      @default([])
+  /// Sigla da UF (PR, SP...): vira o cUFAutor da consulta à Sefaz.
+  uf                      String        @default("PR")
+  capturaAtiva            Boolean       @default(false)
+  ambienteSefaz           AmbienteSefaz @default(HOMOLOGACAO)
+  /// PEM (chave + certificado) cifrado com AES-256-GCM (lib/cofre.ts); a senha do .pfx não é guardada.
+  certificadoCifrado      Bytes?
+  certificadoTitular      String?
+  certificadoCnpj         String?
+  /// Autoridade Certificadora que emitiu (ex.: AC SERASA RFB v5).
+  certificadoEmissor      String?
+  certificadoValidoDesde  DateTime?
+  certificadoValidoAte    DateTime?
+  certificadoEnviadoEm    DateTime?
+  certificadoEnviadoPorId String?
+  atualizadoEm            DateTime      @updatedAt
 }

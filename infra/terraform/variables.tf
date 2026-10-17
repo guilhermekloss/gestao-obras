@@ -136,3 +136,15 @@ variable "email_alertas" {
   type        = string
   default     = ""
 }
+
+variable "sefaz_agendador" {
+  description = "Agendador da captura de NF-e na Sefaz (Cloud Scheduler, grátis até 3 jobs). Quem liga a captura e envia o certificado é o Admin, na tela Empresa; sem isso, cada chamada termina na hora."
+  type        = bool
+  default     = true
+}
+
+variable "sefaz_ca_pem" {
+  description = "Opcional: cadeia ICP-Brasil em PEM, se o Node não confiar no certificado do servidor da Sefaz (ex.: file(\"icp-brasil.pem\"))."
+  type        = string
+  default     = ""
+}

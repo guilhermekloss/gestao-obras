@@ -14,7 +14,7 @@ const PASSO_BOTAO: PassoTour = {
   texto: "Este botão abre a ajuda a qualquer momento: guias, tour desta tela e perguntas.",
 };
 
-// Passos do menu do escritório; o Admin ganha também Usuários.
+// Passos do menu do escritório; o Admin ganha também Usuários, Empresa e Captura Sefaz.
 const MENU_GESTAO: PassoTour[] = [
   { alvo: menu("/dashboard"), titulo: "Dashboard", texto: "O resumo do dia: o que vence, o que está fora do lugar e como vão as obras." },
   { alvo: menu("/obras"), titulo: "Obras", texto: "Cadastre as obras e suas etapas. Cada obra tem resumo, cronograma, diário e equipe." },
@@ -33,6 +33,18 @@ const MENU_USUARIOS: PassoTour = {
   texto: "Convide a equipe por link e escolha o que cada pessoa pode ver.",
 };
 
+const MENU_EMPRESA: PassoTour = {
+  alvo: menu("/empresa"),
+  titulo: "Empresa",
+  texto: "Os dados da empresa, os CNPJs e o certificado digital usado para buscar as NF-e na Sefaz.",
+};
+
+const MENU_SEFAZ: PassoTour = {
+  alvo: menu("/sefaz"),
+  titulo: "Captura Sefaz",
+  texto: "Acompanhe a busca automática das NF-e emitidas contra o CNPJ da empresa.",
+};
+
 const BOAS_VINDAS = (papel: "ADMIN" | "ESCRITORIO"): Tour => ({
   id: papel === "ADMIN" ? "boas-vindas-admin" : "boas-vindas-escritorio",
   papeis: [papel],
@@ -44,7 +56,7 @@ const BOAS_VINDAS = (papel: "ADMIN" | "ESCRITORIO"): Tour => ({
         "Vamos ver o app em poucos passos. No celular, alguns itens do menu ficam em \"Mais\". Você pode refazer este tour quando quiser.",
     },
     ...MENU_GESTAO,
-    ...(papel === "ADMIN" ? [MENU_USUARIOS] : []),
+    ...(papel === "ADMIN" ? [MENU_USUARIOS, MENU_EMPRESA, MENU_SEFAZ] : []),
     PASSO_CONTA,
     PASSO_BOTAO,
   ],
@@ -151,6 +163,69 @@ export const TOURS: Tour[] = [
       {
         titulo: "Planejamento e Avanço",
         texto: "Em Planejamento você vê o Gantt e a Curva S. Em Avanço você informa quanto de cada etapa já foi feito.",
+      },
+    ],
+  },
+  {
+    id: "tela-empresa",
+    papeis: ["ADMIN"],
+    rotas: ["/empresa"],
+    passos: [
+      {
+        alvo: "#secao-dados-empresa",
+        titulo: "1. Dados da empresa",
+        texto: "Preencha razão social, CNPJ da matriz, filiais (um por linha) e UF. Clique em \"Salvar dados\". Sem isso, o certificado não pode ser enviado.",
+      },
+      {
+        alvo: "#guia-certificado",
+        titulo: "Ainda não tem o certificado?",
+        texto: "Aqui está o que ele precisa ter (e-CNPJ A1, arquivo .pfx), como pedir, quanto custa e quando vence.",
+      },
+      {
+        alvo: "#arquivo",
+        titulo: "2. Arquivo do certificado",
+        texto: "Escolha o arquivo .pfx ou .p12 do certificado e-CNPJ A1 da empresa. Não tem? Peça ao contador ou compre de uma Autoridade Certificadora.",
+      },
+      {
+        alvo: "#senha",
+        titulo: "3. Senha",
+        texto: "Digite a senha do certificado e clique em \"Enviar certificado\". O sistema confere senha, validade e CNPJ. A senha não fica guardada.",
+      },
+      {
+        alvo: "#secao-certificado",
+        titulo: "Certificado guardado",
+        texto: "Aqui aparecem o titular e a validade. O sistema avisa 30 dias antes de vencer: para renovar, envie o arquivo novo aqui.",
+      },
+      {
+        alvo: "#secao-captura",
+        titulo: "4. Ligar a captura",
+        texto: "Marque a busca automática, deixe em Homologação e clique em \"Salvar captura\". Depois de conferir em Captura Sefaz, troque para Produção.",
+      },
+    ],
+  },
+  {
+    id: "tela-captura-sefaz",
+    papeis: ["ADMIN"],
+    rotas: ["/sefaz"],
+    passos: [
+      {
+        alvo: "#sefaz-indicadores",
+        titulo: "Resumo",
+        texto: "Quantas NF-e estão prontas para lançar, quantas esperam o XML e se alguma Ciência deu erro.",
+      },
+      {
+        alvo: "#sefaz-cnpjs",
+        titulo: "CNPJs consultados",
+        texto: "A última e a próxima consulta de cada CNPJ. Clique em \"Consultar agora\" para buscar na hora; se a Sefaz ainda não liberou, o sistema avisa o horário.",
+      },
+      {
+        alvo: "#sefaz-certificado",
+        titulo: "Certificado A1",
+        texto: "Titular, validade e ambiente. Para trocar o certificado, use o botão que leva à tela Empresa.",
+      },
+      {
+        titulo: "Execuções e Documentos",
+        texto: "Na aba Execuções fica cada consulta e o retorno da Sefaz. Em Documentos, todas as notas recebidas e as Ciências com erro.",
       },
     ],
   },

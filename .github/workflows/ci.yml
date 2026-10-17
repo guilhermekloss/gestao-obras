@@ -30,6 +30,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://obras:obras@localhost:5432/gestao_obras
       AUTH_SECRET: somente-para-o-ci-nao-usar-em-producao
+      # chave do cofre (certificado A1 cifrado no banco) só para o e2e; em produção vem do Secret Manager
+      CHAVE_COFRE: Y2ktc29tZW50ZS10ZXN0ZS1uYW8tdXNhci1lbS1wcm8=
       AUTH_TRUST_HOST: "true"
       TZ: UTC
     steps:

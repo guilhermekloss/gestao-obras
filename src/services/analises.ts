@@ -6,6 +6,7 @@ import { BP_TOTAL, custoRateado } from "./rateio";
 import { realizadoPorEtapaTodas } from "./custos";
 import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
+import { carregarAlertasDaCaptura } from "./sefaz/painel";
 
 export type ClasseAbc = "A" | "B" | "C";
 
@@ -165,7 +166,10 @@ type TipoAlerta =
   | "ORCAMENTO_ESTOURO"
   | "ORCAMENTO_ATENCAO"
   | "PARCELA_VENCIDA"
-  | "NOTA_DIVERGENTE";
+  | "NOTA_DIVERGENTE"
+  | "SEFAZ_CERTIFICADO"
+  | "SEFAZ_FALHA"
+  | "NFE_RECEBIDA";
 
 export type Alerta = {
   id: string;
@@ -322,8 +326,11 @@ export function alertasDivergencia(notas: NotaParaAlerta[]): Alerta[] {
 const ORDEM_TIPO: Record<TipoAlerta, number> = {
   ORCAMENTO_ESTOURO: 0,
   PARCELA_VENCIDA: 1,
-  ORCAMENTO_ATENCAO: 2,
-  NOTA_DIVERGENTE: 3,
+  SEFAZ_CERTIFICADO: 2,
+  SEFAZ_FALHA: 3,
+  ORCAMENTO_ATENCAO: 4,
+  NOTA_DIVERGENTE: 5,
+  NFE_RECEBIDA: 6,
 };
 
 export function montarAlertas(entrada: {
@@ -379,8 +386,9 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
   );
 }
 
-export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]> {
-  const [etapas, realizado, parcelas, notas] = await Promise.all([
+/** `paraAdmin`: inclui os alertas da captura na Sefaz que só o ADMIN resolve (certificado, falhas). */
+export async function carregarAlertas(hoje: Date = new Date(), opcoes: { paraAdmin?: boolean } = {}): Promise<Alerta[]> {
+  const [etapas, realizado, parcelas, notas, captura] = await Promise.all([
     prisma.etapa.findMany({
       where: { orcamentoCents: { gt: 0 } },
       orderBy: [{ obra: { codigo: "asc" } }, { ordem: "asc" }],
@@ -405,9 +413,10 @@ export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]
         itens: { select: { totalCents: true } },
       },
     }),
+    carregarAlertasDaCaptura(opcoes.paraAdmin ?? false, hoje),
   ]);
 
-  return montarAlertas({
+  const alertas = montarAlertas({
     hoje,
     etapas: etapas.map((e) => ({
       etapaId: e.id,
@@ -434,4 +443,5 @@ export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]
       somaItensCents: n.itens.reduce((a, i) => a + i.totalCents, 0),
     })),
   });
+  return [...alertas, ...captura].sort((a, b) => ORDEM_TIPO[a.tipo] - ORDEM_TIPO[b.tipo]);
 }

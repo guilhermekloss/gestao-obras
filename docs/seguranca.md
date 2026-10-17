@@ -55,6 +55,7 @@ Mapa de como a plataforma se protege, do usuário à nuvem: o que existe, onde f
 
 - PostgreSQL gerenciado sem rede autorizada e com certificado de cliente obrigatório (só pelo Auth Proxy via IAM), proteção contra exclusão, backups diários (14) + PITR de 7 dias, dados em São Paulo.
 - Segredos (`DATABASE_URL`, `AUTH_SECRET`) gerados pelo Terraform e guardados no Secret Manager, replicados só no Brasil; leitura dos segredos fica no log de auditoria.
+- Certificado A1 da captura Sefaz: enviado pelo Admin na tela Empresa. É conferido (senha, validade, CNPJ da empresa) e guardado no banco cifrado com AES-256-GCM. A chave fica no Secret Manager (`CHAVE_COFRE`, gerada pelo Terraform; sem ela, derivada do `AUTH_SECRET`), então quem tem só o banco ou um backup não usa o certificado. A senha do `.pfx` não é guardada e vai ao `openssl` por variável de ambiente, não pela linha de comando. O painel mostra titular e validade, nunca a chave. A rota `/api/sefaz/sincronizar` só aceita o token OIDC da service account do agendador (e-mail e audiência conferidos). Tentativa recusada gera o evento `sefaz_gatilho_recusado`.
 - Dados pessoais tratados (LGPD): nome, e-mail, IP e horário de acesso dos usuários; CNPJ/CPF e telefone de fornecedores; fotos de obra. Tentativas de login são guardadas por 90 dias. Com `motor_ocr = "vision"` ou Gemini ligado, o documento é processado pelo Google fora do Brasil — registre isso no inventário de tratamento.
 
 ## Infraestrutura e entrega

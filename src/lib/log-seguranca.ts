@@ -5,7 +5,8 @@ type EventoSeguranca =
   | "sessao_revogada"
   | "senha_alterada"
   | "acesso_negado_arquivo"
-  | "upload_recusado";
+  | "upload_recusado"
+  | "sefaz_gatilho_recusado";
 
 export function eventoSeguranca(evento: EventoSeguranca, dados: Record<string, string | number | boolean | null> = {}) {
   console.warn(JSON.stringify({ severity: "WARNING", categoria: "seguranca", evento, ...dados }));

@@ -36,6 +36,8 @@ export type Nfe = {
   serie: string;
   dataEmissao: string;
   emitente: EmitenteNfe;
+  /** CNPJ/CPF do destinatário (dest), só dígitos; nulo quando a nota não identifica. */
+  destinatario: string | null;
   itens: ItemNfe[];
   totalCents: number;
   duplicatas: DuplicataNfe[];
@@ -183,6 +185,10 @@ export function parseNfeXml(xml: string): ResultadoNfe {
     fone: texto(no(emit?.enderEmit), "fone") ?? null,
   };
 
+  const dest = no(inf.dest);
+  // CNPJ alfanumérico (NT 2025) tem letras: só pontuação sai
+  const destinatario = (texto(dest, "CNPJ") ?? texto(dest, "CPF"))?.toUpperCase().replace(/[^0-9A-Z]/g, "") || null;
+
   const dets = lista(inf.det);
   if (dets.length === 0) return { ok: false, erro: "NF-e sem itens (det)." };
 
@@ -246,7 +252,7 @@ export function parseNfeXml(xml: string): ResultadoNfe {
 
   return {
     ok: true,
-    nfe: { chave, numero, serie, dataEmissao, emitente, itens, totalCents, duplicatas, formaPagto, avisos },
+    nfe: { chave, numero, serie, dataEmissao, emitente, destinatario, itens, totalCents, duplicatas, formaPagto, avisos },
   };
 }
 

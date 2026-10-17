@@ -61,16 +61,20 @@ export const excluirNota = acaoDeEscrita(
     if (pagas > 0) {
       return { ok: false, erro: "Nota possui parcelas pagas — não pode ser excluída." };
     }
-    const nota = await prisma.notaFiscal.delete({
-      where: { id },
-      select: {
-        numero: true,
-        tipoDocumento: true,
-        totalCents: true,
-        fornecedor: { select: { nome: true } },
-        rateios: { select: { obraId: true } },
-      },
-    });
+    // a NF-e capturada na Sefaz volta para a caixa de recebidas
+    const [, nota] = await prisma.$transaction([
+      prisma.documentoSefaz.updateMany({ where: { notaFiscalId: id }, data: { status: "NOVA", notaFiscalId: null } }),
+      prisma.notaFiscal.delete({
+        where: { id },
+        select: {
+          numero: true,
+          tipoDocumento: true,
+          totalCents: true,
+          fornecedor: { select: { nome: true } },
+          rateios: { select: { obraId: true } },
+        },
+      }),
+    ]);
     anotarAtividade({
       descricao: descricaoDoLancamento("Excluiu", nota, nota.fornecedor.nome),
       entidade: "nota",

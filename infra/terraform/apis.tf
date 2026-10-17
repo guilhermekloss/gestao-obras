@@ -20,6 +20,7 @@ locals {
     var.motor_ocr == "vision" ? ["vision.googleapis.com"] : [],
     var.gemini_habilitado ? ["aiplatform.googleapis.com"] : [],
     var.varredura_imagens ? ["containerscanning.googleapis.com"] : [],
+    var.sefaz_agendador ? ["cloudscheduler.googleapis.com"] : [],
   )
 }
 

@@ -111,6 +111,12 @@ describe("tours", () => {
     "/contas": ["src/app/(app)/contas/page.tsx", "src/app/(app)/contas/contas-client.tsx"],
     "/cronograma": ["src/app/(app)/cronograma/page.tsx"],
     "/diario/novo": ["src/app/(app)/diario/novo/rdo-form.tsx", "src/app/(app)/diario/novo/page.tsx"],
+    "/empresa": [
+      "src/app/(app)/empresa/page.tsx",
+      "src/app/(app)/empresa/formularios.tsx",
+      "src/app/(app)/empresa/guia-certificado.tsx",
+    ],
+    "/sefaz": ["src/app/(app)/sefaz/page.tsx"],
   };
 
   it("todo seletor #id dos tours de tela existe no código da página", () => {
