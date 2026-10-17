@@ -21,8 +21,8 @@ export const metadata: Metadata = { title: "Contas a pagar" };
 const VISOES = [
   { key: "hoje", label: "Vence hoje" },
   { key: "7dias", label: "Próximos 7 dias" },
-  { key: "semana", label: "Esta semana" },
-  { key: "mes", label: "Este mês" },
+  { key: "semana", label: "Até o fim da semana" },
+  { key: "mes", label: "Até o fim do mês" },
   { key: "vencidas", label: "Vencidas" },
   { key: "todas", label: "Todas abertas" },
   { key: "pagas", label: "Pagas" },
@@ -85,7 +85,11 @@ export default async function ContasPage({
   const [parcelas, fornecedores, obras] = await Promise.all([
     prisma.parcela.findMany({
       where,
-      orderBy: { vencimento: "asc" },
+      // pagas: as mais recentes primeiro (por vencimento, as pagas hoje ficariam além do limite)
+      orderBy:
+        visao === "pagas"
+          ? [{ pagaEm: { sort: "desc", nulls: "last" } }, { vencimento: "desc" }]
+          : { vencimento: "asc" },
       take: 300,
       include: {
         nota: {

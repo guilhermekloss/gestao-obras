@@ -16,7 +16,7 @@ npm run db:seed             # admin + 6 lotes com etapas padrão
 npm run dev                 # http://localhost:3000
 ```
 
-Leitura automática de foto/PDF de nota: nativa, sem serviço de IA externo — camada de texto do PDF, código de barras/QR e OCR local (Tesseract). `OCR_MOTOR=vision` usa o Google Cloud Vision (mais preciso em foto); `OCR_MOTOR=desligado` deixa foto/PDF só anexados. Na conferência, o botão **Analisar com IA** (Gemini, opcional: `GEMINI_PROJETO` ou `GEMINI_API_KEY`) relê o documento quando o índice de acerto é baixo. Após a leitura, um pop-up de conferência mostra todos os dados ao lado do documento e só grava após a confirmação do usuário; `CNPJS_EMPRESA` (opcional) confere o destinatário da nota. Detalhes em [`docs/leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md).
+Leitura automática de foto/PDF de nota: nativa, sem serviço de IA externo — camada de texto do PDF, código de barras/QR e OCR local (Tesseract). `OCR_MOTOR=vision` usa o Google Cloud Vision (mais preciso em foto); `OCR_MOTOR=desligado` deixa foto/PDF só anexados. `GEMINI_MODELO_ASSISTENTE` (opcional) troca o modelo das perguntas do assistente de navegação. Na conferência, o botão **Analisar com IA** (Gemini, opcional: `GEMINI_PROJETO` ou `GEMINI_API_KEY`) relê o documento quando o índice de acerto é baixo. Após a leitura, um pop-up de conferência mostra todos os dados ao lado do documento e só grava após a confirmação do usuário; `CNPJS_EMPRESA` (opcional) confere o destinatário da nota. Detalhes em [`docs/leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md).
 
 Login inicial: `admin@obras.local` / `admin123` (troque em **Minha conta**).
 
@@ -44,6 +44,7 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + 
 ## Estrutura
 
 - `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, materiais (catálogo + vínculo automático com os itens das notas), notas (lançamentos com envio único de foto/PDF/XML em `nova/` + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu)
+- `src/components/assistente/` + `src/services/assistente/` — assistente de navegação: pop-up de boas-vindas no primeiro login (`Usuario.assistenteVistoEm`), botão fixo, tour guiado, central de ajuda com os guias de cada fluxo (`guias.ts`, fonte única) e perguntas à IA (Gemini). Mudou uma tela? Atualize o guia dela.
 - `src/app/convite/[token]` — cadastro público pelo link de convite
 - `src/app/(app)/conta` — Minha conta: troca de senha, sair de todos os aparelhos, acessos recentes
 - `src/services/` — acesso (permissão por obra), senha (política), protecao-login (força bruta), arquivos (tipo pelo conteúdo, URLs aceitas), convite, atividade (catálogo do log, atuação por obra), parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), fornecedores, correspondencia-fornecedor, nfe-xml, leitura-documento (conferência da nota lida), leitor-nativo (foto/PDF → dados: texto do PDF, código de barras/QR, OCR) e leitor-gemini (Analisar com IA)

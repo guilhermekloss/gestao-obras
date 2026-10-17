@@ -125,6 +125,7 @@ export type UsuarioAtual = {
   email: string;
   role: Role;
   obrasPermitidas: RestricaoObras;
+  assistentePendente: boolean;
 };
 
 // Lido do banco a cada requisição (papel/desativação/revogação valem sem esperar o JWT); cache() memoiza por requisição.
@@ -143,6 +144,7 @@ export const usuarioAtual = cache(async (): Promise<UsuarioAtual | null> => {
       todasObras: true,
       ultimoAcessoEm: true,
       sessaoVersao: true,
+      assistenteVistoEm: true,
       obras: { select: { obraId: true } },
     },
   });
@@ -164,6 +166,7 @@ export const usuarioAtual = cache(async (): Promise<UsuarioAtual | null> => {
     email: usuario.email,
     role: usuario.role,
     obrasPermitidas: restricaoDeObras(usuario),
+    assistentePendente: usuario.assistenteVistoEm === null,
   };
 });
 

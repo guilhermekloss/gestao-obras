@@ -56,25 +56,27 @@ enum StatusParcela {
 }
 
 model Usuario {
-  id              String        @id @default(cuid())
-  nome            String
-  email           String        @unique
-  senhaHash       String
-  role            Role          @default(ESCRITORIO)
-  ativo           Boolean       @default(true)
+  id                String        @id @default(cuid())
+  nome              String
+  email             String        @unique
+  senhaHash         String
+  role              Role          @default(ESCRITORIO)
+  ativo             Boolean       @default(true)
   /// CAMPO: false limita o acesso às obras de `obras` (ADMIN e ESCRITORIO veem todas sempre).
-  todasObras      Boolean       @default(true)
-  criadoEm        DateTime      @default(now())
-  ultimoAcessoEm  DateTime?
+  todasObras        Boolean       @default(true)
+  criadoEm          DateTime      @default(now())
+  ultimoAcessoEm    DateTime?
   /// Incrementada ao trocar a senha ou encerrar as sessões: JWTs emitidos com outra versão deixam de valer.
-  sessaoVersao    Int           @default(0)
-  obras           UsuarioObra[]
-  diarios         DiarioObra[]
-  medicoes        Medicao[]
-  atividades      Atividade[]
-  convitesCriados Convite[]     @relation("ConviteCriadoPor")
-  conviteAceito   Convite?      @relation("ConviteAceito")
-  arquivos        Arquivo[]
+  sessaoVersao      Int           @default(0)
+  /// Quando a pessoa passou pelo assistente de navegação (pop-up de boas-vindas); nulo = ainda vai ver.
+  assistenteVistoEm DateTime?
+  obras             UsuarioObra[]
+  diarios           DiarioObra[]
+  medicoes          Medicao[]
+  atividades        Atividade[]
+  convitesCriados   Convite[]     @relation("ConviteCriadoPor")
+  conviteAceito     Convite?      @relation("ConviteAceito")
+  arquivos          Arquivo[]
 }
 
 model UsuarioObra {

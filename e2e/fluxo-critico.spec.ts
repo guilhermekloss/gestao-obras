@@ -81,6 +81,7 @@ test("papel campo não vê dados financeiros", async ({ page }) => {
       email: emailCampo,
       senhaHash: await hash("campo123", 10),
       role: "CAMPO",
+      assistenteVistoEm: new Date(),
     },
   });
 

@@ -177,7 +177,58 @@ Fase 1  (worktrees paralelos)  ├─ A3 Planejamento┼─ Fase 2  Integrador �
 
 ---
 
-## 5. Decisões tomadas
+## 5. Auditoria de fluxos (out/2026)
+
+Comparação do fluxo completo (obra → orçamento → lançamento com rateio → parcelas → contas a pagar →
+avanço/RDO → dashboard) com o mercado. Tabela de cobertura e motivos de cada lacuna em
+[`assistente-e-fluxos.md`](assistente-e-fluxos.md#5-auditoria-de-fluxos--mercado).
+
+### Prioridades
+
+| Prioridade | Lacuna | Onde entra |
+|---|---|---|
+| **Alta** | Contratos de empreiteiro com medição e retenções (caução, INSS, ISS) | **2.1** (já previsto) |
+| **Alta** | Compras: solicitação → cotação com mapa → pedido → recebimento → NF vinculada; comprometido × realizado | **2.2** (já previsto; acrescentar custo comprometido) |
+| **Alta** | Contas a receber, receita e margem por obra, fluxo de caixa realizado (pagaEm) + projetado com saldo | **2.3** (já previsto) |
+| **Alta** | Pagamento com conta, juros/multa/desconto e pagamento parcial | Onda 2 — adições |
+| **Alta** | Aprovação de pagamento por alçada | Onda 2 — adições |
+| Média (financeiro) | Contas por obra mostram a parcela inteira, não a parte do rateio; vencimento fixo de cartão (dia 20) e boleto (30 dias); limite de 6 parcelas no formulário; índice de dependência com Folha/Guia e descrição; consultas para agregação SQL | Onda 2 — adições (SQL junto da Fase 0 transversal) |
+| Média | Cadastro de obra (cliente, área, contrato, término, ART/RRT) e transições de status; EAP, dependências e linha de base; RDO com aprovação e vínculo ao avanço; cancelamento de nota; retenções como dado; gravação atômica na conferência; série na unicidade da NF-e; XML com destinatário e cStat; orçamento com itens/BDI | Onda 2 — adições / backlog |
+| Baixa | Aditivos; documentos (2.4); estoque; FVS; exportação CSV/PDF; PIX do fornecedor e deduplicação; desativar material; portal do cliente; WhatsApp; link para `/importar` | Onda 3 / backlog |
+
+### Quick wins feitos neste ciclo
+
+- [x] Aba "Pagas" ordenada por data de pagamento.
+- [x] "Reabrir parcela" pede confirmação.
+- [x] Campo "Data do pagamento" (sem data futura).
+- [x] Rótulos "Até o fim da semana/mês".
+- [x] Filtro "Situação" no Fluxo mensal, com explicação custo × caixa.
+- [x] "Conferir notas" leva a `/notas?divergentes=1`, com selo "Itens ≠ total".
+- [x] Alertas mostram o rótulo do tipo de documento.
+- [x] Aviso de data de compra futura também no servidor.
+- [x] Rótulo "Chave NF-e".
+- [x] Importador de planilha valida CNPJ e normaliza duplicidade.
+- [x] Avanço físico sem data futura e coerente com as medições vizinhas.
+
+### Assistente de navegação
+
+Pop-up de boas-vindas, tour, central de ajuda e perguntas à IA: ver
+[`assistente-e-fluxos.md`](assistente-e-fluxos.md). Visual em [`identidade-visual.md`](identidade-visual.md).
+
+### Fontes consultadas
+
+- Sienge: [gestão financeira na construção](https://sienge.com.br/blog/gestao-financeira-na-construcao/),
+  [regime de caixa e de competência](https://sienge.com.br/blog/regime-de-caixa-e-regime-de-competencia/),
+  [fluxograma do processo de compras](https://sienge.com.br/blog/fluxograma-do-processo-de-compras/),
+  [suprimentos na construção civil](https://www.sienge.com.br/blog/como-gerenciar-suprimentos-na-construcao-civil/)
+- Omie: [ERP para construção civil — módulos e funções](https://www.omie.com.br/blog/erp-para-construcao-civil-conheca-os-modulos-e-as-funcoes/index.md)
+- OrçaFascio: [gestão de projetos de obras](https://www.orcafascio.com/papodeengenheiro/gestao-de-projetos-de-obras),
+  [compras](https://www.orcafascio.com/compras/)
+- Benchmark da seção 1 deste documento.
+
+---
+
+## 6. Decisões tomadas
 
 1. **Importar CSV** sai do menu (rota `/importar` continua acessível; código removido num ciclo futuro).
 2. **Medições** vira a aba "Avanço" do Cronograma e sai do menu.

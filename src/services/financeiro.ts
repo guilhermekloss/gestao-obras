@@ -109,3 +109,9 @@ export function gerarNumeroDocumento(
   }
   return `${prefixo}-${String(maior + 1).padStart(4, "0")}`;
 }
+
+export type SituacaoFluxo = "aberta" | "paga" | "todas";
+
+export function parseSituacaoFluxo(valor: string | undefined): SituacaoFluxo {
+  return valor === "aberta" || valor === "paga" ? valor : "todas";
+}

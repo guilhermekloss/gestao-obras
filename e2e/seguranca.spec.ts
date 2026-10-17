@@ -21,7 +21,7 @@ async function entrar(page: Page, email: string, senha = SENHA) {
 let contador = 0;
 async function criarUsuario(role: "ADMIN" | "ESCRITORIO" | "CAMPO") {
   const email = `seg-${role.toLowerCase()}-${++contador}-${sufixo}@obras.local`;
-  await prisma.usuario.create({ data: { nome: `Seg ${role}`, email, role, senhaHash: await hash(SENHA, 4) } });
+  await prisma.usuario.create({ data: { nome: `Seg ${role}`, email, role, senhaHash: await hash(SENHA, 4), assistenteVistoEm: new Date() } });
   return email;
 }
 

@@ -4,14 +4,22 @@ import { prisma } from "@/lib/prisma";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
 import { formatarMoeda } from "@/lib/format";
+import { validarDataPagamento } from "@/services/parcelas";
 
 export const pagarParcelas = acaoDeEscrita(
   { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ["/contas", "/notas"], atividade: "parcela.pagar" },
-  async (_user, ids: string[]): Promise<ActionResult> => {
+  async (_user, ids: string[], dataPagamento?: string): Promise<ActionResult> => {
     if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string" || id.length > 64) || ids.length > 1000) {
       return { ok: false, erro: "Seleção inválida" };
     }
     if (ids.length === 0) return { ok: false, erro: "Nenhuma parcela selecionada" };
+    // sem data (chamadas antigas) = agora
+    let pagaEm = new Date();
+    if (dataPagamento !== undefined) {
+      const data = validarDataPagamento(dataPagamento);
+      if (!data.ok) return { ok: false, erro: data.erro };
+      pagaEm = data.data;
+    }
 
     const abertas = await prisma.parcela.findMany({
       where: { id: { in: ids }, status: "ABERTA" },
@@ -19,7 +27,7 @@ export const pagarParcelas = acaoDeEscrita(
     });
     await prisma.parcela.updateMany({
       where: { id: { in: abertas.map((p) => p.id) }, status: "ABERTA" },
-      data: { status: "PAGA", pagaEm: new Date() },
+      data: { status: "PAGA", pagaEm },
     });
 
     if (abertas.length === 0) {
