@@ -31,7 +31,7 @@ export default async function EmpresaPage() {
         </p>
       </div>
 
-      <Card>
+      <Card id="secao-dados-empresa" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Dados da empresa</CardTitle>
         </CardHeader>
@@ -52,7 +52,7 @@ export default async function EmpresaPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="secao-certificado" className="scroll-mt-24">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="size-5" /> Certificado digital A1 (e-CNPJ)
@@ -105,7 +105,7 @@ export default async function EmpresaPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="secao-captura" className="scroll-mt-24">
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle>Captura de NF-e na Sefaz</CardTitle>
           <Button variant="outline" size="sm" render={<Link href="/sefaz" />}>

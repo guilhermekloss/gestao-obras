@@ -167,6 +167,64 @@ export const TOURS: Tour[] = [
     ],
   },
   {
+    id: "tela-empresa",
+    papeis: ["ADMIN"],
+    rotas: ["/empresa"],
+    passos: [
+      {
+        alvo: "#secao-dados-empresa",
+        titulo: "1. Dados da empresa",
+        texto: "Preencha razão social, CNPJ da matriz, filiais (um por linha) e UF. Clique em \"Salvar dados\". Sem isso, o certificado não pode ser enviado.",
+      },
+      {
+        alvo: "#arquivo",
+        titulo: "2. Arquivo do certificado",
+        texto: "Escolha o arquivo .pfx ou .p12 do certificado e-CNPJ A1 da empresa. Não tem? Peça ao contador ou compre de uma Autoridade Certificadora.",
+      },
+      {
+        alvo: "#senha",
+        titulo: "3. Senha",
+        texto: "Digite a senha do certificado e clique em \"Enviar certificado\". O sistema confere senha, validade e CNPJ. A senha não fica guardada.",
+      },
+      {
+        alvo: "#secao-certificado",
+        titulo: "Certificado guardado",
+        texto: "Aqui aparecem o titular e a validade. O sistema avisa 30 dias antes de vencer: para renovar, envie o arquivo novo aqui.",
+      },
+      {
+        alvo: "#secao-captura",
+        titulo: "4. Ligar a captura",
+        texto: "Marque a busca automática, deixe em Homologação e clique em \"Salvar captura\". Depois de conferir em Captura Sefaz, troque para Produção.",
+      },
+    ],
+  },
+  {
+    id: "tela-captura-sefaz",
+    papeis: ["ADMIN"],
+    rotas: ["/sefaz"],
+    passos: [
+      {
+        alvo: "#sefaz-indicadores",
+        titulo: "Resumo",
+        texto: "Quantas NF-e estão prontas para lançar, quantas esperam o XML e se alguma Ciência deu erro.",
+      },
+      {
+        alvo: "#sefaz-cnpjs",
+        titulo: "CNPJs consultados",
+        texto: "A última e a próxima consulta de cada CNPJ. Clique em \"Consultar agora\" para buscar na hora; se a Sefaz ainda não liberou, o sistema avisa o horário.",
+      },
+      {
+        alvo: "#sefaz-certificado",
+        titulo: "Certificado A1",
+        texto: "Titular, validade e ambiente. Para trocar o certificado, use o botão que leva à tela Empresa.",
+      },
+      {
+        titulo: "Execuções e Documentos",
+        texto: "Na aba Execuções fica cada consulta e o retorno da Sefaz. Em Documentos, todas as notas recebidas e as Ciências com erro.",
+      },
+    ],
+  },
+  {
     id: "tela-novo-rdo",
     papeis: ["ADMIN", "ESCRITORIO", "CAMPO"],
     rotas: ["/diario/novo"],

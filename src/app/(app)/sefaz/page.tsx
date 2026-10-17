@@ -154,7 +154,7 @@ async function AbaVisao() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div id="sefaz-indicadores" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador titulo="NF-e a lançar" valor={p.aLancar} href="/notas/recebidas" alerta={p.aLancar > 0} detalhe="com XML completo" />
         <Indicador titulo="Aguardando XML" valor={p.aguardandoXml} detalhe="Ciência feita ou pendente" />
         <Indicador titulo="Recebidas" valor={p.docs24h} detalhe={`24 h · ${p.docs7d} em 7 dias`} />
@@ -167,7 +167,7 @@ async function AbaVisao() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card>
+        <Card id="sefaz-cnpjs">
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle>CNPJs consultados</CardTitle>
             <BotaoConsultarAgora desabilitado={!config.habilitado || p.cnpjs.length === 0} />
@@ -231,7 +231,7 @@ async function AbaVisao() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="sefaz-certificado">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="size-5" /> Certificado A1
