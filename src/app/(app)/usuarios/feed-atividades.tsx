@@ -57,7 +57,7 @@ export function FeedAtividades({
                   ))}
                 {mostrarUsuario && " · "}
                 {a.link ? (
-                  <Link href={a.link} className="hover:underline">
+                  <Link href={a.link} className="-my-3 inline-block py-3 hover:underline">
                     {a.descricao}
                   </Link>
                 ) : (
@@ -69,7 +69,7 @@ export function FeedAtividades({
                   {formatarTempoRelativo(a.criadoEm, agora)}
                 </time>
                 {a.obras.map((o) => (
-                  <Link key={o.id} href={`/obras/${o.id}`} className="hover:text-foreground hover:underline">
+                  <Link key={o.id} href={`/obras/${o.id}`} className="-my-3 py-3 hover:text-foreground hover:underline">
                     {o.nome}
                   </Link>
                 ))}

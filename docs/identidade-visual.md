@@ -43,6 +43,13 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 ## Regras de interface
 - Alvo de toque ≥ 44 px: `Button` sobe para 45 px em ponteiro grosso (`pointer-coarse:`). Ícones pequenos e checkboxes ganham área de toque maior que o desenho.
 - Foco de teclado: anel de 3 px em azul-planta, nunca removido.
+- **Nome acessível:** botão só com ícone leva `aria-label` (`title` sozinho não basta). `ConfirmButton` recebe `rotulo`; o gatilho de `FormDialog` é o próprio `Button` (sem `<span>` por fora, que criava controle dentro de controle).
+- **Campos de filtro:** todo `<label>` leva `htmlFor` e o controle leva o mesmo `id` (`ComboboxFiltro` aceita `id`). `Combobox` expõe `role="combobox"` e a lista como `listbox`.
+- **Títulos:** um `h1` por tela, com `<title>` próprio (`metadata` da página, modelo "Tela · Gestão de Obras"). Título de cartão (`CardTitle`) e de seção recolhível (`AccordionTrigger`) são `h2`; dentro de um bloco que já tem `h2`, use `CardTitle nivel={3}`.
+- **Voltar e abas:** `LinkVoltar` e `AbasDaPagina` (`src/components/`) já trazem alvo de 44 px; a aba atual leva `aria-current="page"`.
+- **Estado de erro** (botão e selo destrutivos, alerta de erro) usa o par `estado-vencido` / `estado-vencido-fg`: o vermelho translúcido dava 4,3:1.
+- **Escala de espaçamento:** 0, 0,5, 1, 1,5, 2, 3, 4, 5, 6, 8, 10, 12… (`gap-2.5`, `p-3.5`, `py-2.5` ficam de fora). Exceção conhecida: `md:mt-7` do botão "Remover" do rateio, que alinha com a base do campo ao lado.
+- **Regressão:** `e2e/acessibilidade.spec.ts` confere, no celular, `h1`, `<title>`, nome acessível e alvo de 44 px em cada tela do menu.
 - Movimento só em resposta a ação do usuário; `prefers-reduced-motion` zera animações e transições.
 - Botão com verbo: "Salvar lançamento", "Registrar RDO", "Marcar como pagas".
 - Tema claro (padrão) e escuro ("Prancheta noturna"): botão no cabeçalho. A escolha vai no cookie `tema` e o servidor já entrega o `<html>` com a classe `dark` (sem piscar e sem script inline, por causa do CSP). A cor da barra do navegador (`generateViewport`) acompanha o tema. O bloco `.dark` só vale em tela: a impressão do RDO é sempre clara.
