@@ -17,11 +17,12 @@ describe("itensPara: permissões por papel", () => {
       "/cronograma",
       "/orcamento",
       "/usuarios",
+      "/sefaz",
     ]);
   });
 
-  it("ESCRITORIO vê tudo, menos Usuários", () => {
-    expect(rotas("ESCRITORIO")).toEqual(rotas("ADMIN").filter((r) => r !== "/usuarios"));
+  it("ESCRITORIO vê tudo, menos Usuários e Captura Sefaz", () => {
+    expect(rotas("ESCRITORIO")).toEqual(rotas("ADMIN").filter((r) => r !== "/usuarios" && r !== "/sefaz"));
   });
 
   it("CAMPO vê só Obras, Diário e Cronograma", () => {

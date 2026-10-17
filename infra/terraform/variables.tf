@@ -136,3 +136,35 @@ variable "email_alertas" {
   type        = string
   default     = ""
 }
+
+variable "sefaz_habilitado" {
+  description = "Captura automática de NF-e emitidas contra o CNPJ (NFeDistribuicaoDFe). Antes de ligar, grave o certificado A1 no secret <app>-sefaz-cert-pem (docs/captura-sefaz.md)."
+  type        = bool
+  default     = false
+}
+
+variable "sefaz_ambiente" {
+  description = "homologacao (testes, notas sem valor fiscal) ou producao."
+  type        = string
+  default     = "homologacao"
+  validation {
+    condition     = contains(["homologacao", "producao"], var.sefaz_ambiente)
+    error_message = "sefaz_ambiente deve ser homologacao ou producao."
+  }
+}
+
+variable "sefaz_uf_autor" {
+  description = "Código IBGE da UF da empresa (cUFAutor na consulta). 41 = Paraná."
+  type        = string
+  default     = "41"
+  validation {
+    condition     = can(regex("^[0-9]{2}$", var.sefaz_uf_autor))
+    error_message = "sefaz_uf_autor deve ter 2 dígitos (ex.: 41)."
+  }
+}
+
+variable "sefaz_ca_pem" {
+  description = "Opcional: cadeia ICP-Brasil em PEM, se o Node não confiar no certificado do servidor da Sefaz (ex.: file(\"icp-brasil.pem\"))."
+  type        = string
+  default     = ""
+}

@@ -21,3 +21,8 @@ email_alertas = ""
 
 # Varredura de vulnerabilidades das imagens (cobrada por imagem)
 # varredura_imagens = true
+
+# Captura automática de NF-e na Sefaz (docs/captura-sefaz.md). Grave o certificado antes de ligar.
+# sefaz_habilitado = true
+# sefaz_ambiente   = "homologacao"   # "producao" depois de validar
+# sefaz_uf_autor   = "41"            # Paraná

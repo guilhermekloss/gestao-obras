@@ -11,6 +11,7 @@ import {
   PiggyBank,
   Users,
   UserRound,
+  FileSearch,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ export const ITENS: NavItem[] = [
   { href: "/cronograma", label: "Cronograma", icon: ChartGantt, papeis: ["ADMIN", "ESCRITORIO", "CAMPO"] },
   { href: "/orcamento", label: "Orçamento", icon: PiggyBank, papeis: ["ADMIN", "ESCRITORIO"] },
   { href: "/usuarios", label: "Usuários", icon: Users, papeis: ["ADMIN"] },
+  { href: "/sefaz", label: "Captura Sefaz", icon: FileSearch, papeis: ["ADMIN"] },
 ];
 
 // páginas sem item no menu, mas com título no cabeçalho

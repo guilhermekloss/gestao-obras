@@ -14,7 +14,7 @@ const PASSO_BOTAO: PassoTour = {
   texto: "Este botão abre a ajuda a qualquer momento: guias, tour desta tela e perguntas.",
 };
 
-// Passos do menu do escritório; o Admin ganha também Usuários.
+// Passos do menu do escritório; o Admin ganha também Usuários e Captura Sefaz.
 const MENU_GESTAO: PassoTour[] = [
   { alvo: menu("/dashboard"), titulo: "Dashboard", texto: "O resumo do dia: o que vence, o que está fora do lugar e como vão as obras." },
   { alvo: menu("/obras"), titulo: "Obras", texto: "Cadastre as obras e suas etapas. Cada obra tem resumo, cronograma, diário e equipe." },
@@ -33,6 +33,12 @@ const MENU_USUARIOS: PassoTour = {
   texto: "Convide a equipe por link e escolha o que cada pessoa pode ver.",
 };
 
+const MENU_SEFAZ: PassoTour = {
+  alvo: menu("/sefaz"),
+  titulo: "Captura Sefaz",
+  texto: "Acompanhe a busca automática das NF-e emitidas contra o CNPJ da empresa.",
+};
+
 const BOAS_VINDAS = (papel: "ADMIN" | "ESCRITORIO"): Tour => ({
   id: papel === "ADMIN" ? "boas-vindas-admin" : "boas-vindas-escritorio",
   papeis: [papel],
@@ -44,7 +50,7 @@ const BOAS_VINDAS = (papel: "ADMIN" | "ESCRITORIO"): Tour => ({
         "Vamos ver o app em poucos passos. No celular, alguns itens do menu ficam em \"Mais\". Você pode refazer este tour quando quiser.",
     },
     ...MENU_GESTAO,
-    ...(papel === "ADMIN" ? [MENU_USUARIOS] : []),
+    ...(papel === "ADMIN" ? [MENU_USUARIOS, MENU_SEFAZ] : []),
     PASSO_CONTA,
     PASSO_BOTAO,
   ],

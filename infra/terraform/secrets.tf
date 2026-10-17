@@ -40,3 +40,17 @@ resource "google_secret_manager_secret_version" "auth_secret" {
   secret      = google_secret_manager_secret.auth_secret.id
   secret_data = random_password.auth_secret.result
 }
+
+# Certificado A1 (PEM: chave + certificado). Só o recipiente: a versão é gravada à mão com gcloud
+# (docs/captura-sefaz.md), para a chave privada nunca passar pelo state do Terraform.
+resource "google_secret_manager_secret" "sefaz_cert_pem" {
+  secret_id = "${var.app_name}-sefaz-cert-pem"
+  replication {
+    user_managed {
+      replicas {
+        location = var.region
+      }
+    }
+  }
+  depends_on = [google_project_service.apis]
+}

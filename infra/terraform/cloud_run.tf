@@ -108,6 +108,31 @@ resource "google_cloud_run_v2_service" "app" {
           value = var.cnpjs_empresa
         }
       }
+      dynamic "env" {
+        for_each = { for k, v in {
+          SEFAZ_HABILITADO      = "true"
+          SEFAZ_AMBIENTE        = var.sefaz_ambiente
+          SEFAZ_UF_AUTOR        = var.sefaz_uf_autor
+          SEFAZ_AGENDADOR_EMAIL = google_service_account.agendador.email
+          SEFAZ_CA_PEM          = var.sefaz_ca_pem
+        } : k => v if var.sefaz_habilitado && v != "" }
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+      dynamic "env" {
+        for_each = var.sefaz_habilitado ? [1] : []
+        content {
+          name = "SEFAZ_CERT_PEM"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.sefaz_cert_pem.secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
 
       startup_probe {
         http_get {

@@ -118,6 +118,28 @@ export const GUIAS: Guia[] = [
     ],
   },
   {
+    id: "nfe-recebidas",
+    titulo: "NF-e recebidas da Sefaz",
+    papeis: ["ADMIN", "ESCRITORIO"],
+    link: "/notas/recebidas",
+    rotas: ["/notas/recebidas"],
+    paraQueServe:
+      "Lançar as NF-e que os fornecedores emitiram contra o CNPJ da empresa, sem esperar o XML chegar por e-mail.",
+    passoAPasso: [
+      "Em Lançamentos, clique em \"NF-e recebidas\". O número no botão mostra quantas estão prontas.",
+      "Na nota \"Pronta para lançar\", clique em \"Lançar\": abre a importação de XML já preenchida.",
+      "Confira os itens, divida entre as obras e ajuste as parcelas. Clique em \"Importar nota\".",
+      "Compra que não é da empresa ou já tratada fora do sistema? Clique em \"Descartar\".",
+    ],
+    regras: [
+      "O sistema consulta a Sefaz sozinho, de hora em hora.",
+      "Primeiro chega só o resumo da nota. O sistema registra a Ciência da Operação e o XML completo chega em até 1 a 2 horas.",
+      "A Ciência só diz que a empresa viu a nota. Não confirma a compra.",
+      "Ao lançar, a nota sai da lista. Se o lançamento for excluído, ela volta.",
+      "NFC-e (cupom fiscal) não vem pela Sefaz: lance pela foto ou pelo XML.",
+    ],
+  },
+  {
     id: "rateio",
     titulo: "Rateio entre obras",
     papeis: ["ADMIN", "ESCRITORIO"],
@@ -352,6 +374,27 @@ export const GUIAS: Guia[] = [
       "Só o Admin vê esta tela.",
     ],
     dicas: ["Quem tem o link entra e escolhe a própria senha. Link vencido? Gere um \"Novo link\"."],
+  },
+  {
+    id: "sefaz",
+    titulo: "Captura de NF-e na Sefaz",
+    papeis: ["ADMIN"],
+    link: "/sefaz",
+    rotas: ["/sefaz"],
+    paraQueServe: "Acompanhar se a busca automática de NF-e na Sefaz está funcionando e resolver o que travar.",
+    passoAPasso: [
+      "Em Captura Sefaz, a aba Visão geral mostra cada CNPJ, a última e a próxima consulta e o certificado A1.",
+      "Para buscar na hora, clique em \"Consultar agora\". Se a Sefaz ainda não liberou, o sistema avisa o horário.",
+      "Na aba Execuções, veja cada consulta e o retorno da Sefaz.",
+      "Na aba Documentos, filtre as notas. Em Ciência com erro, clique em \"Ciência\" para reenviar.",
+    ],
+    regras: [
+      "A Sefaz só deixa consultar de novo 1 hora depois que a fila acaba. O sistema respeita isso sozinho.",
+      "Consulta fora da regra bloqueia o CNPJ por 1 hora (código 656). O painel mostra até quando.",
+      "O certificado A1 vence todo ano. O painel e o dashboard avisam 30 dias antes.",
+      "Só o Admin vê esta tela.",
+    ],
+    dicas: ["Trocou o certificado? A captura volta depois do próximo deploy. Veja docs/captura-sefaz.md."],
   },
   {
     id: "conta",

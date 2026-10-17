@@ -252,6 +252,13 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
       data: { ...dadosNota, chaveNfe: l.chaveNfe || null, createdBy: l.criadoPor },
     });
     notaId = nota.id;
+    // a NF-e capturada na Sefaz sai da caixa de recebidas, venha o lançamento do XML, da foto ou do formulário
+    if (l.chaveNfe) {
+      await tx.documentoSefaz.updateMany({
+        where: { chave: l.chaveNfe, status: { not: "LANCADA" } },
+        data: { status: "LANCADA", notaFiscalId: nota.id },
+      });
+    }
   }
   const idDaNota = notaId;
 

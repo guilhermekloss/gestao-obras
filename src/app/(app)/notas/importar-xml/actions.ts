@@ -167,6 +167,7 @@ export const importarNfe = acaoDeEscrita(
       valorCents: nfe.totalCents,
     });
     revalidatePath("/notas");
+    revalidatePath("/notas/recebidas");
     revalidatePath("/contas");
     revalidatePath("/materiais");
     if (r.fornecedorCriado) revalidatePath("/fornecedores");

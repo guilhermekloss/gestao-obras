@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { SelectNativo } from "@/components/select-nativo";
 import { formatarMoeda, formatarData } from "@/lib/format";
 import { listarObrasParaFiltro } from "@/services/obras";
+import { contarRecebidas } from "@/services/sefaz/painel";
 import {
   FORMA_PAGTO_LABELS,
   TIPO_DOCUMENTO_BADGE,
@@ -20,7 +21,7 @@ import {
   TIPOS_DOCUMENTO,
   parseTipoDocumento,
 } from "@/services/financeiro";
-import { FileCode2, Paperclip, Plus } from "lucide-react";
+import { FileCode2, FileSearch, Paperclip, Plus } from "lucide-react";
 
 export const metadata: Metadata = { title: "Lançamentos" };
 
@@ -148,7 +149,7 @@ export default async function NotasPage({
     where.id = { in: ids.slice(0, 200) };
   }
 
-  const [notasDb, fornecedores, obras] = await Promise.all([
+  const [notasDb, fornecedores, obras, recebidas] = await Promise.all([
     prisma.notaFiscal.findMany({
       where,
       orderBy: { dataCompra: "desc" },
@@ -161,6 +162,7 @@ export default async function NotasPage({
     }),
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
     listarObrasParaFiltro(),
+    contarRecebidas(),
   ]);
 
   const notas: Nota[] = notasDb.map((n) => ({ ...n, divergente: soDivergentes }));
@@ -171,6 +173,14 @@ export default async function NotasPage({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl md:text-3xl">Lançamentos</h1>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" render={<Link href="/notas/recebidas" />}>
+            <FileSearch className="size-4" /> NF-e recebidas
+            {recebidas > 0 && (
+              <Badge variant="secondary" className="ml-1" aria-label={`${recebidas} a lançar`}>
+                {recebidas}
+              </Badge>
+            )}
+          </Button>
           <Button variant="outline" render={<Link href="/notas/importar-xml" />}>
             <FileCode2 className="size-4" /> Importar XML
           </Button>
