@@ -8,7 +8,7 @@ const { fonteDaEmpresa, montarConfig, situacaoDaConfig } = await import("../conf
 const { gerarPemDeTeste } = await import("./certificado-teste");
 
 const CHAVE = randomBytes(32);
-const abrir = (d: Uint8Array) => decifrar(d, CHAVE);
+const abrir = (d: Uint8Array) => decifrar(d, { 1: CHAVE });
 let pem: string;
 
 beforeAll(() => {
@@ -25,7 +25,7 @@ function empresa(campos: Partial<Empresa> = {}): Empresa {
     uf: "SC",
     capturaAtiva: true,
     ambienteSefaz: "PRODUCAO",
-    certificadoCifrado: cifrar(pem, CHAVE),
+    certificadoCifrado: cifrar(pem, { 1: CHAVE }),
     certificadoTitular: null,
     certificadoCnpj: "11222333000181",
     certificadoValidoAte: null,
@@ -56,7 +56,7 @@ describe("fonteDaEmpresa", () => {
     expect(situacaoDaConfig(fonteDaEmpresa(empresa({ certificadoCifrado: null }), {}, abrir)).erroCertificado).toBe(
       "Certificado A1 não enviado: cadastre em Empresa.",
     );
-    const outraChave = (d: Uint8Array) => decifrar(d, randomBytes(32));
+    const outraChave = (d: Uint8Array) => decifrar(d, { 1: randomBytes(32) });
     expect(situacaoDaConfig(fonteDaEmpresa(empresa(), {}, outraChave)).erroCertificado).toMatch(/Envie o \.pfx de novo/);
   });
 

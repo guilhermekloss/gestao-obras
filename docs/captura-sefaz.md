@@ -87,12 +87,15 @@ Tudo é feito pelo Admin, no menu **Empresa**, sem mexer no Google Cloud.
 - O `.pfx` é convertido para PEM pelo `openssl` da imagem (`src/services/sefaz/pfx.ts`). A senha vai por
   variável de ambiente do processo filho, nunca na linha de comando.
 - A senha não é guardada.
-- O PEM (chave e certificado) fica no banco cifrado com **AES-256-GCM** (`src/lib/cofre.ts`). A chave do cofre,
-  `CHAVE_COFRE`, é gerada pelo Terraform e fica no Secret Manager, fora do banco. Quem tem só o banco ou um
-  backup não consegue usar o certificado.
+- O PEM (chave e certificado) fica no banco cifrado com **AES-256-GCM** (`src/lib/cofre.ts`). A chave fica fora
+  do banco, então quem tem só o banco ou um backup não consegue usar o certificado:
+  - com `CHAVE_COFRE` (gerada pelo Terraform no Secret Manager), usa essa chave;
+  - sem ela, usa uma chave derivada do `AUTH_SECRET`, que também está no Secret Manager. Assim dá para enviar o
+    certificado logo depois do deploy, antes de rodar o bootstrap.
+  - Cada cifrado guarda qual chave usou, então criar a `CHAVE_COFRE` depois não perde o certificado já enviado.
 - A tela e o painel mostram só titular, CNPJ e validade, nunca a chave.
-- Remover o certificado desliga a captura. Trocar a `CHAVE_COFRE` torna o certificado guardado ilegível: o
-  painel avisa para enviar o `.pfx` de novo.
+- Remover o certificado desliga a captura. Trocar a chave que cifrou o certificado (`CHAVE_COFRE` ou, sem ela, o
+  `AUTH_SECRET`) torna o certificado guardado ilegível: o painel avisa para enviar o `.pfx` de novo.
 
 ### Infraestrutura (uma vez, por quem administra o Google Cloud)
 
@@ -102,9 +105,9 @@ Tudo é feito pelo Admin, no menu **Empresa**, sem mexer no Google Cloud.
 - o job do Cloud Scheduler (a cada 20 min);
 - o alerta por e-mail de falhas e bloqueio.
 
-Rode **antes** de publicar esta versão, senão o envio do certificado falha por falta da `CHAVE_COFRE`. Com a
-captura desligada na tela, cada chamada do agendador termina na hora. Para desligar o agendador:
-`sefaz_agendador = false`.
+Sem o bootstrap, o certificado já pode ser enviado e a consulta manual ("Consultar agora") funciona. Só a busca
+automática a cada hora depende do agendador. Com a captura desligada na tela, cada chamada do agendador termina
+na hora. Para desligar o agendador: `sefaz_agendador = false`.
 
 ### Certificado da Sefaz não reconhecido
 
@@ -120,7 +123,7 @@ Vale na hora. O cursor (NSU) não muda com a troca: a fila continua de onde paro
 
 ## Desenvolvimento local
 
-Sem `CHAVE_COFRE`, fora de produção, a chave do cofre é derivada do `AUTH_SECRET`. Basta cadastrar a empresa e
+Sem `CHAVE_COFRE`, a chave do cofre é derivada do `AUTH_SECRET`. Basta cadastrar a empresa e
 enviar um `.pfx` pela tela. Para disparar a rota à mão:
 
 ```bash
@@ -134,7 +137,7 @@ curl -X POST -H "Authorization: Bearer um-token-qualquer" http://localhost:3000/
 
 | Variável | Para quê |
 |---|---|
-| `CHAVE_COFRE` | chave AES-256 (base64, 32 bytes) que cifra o certificado no banco (Secret Manager) |
+| `CHAVE_COFRE` | chave AES-256 (base64, 32 bytes) que cifra o certificado no banco (Secret Manager); sem ela, vale uma chave derivada do `AUTH_SECRET` |
 | `SEFAZ_AGENDADOR_EMAIL` | service account cujo token OIDC é aceito na rota |
 | `SEFAZ_CA_PEM` | opcional: cadeia ICP-Brasil extra para o TLS |
 | `SEFAZ_TOKEN_TESTE` | só fora de produção: token fixo para disparar à mão |
