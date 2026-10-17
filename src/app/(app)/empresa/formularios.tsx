@@ -115,7 +115,9 @@ export function CapturaForm({
         <input type="checkbox" name="ativa" defaultChecked={ativa} disabled={!podeLigar && !ativa} className="size-5 accent-primary" />
         <span>
           <span className="font-medium">Buscar automaticamente as NF-e emitidas contra a empresa</span>
-          <span className="block text-muted-foreground">Consulta a Sefaz por conta própria, respeitando a espera de 1 hora exigida por ela.</span>
+          <span className="block text-muted-foreground">
+            Consulta a Sefaz sozinha, no máximo a cada 1 hora (regra dela), enquanto alguém estiver com o sistema aberto.
+          </span>
         </span>
       </label>
       <CampoForm id="ambiente" rotulo="Ambiente da Sefaz" dica="Comece em homologação (testes, sem valor fiscal). Depois de conferir, mude para produção.">

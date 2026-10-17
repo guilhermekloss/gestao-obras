@@ -8,6 +8,8 @@ const MINUTO = 60 * 1000;
 /** Folga de 1 min sobre a 1 h da regra: relógio da Sefaz e do Cloud Scheduler não batem ao segundo. */
 export const ESPERA_FIM_DA_FILA_MS = 61 * MINUTO;
 export const ESPERA_BLOQUEIO_MS = 65 * MINUTO;
+/** Depois de uma falha (rede, Sefaz fora do ar): não insiste a cada aba aberta nem enche o histórico de erros. */
+export const ESPERA_APOS_FALHA_MS = 10 * MINUTO;
 /** Cada lote traz até 50 documentos; o limite segura a execução dentro do timeout do Cloud Run. */
 export const MAX_LOTES_POR_EXECUCAO = 8;
 /** Validade da trava de execução: passa do pior caso (lotes × timeout + Ciência), some sozinha se a instância morrer. */

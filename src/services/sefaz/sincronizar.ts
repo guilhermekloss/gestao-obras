@@ -7,6 +7,7 @@ import { ErroSefaz, clienteSefaz, type ClienteSefaz } from "./cliente";
 import { carregarFonte, montarConfig } from "./config";
 import {
   DURACAO_TRAVA_MS,
+  ESPERA_APOS_FALHA_MS,
   MAX_CIENCIAS_POR_EXECUCAO,
   MAX_LOTES_POR_EXECUCAO,
   avaliarResposta,
@@ -245,7 +246,7 @@ export async function sincronizarCnpj(cnpj: string, ctx: Contexto): Promise<Resu
     return pular(
       permissao.motivo === "BLOQUEADO"
         ? `CNPJ bloqueado pela Sefaz por consumo indevido até ${hora}.`
-        : `Fila em dia; a Sefaz só pode ser consultada de novo às ${hora}.`,
+        : `Aguardando a janela da Sefaz: a próxima consulta é às ${hora}.`,
     );
   }
 
@@ -298,6 +299,10 @@ export async function sincronizarCnpj(cnpj: string, ctx: Contexto): Promise<Resu
     status = "ERRO";
     mensagem = erro instanceof Error ? erro.message : "Erro inesperado na consulta à Sefaz";
     if (!(erro instanceof ErroSefaz)) console.error(`Captura Sefaz: erro inesperado (${cnpj})`, erro);
+    await prisma.cursorSefaz.update({
+      where: { cnpj },
+      data: { proximaConsultaEm: new Date(ctx.agora().getTime() + ESPERA_APOS_FALHA_MS) },
+    });
   } finally {
     await destravar();
   }

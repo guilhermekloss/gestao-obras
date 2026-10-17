@@ -258,6 +258,8 @@ describe("sincronizarCnpj", () => {
     const r = await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente));
     expect(r).toMatchObject({ status: "ERRO", mensagem: "Sefaz não respondeu em 25 s." });
     expect(banco.cursores.get(CNPJ_EMPRESA)).toMatchObject({ ultNsu: "000000000000003", travadoAte: null });
+    // espera 10 min antes de tentar de novo: várias abas abertas não insistem nem enchem o histórico
+    expect(banco.cursores.get(CNPJ_EMPRESA)!.proximaConsultaEm).toEqual(new Date(AGORA.getTime() + 10 * 60 * 1000));
     expect(banco.execucoes[0]).toMatchObject({ status: "ERRO" });
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ESPERA_APOS_FALHA_MS,
   ESPERA_BLOQUEIO_MS,
   ESPERA_FIM_DA_FILA_MS,
   avaliarResposta,
@@ -108,6 +109,10 @@ describe("avaliarResposta", () => {
       bloqueadoAte: null,
       desfecho: "REJEITADA",
     });
+  });
+
+  it("depois de uma falha espera só 10 min (não é regra da Sefaz, é para não insistir)", () => {
+    expect(ESPERA_APOS_FALHA_MS).toBe(10 * 60 * 1000);
   });
 
   it("as esperas passam de 1 h (a regra é 1 h cheia)", () => {

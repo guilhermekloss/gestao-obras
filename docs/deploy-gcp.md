@@ -109,7 +109,8 @@ quando a leitura barata não fecha.
 
 Com o certificado A1 da empresa, o app busca sozinho as NF-e emitidas contra o CNPJ e as deixa em
 "NF-e recebidas" para lançar. O Admin cadastra a empresa, envia o `.pfx` e liga a captura na tela **Empresa**.
-A infraestrutura (agendador e chave do cofre) já vem do bootstrap. Detalhes em [captura-sefaz.md](captura-sefaz.md).
+A busca anda sozinha enquanto alguém usa o sistema, sem configurar nada na GCP. O bootstrap acrescenta o agendador
+(a busca 24 h, mesmo sem ninguém usando) e a chave do cofre. Detalhes em [captura-sefaz.md](captura-sefaz.md).
 
 ## Dia a dia
 

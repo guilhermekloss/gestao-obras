@@ -132,7 +132,7 @@ export const GUIAS: Guia[] = [
       "Compra que não é da empresa ou já tratada fora do sistema? Clique em \"Descartar\".",
     ],
     regras: [
-      "O sistema consulta a Sefaz sozinho, de hora em hora.",
+      "O sistema consulta a Sefaz sozinho, no máximo de hora em hora, enquanto alguém usa o sistema.",
       "Primeiro chega só o resumo da nota. O sistema registra a Ciência da Operação e o XML completo chega em até 1 a 2 horas.",
       "A Ciência só diz que a empresa viu a nota. Não confirma a compra.",
       "Ao lançar, a nota sai da lista. Se o lançamento for excluído, ela volta.",
