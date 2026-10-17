@@ -32,6 +32,10 @@ function aplicar(linha: Linha, data: Record<string, unknown>) {
 let seq = 0;
 const prisma = {
   cursorSefaz: {
+    findUnique: vi.fn(async ({ where }: { where: { cnpj: string } }) => {
+      const c = banco.cursores.get(where.cnpj);
+      return c ? { ...c } : null;
+    }),
     upsert: vi.fn(async ({ where, create }: { where: { cnpj: string }; create: Linha }) => {
       if (!banco.cursores.has(where.cnpj)) {
         banco.cursores.set(where.cnpj, {
@@ -115,6 +119,7 @@ function clienteFalso(respostas: RetornoDistribuicao[], ciencia?: ClienteSefaz["
 
 const ctx = (cliente: ClienteSefaz, origem: "AGENDADA" | "MANUAL" = "AGENDADA") => ({
   cliente,
+  frequencia: "UMA_VEZ_DIA" as const,
   origem,
   usuarioId: null,
   agora: relogio,
@@ -233,7 +238,7 @@ describe("sincronizarCnpj", () => {
     expect(cursor.bloqueadoAte).toEqual(new Date(AGORA.getTime() + 65 * 60 * 1000));
   });
 
-  it("para no limite de lotes e deixa a próxima execução continuar logo", async () => {
+  it("para no limite de lotes com fila restante", async () => {
     const lotes = Array.from({ length: 8 }, (_, i) => ({
       cStat: "138",
       xMotivo: "",
@@ -244,7 +249,11 @@ describe("sincronizarCnpj", () => {
     const cliente = clienteFalso(lotes);
     await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente));
     expect(cliente.distribuicaoPorNsu).toHaveBeenCalledTimes(8);
-    expect(banco.cursores.get(CNPJ_EMPRESA)).toMatchObject({ ultNsu: "000000000000008", proximaConsultaEm: null });
+    // fila restante: o resto só numa próxima execução, e nunca antes de 1 h
+    expect(banco.cursores.get(CNPJ_EMPRESA)).toMatchObject({
+      ultNsu: "000000000000008",
+      proximaConsultaEm: new Date(AGORA.getTime() + 61 * 60 * 1000),
+    });
   });
 
   it("falha de rede: registra ERRO, solta a trava e não perde o NSU já processado", async () => {
@@ -258,6 +267,8 @@ describe("sincronizarCnpj", () => {
     const r = await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente));
     expect(r).toMatchObject({ status: "ERRO", mensagem: "Sefaz não respondeu em 25 s." });
     expect(banco.cursores.get(CNPJ_EMPRESA)).toMatchObject({ ultNsu: "000000000000003", travadoAte: null });
+    // depois de falha espera 1 h: várias abas abertas não insistem nem enchem o histórico
+    expect(banco.cursores.get(CNPJ_EMPRESA)!.proximaConsultaEm).toEqual(new Date(AGORA.getTime() + 60 * 60 * 1000));
     expect(banco.execucoes[0]).toMatchObject({ status: "ERRO" });
   });
 
@@ -270,6 +281,61 @@ describe("sincronizarCnpj", () => {
     expect(r.ciencias).toBe(0);
     expect(r.mensagem).toContain("1 Ciência(s) recusada(s)");
     expect(banco.documentos[0]).toMatchObject({ manifestacao: "ERRO", manifestacaoErro: "596 – Rejeição: evento apresentado fora do prazo" });
+  });
+});
+
+describe("horário programado da busca automática", () => {
+  // AGORA = 10:00 em Brasília: já passou das 07:00
+  const cursorConsultadoEm = (iso: string, extra: Record<string, unknown> = {}) =>
+    banco.cursores.set(CNPJ_EMPRESA, {
+      cnpj: CNPJ_EMPRESA,
+      ultNsu: "000000000000005",
+      maxNsu: "000000000000005",
+      proximaConsultaEm: null,
+      bloqueadoAte: null,
+      travadoAte: null,
+      ultimaConsultaEm: new Date(`${iso}Z`),
+      ...extra,
+    });
+
+  it("já consultou depois das 07:00: a automática não consulta de novo e não escreve nada", async () => {
+    cursorConsultadoEm("2026-10-17T10:30:00");
+    const cliente = clienteFalso([]);
+    const r = await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente));
+    expect(r).toMatchObject({ status: "PULADA", mensagem: "Fora do horário programado." });
+    expect(cliente.distribuicaoPorNsu).not.toHaveBeenCalled();
+    expect(prisma.cursorSefaz.updateMany).not.toHaveBeenCalled();
+    expect(banco.execucoes).toHaveLength(0);
+  });
+
+  it("última consulta foi ontem: passou o horário de hoje, então consulta", async () => {
+    cursorConsultadoEm("2026-10-16T13:00:00");
+    const cliente = clienteFalso([{ cStat: "137", xMotivo: "", ultNsu: "000000000000005", maxNsu: "000000000000005", docs: [] }]);
+    const r = await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente));
+    expect(r.status).toBe("SEM_NOVIDADES");
+    expect(cliente.distribuicaoPorNsu).toHaveBeenCalledTimes(1);
+  });
+
+  it("fila ainda com documentos (ultNSU < maxNSU): continua mesmo fora do horário, respeitando a janela de 1 h", async () => {
+    cursorConsultadoEm("2026-10-17T10:30:00", { maxNsu: "000000000000100" });
+    const cliente = clienteFalso([{ cStat: "137", xMotivo: "", ultNsu: "000000000000100", maxNsu: "000000000000100", docs: [] }]);
+    expect((await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente))).status).toBe("SEM_NOVIDADES");
+
+    cursorConsultadoEm("2026-10-17T10:30:00", { maxNsu: "000000000000100", proximaConsultaEm: new Date(AGORA.getTime() + 20 * 60 * 1000) });
+    const outro = clienteFalso([]);
+    expect((await sincronizarCnpj(CNPJ_EMPRESA, ctx(outro))).status).toBe("PULADA");
+    expect(outro.distribuicaoPorNsu).not.toHaveBeenCalled();
+  });
+
+  it("a consulta manual ignora o horário programado", async () => {
+    cursorConsultadoEm("2026-10-17T10:30:00");
+    const cliente = clienteFalso([{ cStat: "137", xMotivo: "", ultNsu: "000000000000005", maxNsu: "000000000000005", docs: [] }]);
+    expect((await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente, "MANUAL"))).status).toBe("SEM_NOVIDADES");
+  });
+
+  it("nunca consultado: a primeira consulta sai na hora, sem esperar o horário", async () => {
+    const cliente = clienteFalso([{ cStat: "137", xMotivo: "", ultNsu: "0", maxNsu: "0", docs: [] }]);
+    expect((await sincronizarCnpj(CNPJ_EMPRESA, ctx(cliente))).status).toBe("SEM_NOVIDADES");
   });
 });
 

@@ -7,11 +7,16 @@ import { ErroSefaz, clienteSefaz, type ClienteSefaz } from "./cliente";
 import { carregarFonte, montarConfig } from "./config";
 import {
   DURACAO_TRAVA_MS,
+  ESPERA_APOS_FALHA_MS,
+  ESPERA_FILA_RESTANTE_MS,
   MAX_CIENCIAS_POR_EXECUCAO,
   MAX_LOTES_POR_EXECUCAO,
   avaliarResposta,
   cienciaAceita,
+  compararNsu,
+  consultaProgramadaDevida,
   podeConsultar,
+  type Frequencia,
 } from "./regras";
 import { classificarDocumento, dadosDaChaveNfe, normalizarCnpj, raizCnpj, type DocumentoDistribuido } from "./xml";
 
@@ -25,6 +30,7 @@ export type ResultadoCnpj = {
 
 type Contexto = {
   cliente: ClienteSefaz;
+  frequencia: Frequencia;
   origem: OrigemExecucaoSefaz;
   usuarioId: string | null;
   agora: () => Date;
@@ -210,10 +216,21 @@ async function registrarExecucao(dados: Prisma.ExecucaoSefazUncheckedCreateInput
 
 export async function sincronizarCnpj(cnpj: string, ctx: Contexto): Promise<ResultadoCnpj> {
   const inicio = ctx.agora();
+
+  // A busca automática só sai nos horários programados (1 ou 2 vezes ao dia, escolhidos em Empresa), ou para
+  // terminar uma fila grande. A manual ("Consultar agora") vale a qualquer hora. Fora do horário não escreve nada.
+  if (ctx.origem === "AGENDADA") {
+    const atual = await prisma.cursorSefaz.findUnique({ where: { cnpj } });
+    const filaPendente = atual ? compararNsu(atual.ultNsu, atual.maxNsu) < 0 : false;
+    if (atual && !filaPendente && !consultaProgramadaDevida(ctx.frequencia, atual.ultimaConsultaEm, inicio)) {
+      return { cnpj, status: "PULADA", mensagem: "Fora do horário programado.", docsNovos: 0, ciencias: 0 };
+    }
+  }
+
   await prisma.cursorSefaz.upsert({ where: { cnpj }, create: { cnpj }, update: {} });
 
   const pular = async (mensagem: string): Promise<ResultadoCnpj> => {
-    // agendada pulada é o normal (o agendador passa a cada 20 min): só a manual fica no histórico
+    // agendada pulada é o normal (o gatilho passa várias vezes ao dia): só a manual fica no histórico
     if (ctx.origem === "MANUAL") {
       await registrarExecucao({
         cnpj,
@@ -245,7 +262,7 @@ export async function sincronizarCnpj(cnpj: string, ctx: Contexto): Promise<Resu
     return pular(
       permissao.motivo === "BLOQUEADO"
         ? `CNPJ bloqueado pela Sefaz por consumo indevido até ${hora}.`
-        : `Fila em dia; a Sefaz só pode ser consultada de novo às ${hora}.`,
+        : `Aguardando a janela da Sefaz: a próxima consulta é às ${hora}.`,
     );
   }
 
@@ -287,6 +304,13 @@ export async function sincronizarCnpj(cnpj: string, ctx: Contexto): Promise<Resu
       if (aval.desfecho === "BLOQUEADA") status = "BLOQUEADA";
       else if (aval.desfecho === "REJEITADA") status = "ERRO";
       if (!aval.continuar) break;
+      if (lotes >= MAX_LOTES_POR_EXECUCAO) {
+        // parou no limite com fila ainda: o resto sai numa próxima execução, nunca antes de 1 h
+        await prisma.cursorSefaz.update({
+          where: { cnpj },
+          data: { proximaConsultaEm: new Date(ctx.agora().getTime() + ESPERA_FILA_RESTANTE_MS) },
+        });
+      }
     }
 
     const manifestacao = await manifestarPendentes(cnpj, ctx.cliente, ctx.agora());
@@ -298,6 +322,10 @@ export async function sincronizarCnpj(cnpj: string, ctx: Contexto): Promise<Resu
     status = "ERRO";
     mensagem = erro instanceof Error ? erro.message : "Erro inesperado na consulta à Sefaz";
     if (!(erro instanceof ErroSefaz)) console.error(`Captura Sefaz: erro inesperado (${cnpj})`, erro);
+    await prisma.cursorSefaz.update({
+      where: { cnpj },
+      data: { proximaConsultaEm: new Date(ctx.agora().getTime() + ESPERA_APOS_FALHA_MS) },
+    });
   } finally {
     await destravar();
   }
@@ -341,6 +369,7 @@ export async function sincronizar(opcoes: {
   if (!montada.ok) return montada;
   const ctx: Contexto = {
     cliente: opcoes.cliente ?? clienteSefaz(montada.config),
+    frequencia: montada.frequencia,
     origem: opcoes.origem,
     usuarioId: opcoes.usuarioId ?? null,
     agora: opcoes.agora ?? (() => new Date()),

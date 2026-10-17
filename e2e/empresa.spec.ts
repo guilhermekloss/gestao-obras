@@ -84,9 +84,13 @@ test("ADMIN cadastra a empresa, envia o certificado A1 e liga a captura", async 
   const guardada = await prisma.empresa.findUniqueOrThrow({ where: { id: "principal" } });
   expect(Buffer.from(guardada.certificadoCifrado!).toString("latin1")).not.toContain("PRIVATE KEY");
 
+  await expect(page.getByText("Antes de ligar:")).toBeVisible();
   await page.getByLabel(/Buscar automaticamente as NF-e/).check();
+  await page.getByLabel("Quantas vezes por dia").selectOption("DUAS_VEZES_DIA");
   await page.getByRole("button", { name: "Salvar captura" }).click();
   await expect(page.getByText(/Captura ligada/)).toBeVisible();
+  const ligada = await prisma.empresa.findUniqueOrThrow({ where: { id: "principal" } });
+  expect(ligada).toMatchObject({ capturaAtiva: true, frequenciaCaptura: "DUAS_VEZES_DIA" });
 
   await page.goto("/sefaz");
   await expect(page.getByText("Captura desligada.")).toHaveCount(0);

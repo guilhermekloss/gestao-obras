@@ -138,7 +138,7 @@ variable "email_alertas" {
 }
 
 variable "sefaz_agendador" {
-  description = "Agendador da captura de NF-e na Sefaz (Cloud Scheduler, grátis até 3 jobs). Quem liga a captura e envia o certificado é o Admin, na tela Empresa; sem isso, cada chamada termina na hora."
+  description = "Opcional: agendador de hora em hora da captura de NF-e (Cloud Scheduler, grátis até 3 jobs), para consultar no horário mesmo sem ninguém usando o sistema. Quem liga a captura, escolhe a frequência e envia o certificado é o Admin, na tela Empresa."
   type        = bool
   default     = true
 }

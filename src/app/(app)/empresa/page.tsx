@@ -129,6 +129,7 @@ export default async function EmpresaPage() {
           <CapturaForm
             ativa={empresa?.capturaAtiva ?? false}
             ambiente={empresa?.ambienteSefaz ?? "HOMOLOGACAO"}
+            frequencia={empresa?.frequenciaCaptura ?? "UMA_VEZ_DIA"}
             podeLigar={temCertificado && (dias === null || dias > 0)}
           />
         </CardContent>

@@ -92,18 +92,22 @@ export const configurarCaptura = acaoDeEscrita(
   async (_usuario, _anterior: EstadoForm, form: FormData): Promise<EstadoForm> => {
     const ativa = form.get("ativa") === "on";
     const ambiente = form.get("ambiente") === "PRODUCAO" ? "PRODUCAO" : "HOMOLOGACAO";
+    const frequencia = form.get("frequencia") === "DUAS_VEZES_DIA" ? "DUAS_VEZES_DIA" : "UMA_VEZ_DIA";
     const empresa = await carregarEmpresa();
     if (!empresa) return { ok: false, erro: "Salve os dados da empresa primeiro." };
     if (ativa && !empresa.certificadoCifrado) return { ok: false, erro: "Envie o certificado A1 antes de ligar a captura." };
     if (ativa && empresa.certificadoValidoAte && empresa.certificadoValidoAte <= new Date()) {
       return { ok: false, erro: "O certificado guardado está vencido. Envie o novo antes de ligar a captura." };
     }
-    await prisma.empresa.update({ where: { id: ID_EMPRESA }, data: { capturaAtiva: ativa, ambienteSefaz: ambiente } });
+    await prisma.empresa.update({ where: { id: ID_EMPRESA }, data: { capturaAtiva: ativa, ambienteSefaz: ambiente, frequenciaCaptura: frequencia } });
     anotarAtividade({
       descricao: ativa
-        ? `Ligou a captura de NF-e na Sefaz (${ambiente === "PRODUCAO" ? "produção" : "homologação"})`
+        ? `Ligou a captura de NF-e na Sefaz (${ambiente === "PRODUCAO" ? "produção" : "homologação"}, ${frequencia === "DUAS_VEZES_DIA" ? "2 vezes" : "1 vez"} ao dia)`
         : "Desligou a captura de NF-e na Sefaz",
     });
-    return { ok: true, mensagem: ativa ? "Captura ligada. A primeira consulta sai em até 20 minutos." : "Captura desligada." };
+    return {
+      ok: true,
+      mensagem: ativa ? "Captura ligada. A primeira consulta sai assim que alguém usar o sistema." : "Captura desligada.",
+    };
   },
 );

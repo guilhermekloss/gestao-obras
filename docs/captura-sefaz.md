@@ -7,7 +7,9 @@ O ADMIN configura em **Empresa** (dados, certificado A1, liga/desliga) e acompan
 ## Como funciona
 
 ```
-Cloud Scheduler (a cada 20 min, OIDC) ──POST──► /api/sefaz/sincronizar (Cloud Run)
+Quem usa o sistema (aba aberta, a cada 30 min) ──POST──► /api/sefaz/auto
+Cloud Scheduler (opcional, de hora em hora, OIDC) ──POST──► /api/sefaz/sincronizar (Cloud Run)
+                          o app só consulta nos horários programados: 07:00 (e 14:00) de Brasília
                                                  │ trava por CNPJ + janela de 1 h guardada no banco
                                                  ├─ NFeDistribuicaoDFe (distNSU, TLS com o certificado A1)
                                                  │    resNFe   → DocumentoSefaz (só resumo)
@@ -48,14 +50,40 @@ Fonte: NT 2014.002 e as regras de "uso indevido" de 2022. A política fica em `s
 | NSU fora de sequência | bloqueio | trava por CNPJ no banco: duas execuções nunca leem o mesmo NSU |
 | Outra rejeição | — | registra ERRO e espera 1 h |
 
-O agendador passa a cada 20 min. Quando a janela ainda não passou, a execução sai na hora, como "pulada", e
-não fica no histórico. Na prática, a consulta acontece a cada 61 a 80 min.
+### Quantas vezes por dia
+
+Em **Empresa**, o Admin escolhe:
+- **Uma vez ao dia (07:00):** padrão, basta para a maioria das empresas;
+- **Duas vezes ao dia (07:00 e 14:00).**
+
+Os horários são de Brasília. Menos consultas custam menos e reduzem o risco de bloqueio. Nada se perde entre uma
+consulta e outra, porque a Sefaz guarda **90 dias** de documentos e a consulta recupera tudo desde o último NSU.
+
+A primeira consulta, logo depois de ligar a captura, sai na hora (a fila começa no NSU 0). Depois, só nos horários.
+A consulta manual ("Consultar agora") vale a qualquer hora, respeitando a espera de 1 h da Sefaz.
+
+Quem dispara a consulta no horário:
+- **Quem usa o sistema** (ADMIN ou ESCRITÓRIO): a aba aberta avisa o servidor a cada 30 min
+  (`/api/sefaz/auto`). O servidor só consulta se já passou um horário programado desde a última resposta da
+  Sefaz. Se ninguém abrir o sistema às 07:00, a consulta sai na primeira abertura depois disso, uma vez só.
+  Não precisa configurar nada na GCP. Ao chegar nota nova, a tela atualiza sozinha.
+- **Cloud Scheduler** (opcional): chama `/api/sefaz/sincronizar` de hora em hora, de dia e de noite, mesmo com ninguém
+  usando o sistema. O bootstrap cria. Sem ele, a consulta das 07:00 sai quando alguém usar o sistema.
+
+Fora do horário, a chamada sai na hora como "pulada", sem gravar nada e sem aparecer no histórico.
+
+### Risco de bloqueio
+
+A Sefaz exige o piso de 1 hora entre consultas. Com 1 ou 2 por dia, o sistema fica muito acima disso. O que mais
+causa bloqueio na prática é **outro sistema consultando o mesmo CNPJ**: ERP do contador, Qive, Arquivei e similares
+dividem a mesma fila de NSU e podem se atrapalhar. Antes de ligar, confirme se alguém já baixa as NF-e deste CNPJ
+na Sefaz. A tela Empresa avisa disso.
 
 ## Custo
 
 - **Sefaz:** nada.
-- **Cloud Scheduler:** 1 job, dentro dos 3 grátis por conta de faturamento.
-- **Cloud Run:** cerca de 2.200 chamadas curtas por mês, dentro da camada gratuita.
+- **Cloud Scheduler (opcional):** 1 job, dentro dos 3 grátis por conta de faturamento.
+- **Cloud Run:** 1 ou 2 consultas por dia mais chamadas curtas que não fazem nada: dentro da camada gratuita.
 - **Banco e Storage:** algumas linhas e XMLs de ~10–50 KB por nota.
 
 ## Configurar (uma vez, pela tela Empresa)
@@ -107,11 +135,11 @@ Tudo é feito pelo Admin, no menu **Empresa**, sem mexer no Google Cloud.
 `./infra/bootstrap.sh SEU_PROJECT_ID` cria:
 - o secret `gestao-obras-chave-cofre`;
 - a service account do agendador;
-- o job do Cloud Scheduler (a cada 20 min);
+- o job do Cloud Scheduler (de hora em hora, opcional);
 - o alerta por e-mail de falhas e bloqueio.
 
-Sem o bootstrap, o certificado já pode ser enviado e a consulta manual ("Consultar agora") funciona. Só a busca
-automática a cada hora depende do agendador. Com a captura desligada na tela, cada chamada do agendador termina
+Sem o bootstrap, o certificado já pode ser enviado, a consulta manual ("Consultar agora") funciona e a busca anda
+enquanto alguém usa o sistema. O agendador só acrescenta a busca 24 h, sem ninguém com o sistema aberto. Com a captura desligada na tela, cada chamada do agendador termina
 na hora. Para desligar o agendador: `sefaz_agendador = false`.
 
 ### Certificado da Sefaz não reconhecido
@@ -159,6 +187,7 @@ curl -X POST -H "Authorization: Bearer um-token-qualquer" http://localhost:3000/
   - `sincronizar.ts`: o orquestrador;
   - `painel.ts`: consultas do painel e alertas.
 - **`src/app/api/sefaz/sincronizar/route.ts`:** gatilho do agendador.
+- **`src/app/api/sefaz/auto/route.ts` e `src/components/captura-automatica.tsx`:** gatilho de quem usa o sistema.
 - **`src/app/(app)/empresa/`:** cadastro da empresa, certificado e liga/desliga da captura.
 - **`src/lib/cofre.ts`:** cifra AES-256-GCM dos segredos guardados no banco.
 - **`src/app/(app)/sefaz/`:** painel do ADMIN.

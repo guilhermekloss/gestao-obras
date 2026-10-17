@@ -16,9 +16,14 @@ async function entrar(page: Page, email: string) {
   await page.waitForURL("**/dashboard");
 }
 
-async function criarUsuario(role: "ADMIN" | "ESCRITORIO") {
+async function criarUsuario(role: "ADMIN" | "ESCRITORIO" | "CAMPO") {
   const email = `sefaz-${role.toLowerCase()}-${sufixo}@obras.local`;
-  await prisma.usuario.create({ data: { nome: `Sefaz ${role}`, email, role, senhaHash: await hash(SENHA, 4), assistenteVistoEm: new Date() } });
+  // vários testes do arquivo usam o mesmo papel: cria uma vez só
+  await prisma.usuario.upsert({
+    where: { email },
+    create: { nome: `Sefaz ${role}`, email, role, senhaHash: await hash(SENHA, 4), assistenteVistoEm: new Date() },
+    update: {},
+  });
   return email;
 }
 
@@ -78,4 +83,19 @@ test("ESCRITÓRIO lança as recebidas, mas não abre o painel da captura", async
 test("o gatilho do agendador recusa chamada sem token válido", async ({ request }) => {
   expect((await request.post("/api/sefaz/sincronizar")).status()).toBe(401);
   expect((await request.post("/api/sefaz/sincronizar", { headers: { Authorization: "Bearer qualquer" } })).status()).toBe(401);
+});
+
+test("o gatilho de quem usa o sistema recusa quem não está logado e o papel de campo", async ({ request, page }) => {
+  expect((await request.post("/api/sefaz/auto")).status()).toBe(401);
+  await prisma.usuario.upsert({
+    where: { email: `sefaz-campo-${sufixo}@obras.local` },
+    create: { nome: "Sefaz CAMPO", email: `sefaz-campo-${sufixo}@obras.local`, role: "CAMPO", senhaHash: await hash(SENHA, 4), assistenteVistoEm: new Date() },
+    update: {},
+  });
+  await page.goto("/login");
+  await page.fill("#email", `sefaz-campo-${sufixo}@obras.local`);
+  await page.fill("#senha", SENHA);
+  await page.click("button[type=submit]");
+  await page.waitForURL("**/diario");
+  expect((await page.request.post("/api/sefaz/auto")).status()).toBe(401);
 });

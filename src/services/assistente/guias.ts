@@ -132,7 +132,7 @@ export const GUIAS: Guia[] = [
       "Compra que não é da empresa ou já tratada fora do sistema? Clique em \"Descartar\".",
     ],
     regras: [
-      "O sistema consulta a Sefaz sozinho, de hora em hora.",
+      "O sistema consulta a Sefaz sozinho, 1 ou 2 vezes ao dia (você escolhe em Empresa), no primeiro uso do sistema depois do horário.",
       "Primeiro chega só o resumo da nota. O sistema registra a Ciência da Operação e o XML completo chega em até 1 a 2 horas.",
       "A Ciência só diz que a empresa viu a nota. Não confirma a compra.",
       "Ao lançar, a nota sai da lista. Se o lançamento for excluído, ela volta.",
@@ -390,7 +390,8 @@ export const GUIAS: Guia[] = [
       "Na aba Documentos, filtre as notas. Em Ciência com erro, clique em \"Ciência\" para reenviar.",
     ],
     regras: [
-      "A Sefaz só deixa consultar de novo 1 hora depois que a fila acaba. O sistema respeita isso sozinho.",
+      "A Sefaz exige 1 hora entre consultas. Com 1 ou 2 por dia isso nunca é problema, e nada se perde: ela guarda 90 dias de notas.",
+      "Se o contador ou outro sistema já baixa as NF-e deste CNPJ, avise antes de ligar: dois sistemas no mesmo CNPJ podem causar bloqueio.",
       "Consulta fora da regra bloqueia o CNPJ por 1 hora (código 656). O painel mostra até quando.",
       "O certificado A1 vence todo ano. O painel e o dashboard avisam 30 dias antes.",
       "Só o Admin vê esta tela.",

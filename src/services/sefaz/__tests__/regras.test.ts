@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  ESPERA_APOS_FALHA_MS,
   ESPERA_BLOQUEIO_MS,
+  ESPERA_FILA_RESTANTE_MS,
+  consultaProgramadaDevida,
+  proximoHorarioProgramado,
+  ultimoHorarioProgramado,
   ESPERA_FIM_DA_FILA_MS,
   avaliarResposta,
   cienciaAceita,
@@ -110,6 +115,11 @@ describe("avaliarResposta", () => {
     });
   });
 
+  it("depois de uma falha, ou de parar com fila restante, espera mais de 1 h antes de insistir", () => {
+    expect(ESPERA_APOS_FALHA_MS).toBeGreaterThanOrEqual(60 * 60 * 1000);
+    expect(ESPERA_FILA_RESTANTE_MS).toBeGreaterThan(60 * 60 * 1000);
+  });
+
   it("as esperas passam de 1 h (a regra é 1 h cheia)", () => {
     expect(ESPERA_FIM_DA_FILA_MS).toBeGreaterThan(60 * 60 * 1000);
     expect(ESPERA_BLOQUEIO_MS).toBeGreaterThan(60 * 60 * 1000);
@@ -123,5 +133,60 @@ describe("cienciaAceita", () => {
 
   it("rejeições não contam", () => {
     expect(["596", "494", "128", ""].some(cienciaAceita)).toBe(false);
+  });
+});
+
+// 07:00 em Brasília = 10:00 UTC; 14:00 = 17:00 UTC
+const utc = (iso: string) => new Date(`${iso}Z`);
+
+describe("agenda da busca automática", () => {
+  it("uma vez ao dia: o último e o próximo horário são sempre 07:00 de Brasília", () => {
+    const f = "UMA_VEZ_DIA";
+    expect(ultimoHorarioProgramado(f, utc("2026-10-17T13:00:00"))).toEqual(utc("2026-10-17T10:00:00"));
+    expect(proximoHorarioProgramado(f, utc("2026-10-17T13:00:00"))).toEqual(utc("2026-10-18T10:00:00"));
+    // antes das 07:00 de Brasília ainda vale o horário de ontem
+    expect(ultimoHorarioProgramado(f, utc("2026-10-17T09:59:00"))).toEqual(utc("2026-10-16T10:00:00"));
+    expect(proximoHorarioProgramado(f, utc("2026-10-17T09:59:00"))).toEqual(utc("2026-10-17T10:00:00"));
+  });
+
+  it("duas vezes ao dia: 07:00 e 14:00", () => {
+    const f = "DUAS_VEZES_DIA";
+    expect(ultimoHorarioProgramado(f, utc("2026-10-17T11:00:00"))).toEqual(utc("2026-10-17T10:00:00"));
+    expect(proximoHorarioProgramado(f, utc("2026-10-17T11:00:00"))).toEqual(utc("2026-10-17T17:00:00"));
+    expect(ultimoHorarioProgramado(f, utc("2026-10-17T18:00:00"))).toEqual(utc("2026-10-17T17:00:00"));
+    expect(proximoHorarioProgramado(f, utc("2026-10-17T18:00:00"))).toEqual(utc("2026-10-18T10:00:00"));
+  });
+
+  it("no instante exato do horário já está devido", () => {
+    expect(ultimoHorarioProgramado("UMA_VEZ_DIA", utc("2026-10-17T10:00:00"))).toEqual(utc("2026-10-17T10:00:00"));
+    expect(consultaProgramadaDevida("UMA_VEZ_DIA", utc("2026-10-16T12:00:00"), utc("2026-10-17T10:00:00"))).toBe(true);
+  });
+
+  it("virada de mês e de ano", () => {
+    expect(proximoHorarioProgramado("UMA_VEZ_DIA", utc("2026-12-31T20:00:00"))).toEqual(utc("2027-01-01T10:00:00"));
+    expect(ultimoHorarioProgramado("DUAS_VEZES_DIA", utc("2027-01-01T01:00:00"))).toEqual(utc("2026-12-31T17:00:00"));
+  });
+
+  it("devida só quando passou um horário programado desde a última resposta da Sefaz", () => {
+    const f = "UMA_VEZ_DIA";
+    expect(consultaProgramadaDevida(f, null, utc("2026-10-17T12:00:00"))).toBe(true);
+    // consultou hoje às 07:05: não consulta de novo hoje, mesmo com várias abas abertas
+    expect(consultaProgramadaDevida(f, utc("2026-10-17T10:05:00"), utc("2026-10-17T23:00:00"))).toBe(false);
+    // amanhã às 06:59 ainda não; às 07:00 sim
+    expect(consultaProgramadaDevida(f, utc("2026-10-17T10:05:00"), utc("2026-10-18T09:59:00"))).toBe(false);
+    expect(consultaProgramadaDevida(f, utc("2026-10-17T10:05:00"), utc("2026-10-18T10:00:00"))).toBe(true);
+  });
+
+  it("duas vezes ao dia: depois das 07:00 consultada, só volta às 14:00", () => {
+    const f = "DUAS_VEZES_DIA";
+    expect(consultaProgramadaDevida(f, utc("2026-10-17T10:05:00"), utc("2026-10-17T16:59:00"))).toBe(false);
+    expect(consultaProgramadaDevida(f, utc("2026-10-17T10:05:00"), utc("2026-10-17T17:00:00"))).toBe(true);
+  });
+
+  it("sistema aberto só às 09:00 de Brasília: a consulta das 07:00 sai então, e uma vez só", () => {
+    const f = "UMA_VEZ_DIA";
+    const aberto = utc("2026-10-17T12:00:00");
+    expect(consultaProgramadaDevida(f, utc("2026-10-16T10:05:00"), aberto)).toBe(true);
+    expect(consultaProgramadaDevida(f, aberto, utc("2026-10-17T15:00:00"))).toBe(false);
   });
 });

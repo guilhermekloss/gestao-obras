@@ -4,7 +4,7 @@ import { OAuth2Client } from "google-auth-library";
 import { eventoSeguranca } from "@/lib/log-seguranca";
 import { sincronizar } from "@/services/sefaz/sincronizar";
 
-// Chamado pelo Cloud Scheduler a cada 20 min com token OIDC da service account do agendador.
+// Chamado pelo Cloud Scheduler (opcional), de hora em hora, com token OIDC da service account do agendador.
 // O /api fica fora do proxy.ts e o Cloud Run é público: a autenticação é toda aqui.
 // As regras da Sefaz (janela de 1 h, bloqueio) são aplicadas em sincronizar(): chamar a mais só dá PULADA.
 

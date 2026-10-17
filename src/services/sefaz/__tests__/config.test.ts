@@ -25,6 +25,7 @@ function empresa(campos: Partial<Empresa> = {}): Empresa {
     uf: "SC",
     capturaAtiva: true,
     ambienteSefaz: "PRODUCAO",
+    frequenciaCaptura: "DUAS_VEZES_DIA",
     certificadoCifrado: cifrar(pem, { 1: CHAVE }),
     certificadoTitular: null,
     certificadoCnpj: "11222333000181",
@@ -44,6 +45,7 @@ describe("fonteDaEmpresa", () => {
     if (!r.ok) throw new Error(r.erro);
     expect(r.cnpjs).toEqual(["11222333000181", "11222333000262"]);
     expect(r.config).toMatchObject({ ambiente: "producao", cUFAutor: "42" });
+    expect(r.frequencia).toBe("DUAS_VEZES_DIA");
     expect(r.config.certificado.cnpj).toBe("11222333000181");
   });
 
