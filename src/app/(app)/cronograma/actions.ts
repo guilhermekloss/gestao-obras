@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { validarAvanco } from "@/services/obra";
+import { validarAvancoNaSerie } from "@/services/obra";
 import { diaParaBanco, validarDatasEtapa } from "@/services/cronograma";
 import { formatarPercentBp, inputParaData, percentEditavelParaBp } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
@@ -95,11 +95,11 @@ export const criarMedicao = acaoDeEscrita(
     if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
     exigirAcessoObra(user, etapa.obraId, "Etapa não encontrada");
 
-    const ultima = await prisma.medicao.findFirst({
+    const existentes = await prisma.medicao.findMany({
       where: { etapaId: d.etapaId },
-      orderBy: [{ data: "desc" }, { id: "desc" }],
+      select: { id: true, data: true, percentBp: true },
     });
-    const valido = validarAvanco(percentBp, ultima?.percentBp ?? 0);
+    const valido = validarAvancoNaSerie({ data: d.data, percentBp }, existentes);
     if (!valido.ok) return { ok: false, erro: valido.erro };
 
     const medicao = await prisma.medicao.create({

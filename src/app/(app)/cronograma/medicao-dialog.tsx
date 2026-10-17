@@ -49,6 +49,7 @@ export function NovaMedicaoDialog({
             name="data"
             type="date"
             required
+            max={dataParaInput(new Date())}
             defaultValue={dataParaInput(new Date())}
             className="h-11"
           />
