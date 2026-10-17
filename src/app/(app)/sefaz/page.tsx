@@ -28,6 +28,7 @@ import {
   type EstadoCursor,
   type FiltroDocumentos,
 } from "@/services/sefaz/painel";
+import { FREQUENCIA_LABELS, consultaProgramadaDevida, proximoHorarioProgramado } from "@/services/sefaz/regras";
 import { BotaoConsultarAgora, BotaoReenviarCiencia } from "./acoes";
 import { descartarDocumento, restaurarDocumento } from "./actions";
 
@@ -92,7 +93,7 @@ export default async function SefazPage({ searchParams }: { searchParams: Promis
         <div>
           <h1 className="text-2xl md:text-3xl">Captura de NF-e na Sefaz</h1>
           <p className="text-sm text-muted-foreground">
-            NF-e emitidas contra o CNPJ da empresa, buscadas no Ambiente Nacional a cada hora.
+            NF-e emitidas contra o CNPJ da empresa, buscadas no Ambiente Nacional uma ou duas vezes ao dia.
           </p>
         </div>
         <Button variant="outline" render={<Link href="/notas/recebidas" />}>
@@ -196,8 +197,14 @@ async function AbaVisao() {
                         <dd>{c.cursor?.ultimaConsultaEm ? formatarTempoRelativo(c.cursor.ultimaConsultaEm, agora) : "—"}</dd>
                       </div>
                       <div>
-                        <dt className="text-xs text-muted-foreground">Próxima liberada</dt>
-                        <dd>{c.cursor?.bloqueadoAte && c.cursor.bloqueadoAte > agora ? fmt(c.cursor.bloqueadoAte) : c.cursor?.proximaConsultaEm && c.cursor.proximaConsultaEm > agora ? fmt(c.cursor.proximaConsultaEm) : "agora"}</dd>
+                        <dt className="text-xs text-muted-foreground">Próxima consulta automática</dt>
+                        <dd>
+                          {c.cursor?.bloqueadoAte && c.cursor.bloqueadoAte > agora
+                            ? `bloqueada até ${fmt(c.cursor.bloqueadoAte)}`
+                            : consultaProgramadaDevida(config.frequencia, c.cursor?.ultimaConsultaEm ?? null, agora)
+                              ? "na próxima abertura do sistema"
+                              : fmt(proximoHorarioProgramado(config.frequencia, agora))}
+                        </dd>
                       </div>
                       <div>
                         <dt className="text-xs text-muted-foreground">NSU atual / máximo</dt>
@@ -262,6 +269,7 @@ async function AbaVisao() {
             <p className="pt-2 text-xs text-muted-foreground">
               Ambiente: <Badge variant="secondary">{config.ambiente === "producao" ? "Produção" : "Homologação"}</Badge>
             </p>
+            <p className="text-xs text-muted-foreground">Frequência: {FREQUENCIA_LABELS[config.frequencia]}</p>
             <Button variant="outline" size="sm" render={<Link href="/empresa" />}>
               {config.certificado ? "Trocar certificado" : "Enviar certificado"}
             </Button>

@@ -1,6 +1,6 @@
-# Dispara a captura de NF-e na Sefaz. A cada 20 min, mas a consulta de fato só acontece quando o Admin ligou a
-# captura na tela Empresa e a janela de 1 h da Sefaz já passou: na prática, uma consulta a cada 61–80 min.
-# Com a captura desligada, a chamada termina na hora (sem custo relevante).
+# Opcional. Dispara a captura de NF-e na Sefaz de hora em hora; quem decide se consulta é o app: só nos horários
+# que o Admin programou na tela Empresa (1 ou 2 vezes ao dia), com a captura ligada e respeitando a espera de 1 h da
+# Sefaz. Sem este job a busca anda quando alguém usa o sistema; com ele, anda também de madrugada e fim de semana.
 # Chamada com token OIDC desta service account; o app confere e-mail e audiência (/api/sefaz/sincronizar).
 
 resource "google_service_account" "agendador" {
@@ -13,11 +13,11 @@ resource "google_cloud_scheduler_job" "sefaz" {
   name             = "${var.app_name}-sefaz-captura"
   region           = var.region
   description      = "Captura de NF-e emitidas contra o CNPJ da empresa (NFeDistribuicaoDFe)"
-  schedule         = "*/20 * * * *"
+  schedule         = "7 * * * *"
   time_zone        = "America/Sao_Paulo"
   attempt_deadline = "320s"
 
-  # sem nova tentativa: a próxima execução vem em 20 min e reenviar fora de hora não ajuda
+  # sem nova tentativa: a próxima execução vem em 1 h e reenviar fora de hora não ajuda
   retry_config {
     retry_count = 0
   }

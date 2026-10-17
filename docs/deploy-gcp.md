@@ -16,7 +16,7 @@ GitHub (main) ──► GitHub Actions ──OIDC──► Workload Identity Fed
                                      ├──► Secret Manager (DATABASE_URL, AUTH_SECRET, CHAVE_COFRE)
                                      └──► Sefaz / Ambiente Nacional (captura de NF-e, TLS com o A1)
             Cloud Run job "gestao-obras-migrate" ──► prisma migrate deploy
-            Cloud Scheduler ──OIDC──► /api/sefaz/sincronizar a cada 20 min
+            Cloud Scheduler (opcional) ──OIDC──► /api/sefaz/sincronizar de hora em hora
             Monitoring: uptime check em /api/health, alertas por e-mail, orçamento mensal
 ```
 
@@ -25,7 +25,7 @@ GitHub (main) ──► GitHub Actions ──OIDC──► Workload Identity Fed
 | Cloud Run | 1 vCPU, 1 GiB, escala a zero, CPU só durante requisições | US$ 0–5 (uso de escritório) |
 | Cloud SQL | `db-f1-micro`, 10 GB SSD, zonal, backups + PITR | US$ 12–15 |
 | Cloud Storage, Artifact Registry, Secret Manager, Monitoring | — | < US$ 2 |
-| Cloud Scheduler (captura Sefaz) | 1 job a cada 20 min | US$ 0 (3 jobs grátis por conta) |
+| Cloud Scheduler (captura Sefaz, opcional) | 1 job de hora em hora | US$ 0 (3 jobs grátis por conta) |
 
 \*Estimativa para poucas dezenas de usuários. O orçamento configurado avisa por e-mail aos 50%, 90% e 100% (contando o custo real, sem descontar os créditos).
 
@@ -109,8 +109,8 @@ quando a leitura barata não fecha.
 
 Com o certificado A1 da empresa, o app busca sozinho as NF-e emitidas contra o CNPJ e as deixa em
 "NF-e recebidas" para lançar. O Admin cadastra a empresa, envia o `.pfx` e liga a captura na tela **Empresa**.
-A busca anda sozinha enquanto alguém usa o sistema, sem configurar nada na GCP. O bootstrap acrescenta o agendador
-(a busca 24 h, mesmo sem ninguém usando) e a chave do cofre. Detalhes em [captura-sefaz.md](captura-sefaz.md).
+A busca anda sozinha 1 ou 2 vezes ao dia (escolhido em Empresa) quando alguém usa o sistema, sem configurar nada na
+GCP. O bootstrap acrescenta o agendador (consulta no horário mesmo sem ninguém usando) e a chave do cofre. Detalhes em [captura-sefaz.md](captura-sefaz.md).
 
 ## Dia a dia
 

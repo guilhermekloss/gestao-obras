@@ -3,6 +3,7 @@ import { decifrar } from "@/lib/cofre";
 import { UFS, carregarEmpresa, cnpjsDe } from "@/services/empresa";
 import { carregarCertificado, cnpjsConsultaveis, infoDoCertificado, lerCertificadoPem, type Env, type InfoCertificado } from "./certificado";
 import type { ConfigSefaz } from "./cliente";
+import type { Frequencia } from "./regras";
 import type { Ambiente } from "./xml";
 
 // De onde vem a configuração da captura: do cadastro da empresa (tela Empresa) e, sem cadastro, das variáveis
@@ -11,6 +12,7 @@ import type { Ambiente } from "./xml";
 export type FonteConfig = {
   habilitado: boolean;
   ambiente: Ambiente;
+  frequencia: Frequencia;
   cUFAutor: string;
   cnpjs: string[];
   certificado: ReturnType<typeof lerCertificadoPem>;
@@ -22,6 +24,7 @@ export type FonteConfig = {
 export type SituacaoConfig = {
   habilitado: boolean;
   ambiente: Ambiente;
+  frequencia: Frequencia;
   certificado: InfoCertificado | null;
   erroCertificado: string | null;
   cnpjs: string[];
@@ -35,6 +38,7 @@ export function fonteDoAmbiente(env: Env): FonteConfig {
   return {
     habilitado: env.SEFAZ_HABILITADO === "true",
     ambiente: env.SEFAZ_AMBIENTE === "producao" ? "producao" : "homologacao",
+    frequencia: "UMA_VEZ_DIA",
     cUFAutor: /^\d{2}$/.test(env.SEFAZ_UF_AUTOR ?? "") ? env.SEFAZ_UF_AUTOR! : "41",
     cnpjs: cnpjsDe(null, env),
     certificado: env.SEFAZ_CERT_PEM?.trim() ? carregarCertificado(env) : SEM_CERTIFICADO,
@@ -55,6 +59,7 @@ export function fonteDaEmpresa(empresa: Empresa, env: Env, abrir: (dados: Uint8A
   return {
     habilitado: empresa.capturaAtiva,
     ambiente: empresa.ambienteSefaz === "PRODUCAO" ? "producao" : "homologacao",
+    frequencia: empresa.frequenciaCaptura,
     cUFAutor: UFS[empresa.uf] ?? "41",
     cnpjs: cnpjsDe(empresa),
     certificado,
@@ -75,6 +80,7 @@ export function situacaoDaConfig(fonte: FonteConfig): SituacaoConfig {
   return {
     habilitado: fonte.habilitado,
     ambiente: fonte.ambiente,
+    frequencia: fonte.frequencia,
     certificado: info,
     erroCertificado: fonte.certificado.ok ? null : fonte.certificado.erro,
     cnpjs: consultaveis,
@@ -86,7 +92,7 @@ export function situacaoDaConfig(fonte: FonteConfig): SituacaoConfig {
 export function montarConfig(
   fonte: FonteConfig,
   agora: Date = new Date(),
-): { ok: true; config: ConfigSefaz; cnpjs: string[] } | { ok: false; erro: string } {
+): { ok: true; config: ConfigSefaz; cnpjs: string[]; frequencia: Frequencia } | { ok: false; erro: string } {
   if (!fonte.habilitado) {
     return { ok: false, erro: fonte.origem === "empresa" ? "Captura na Sefaz desligada (tela Empresa)." : "Captura na Sefaz desligada (SEFAZ_HABILITADO)." };
   }
@@ -102,6 +108,7 @@ export function montarConfig(
   return {
     ok: true,
     cnpjs: consultaveis,
+    frequencia: fonte.frequencia,
     config: { ambiente: fonte.ambiente, cUFAutor: fonte.cUFAutor, certificado: cert.certificado, caExtraPem: fonte.caExtraPem },
   };
 }

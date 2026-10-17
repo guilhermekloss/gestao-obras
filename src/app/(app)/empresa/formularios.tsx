@@ -101,10 +101,12 @@ export function CertificadoForm({ substituir, desabilitado }: { substituir: bool
 export function CapturaForm({
   ativa,
   ambiente,
+  frequencia,
   podeLigar,
 }: {
   ativa: boolean;
   ambiente: "HOMOLOGACAO" | "PRODUCAO";
+  frequencia: "UMA_VEZ_DIA" | "DUAS_VEZES_DIA";
   podeLigar: boolean;
 }) {
   const [estado, enviar, pendente] = useActionState<EstadoForm, FormData>(configurarCaptura, { ok: true });
@@ -116,16 +118,31 @@ export function CapturaForm({
         <span>
           <span className="font-medium">Buscar automaticamente as NF-e emitidas contra a empresa</span>
           <span className="block text-muted-foreground">
-            Consulta a Sefaz sozinha, no máximo a cada 1 hora (regra dela), enquanto alguém estiver com o sistema aberto.
+            Consulta a Sefaz sozinha, nos horários abaixo (Brasília). Nada se perde entre uma consulta e outra: a Sefaz
+            guarda 90 dias de notas.
           </span>
         </span>
       </label>
+      <CampoForm
+        id="frequencia"
+        rotulo="Quantas vezes por dia"
+        dica="Uma por dia basta para a maioria das empresas. Mais consultas só gastam recursos e aumentam o risco de bloqueio pela Sefaz, que exige pelo menos 1 hora entre elas."
+      >
+        <SelectNativo id="frequencia" name="frequencia" defaultValue={frequencia} className="max-w-xs">
+          <option value="UMA_VEZ_DIA">Uma vez ao dia (07:00)</option>
+          <option value="DUAS_VEZES_DIA">Duas vezes ao dia (07:00 e 14:00)</option>
+        </SelectNativo>
+      </CampoForm>
       <CampoForm id="ambiente" rotulo="Ambiente da Sefaz" dica="Comece em homologação (testes, sem valor fiscal). Depois de conferir, mude para produção.">
         <SelectNativo id="ambiente" name="ambiente" defaultValue={ambiente} className="max-w-xs">
           <option value="HOMOLOGACAO">Homologação (testes)</option>
           <option value="PRODUCAO">Produção</option>
         </SelectNativo>
       </CampoForm>
+      <p className="rounded-xl border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
+        <strong>Antes de ligar:</strong> se o contador ou outro sistema (ERP, Qive, Arquivei) já baixa as NF-e deste CNPJ
+        na Sefaz, avise. Dois sistemas consultando o mesmo CNPJ podem se atrapalhar e causar bloqueio de 1 hora.
+      </p>
       <Erro estado={estado} />
       <Button type="submit" variant="outline" disabled={pendente} className="w-fit">
         <Save className="size-4" /> {pendente ? "Salvando..." : "Salvar captura"}

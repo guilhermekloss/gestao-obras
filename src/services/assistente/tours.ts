@@ -199,7 +199,7 @@ export const TOURS: Tour[] = [
       {
         alvo: "#secao-captura",
         titulo: "4. Ligar a captura",
-        texto: "Marque a busca automática, deixe em Homologação e clique em \"Salvar captura\". Depois de conferir em Captura Sefaz, troque para Produção.",
+        texto: "Marque a busca automática, escolha 1 ou 2 vezes ao dia, deixe em Homologação e clique em \"Salvar captura\". Depois de conferir em Captura Sefaz, troque para Produção.",
       },
     ],
   },

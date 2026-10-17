@@ -55,6 +55,11 @@ enum StatusParcela {
   PAGA
 }
 
+enum FrequenciaCaptura {
+  UMA_VEZ_DIA
+  DUAS_VEZES_DIA
+}
+
 enum AmbienteSefaz {
   HOMOLOGACAO
   PRODUCAO
@@ -454,17 +459,19 @@ model DocumentoSefaz {
 
 /// Empresa dona da plataforma (registro único, id "principal"): dados, CNPJs e o certificado A1 da captura Sefaz.
 model Empresa {
-  id                      String        @id @default("principal")
+  id                      String            @id @default("principal")
   razaoSocial             String
   nomeFantasia            String?
   /// CNPJ da matriz, só dígitos e letras (CNPJ alfanumérico).
   cnpj                    String
   /// CNPJs das filiais que também recebem notas.
-  filiais                 String[]      @default([])
+  filiais                 String[]          @default([])
   /// Sigla da UF (PR, SP...): vira o cUFAutor da consulta à Sefaz.
-  uf                      String        @default("PR")
-  capturaAtiva            Boolean       @default(false)
-  ambienteSefaz           AmbienteSefaz @default(HOMOLOGACAO)
+  uf                      String            @default("PR")
+  capturaAtiva            Boolean           @default(false)
+  ambienteSefaz           AmbienteSefaz     @default(HOMOLOGACAO)
+  /// Quantas vezes por dia a busca automática consulta a Sefaz (horários fixos, ver sefaz/regras.ts).
+  frequenciaCaptura       FrequenciaCaptura @default(UMA_VEZ_DIA)
   /// PEM (chave + certificado) cifrado com AES-256-GCM (lib/cofre.ts); a senha do .pfx não é guardada.
   certificadoCifrado      Bytes?
   certificadoTitular      String?
@@ -475,5 +482,5 @@ model Empresa {
   certificadoValidoAte    DateTime?
   certificadoEnviadoEm    DateTime?
   certificadoEnviadoPorId String?
-  atualizadoEm            DateTime      @updatedAt
+  atualizadoEm            DateTime          @updatedAt
 }
