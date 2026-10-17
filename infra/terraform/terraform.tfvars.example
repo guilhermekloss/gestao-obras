@@ -22,7 +22,5 @@ email_alertas = ""
 # Varredura de vulnerabilidades das imagens (cobrada por imagem)
 # varredura_imagens = true
 
-# Captura automática de NF-e na Sefaz (docs/captura-sefaz.md). Grave o certificado antes de ligar.
-# sefaz_habilitado = true
-# sefaz_ambiente   = "homologacao"   # "producao" depois de validar
-# sefaz_uf_autor   = "41"            # Paraná
+# Captura automática de NF-e na Sefaz: empresa, certificado A1 e liga/desliga ficam na tela Empresa do app.
+# sefaz_agendador = false   # desliga o agendador (padrão: ligado)

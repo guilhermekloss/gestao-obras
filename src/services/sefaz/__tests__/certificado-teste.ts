@@ -45,3 +45,22 @@ export function gerarPemDeTeste(opcoes: { cnpj?: string; senha?: string; servido
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+/** .pfx do certificado de teste, como a Autoridade Certificadora entrega (legado = cifras RC2/3DES antigas). */
+export function gerarPfxDeTeste(opcoes: { cnpj?: string; senha: string; legado?: boolean }): Buffer {
+  const pem = gerarPemDeTeste({ cnpj: opcoes.cnpj });
+  const dir = mkdtempSync(path.join(tmpdir(), "pfx-teste-"));
+  try {
+    const entrada = path.join(dir, "a1.pem");
+    const saida = path.join(dir, "a1.pfx");
+    writeFileSync(entrada, pem);
+    execFileSync(
+      "openssl",
+      ["pkcs12", "-export", "-in", entrada, "-out", saida, "-passout", `pass:${opcoes.senha}`, ...(opcoes.legado ? ["-legacy"] : [])],
+      { stdio: "ignore" },
+    );
+    return readFileSync(saida);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}

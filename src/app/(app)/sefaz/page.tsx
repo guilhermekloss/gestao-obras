@@ -145,8 +145,12 @@ async function AbaVisao() {
     <div className="space-y-6">
       {!config.habilitado && (
         <div role="status" className="rounded-xl border-2 border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
-          <span className="font-bold">Captura desligada.</span> Com o certificado configurado, ligue em{" "}
-          <code>sefaz_habilitado</code> no Terraform (veja docs/captura-sefaz.md). Até lá nada é consultado.
+          <span className="font-bold">Captura desligada.</span> Cadastre a empresa e o certificado A1 e ligue a captura
+          em{" "}
+          <Link href="/empresa" className="font-medium underline">
+            Empresa
+          </Link>
+          . Até lá nada é consultado.
         </div>
       )}
 
@@ -171,7 +175,11 @@ async function AbaVisao() {
           <CardContent className="space-y-3">
             {p.cnpjs.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Nenhum CNPJ configurado. Informe <code>cnpjs_empresa</code> com a mesma raiz do certificado.
+                Nenhum CNPJ cadastrado.{" "}
+                <Link href="/empresa" className="font-medium underline">
+                  Cadastre a empresa
+                </Link>{" "}
+                com o CNPJ da mesma raiz do certificado.
               </p>
             ) : (
               p.cnpjs.map((c) => {
@@ -254,6 +262,9 @@ async function AbaVisao() {
             <p className="pt-2 text-xs text-muted-foreground">
               Ambiente: <Badge variant="secondary">{config.ambiente === "producao" ? "Produção" : "Homologação"}</Badge>
             </p>
+            <Button variant="outline" size="sm" render={<Link href="/empresa" />}>
+              {config.certificado ? "Trocar certificado" : "Enviar certificado"}
+            </Button>
           </CardContent>
         </Card>
       </div>

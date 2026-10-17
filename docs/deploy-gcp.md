@@ -13,10 +13,10 @@ GitHub (main) ──► GitHub Actions ──OIDC──► Workload Identity Fed
                                      │  socket Unix /cloudsql (Auth Proxy embutido, IAM)
                                      ├──► Cloud SQL PostgreSQL 17 (backups diários + PITR 7 dias)
                                      ├──► Cloud Storage (fotos/anexos, privado, versionado)
-                                     ├──► Secret Manager (DATABASE_URL, AUTH_SECRET, certificado A1)
+                                     ├──► Secret Manager (DATABASE_URL, AUTH_SECRET, CHAVE_COFRE)
                                      └──► Sefaz / Ambiente Nacional (captura de NF-e, TLS com o A1)
             Cloud Run job "gestao-obras-migrate" ──► prisma migrate deploy
-            Cloud Scheduler (opcional) ──OIDC──► /api/sefaz/sincronizar a cada 20 min
+            Cloud Scheduler ──OIDC──► /api/sefaz/sincronizar a cada 20 min
             Monitoring: uptime check em /api/health, alertas por e-mail, orçamento mensal
 ```
 
@@ -25,7 +25,7 @@ GitHub (main) ──► GitHub Actions ──OIDC──► Workload Identity Fed
 | Cloud Run | 1 vCPU, 1 GiB, escala a zero, CPU só durante requisições | US$ 0–5 (uso de escritório) |
 | Cloud SQL | `db-f1-micro`, 10 GB SSD, zonal, backups + PITR | US$ 12–15 |
 | Cloud Storage, Artifact Registry, Secret Manager, Monitoring | — | < US$ 2 |
-| Cloud Scheduler (captura Sefaz, opcional) | 1 job a cada 20 min | US$ 0 (3 jobs grátis por conta) |
+| Cloud Scheduler (captura Sefaz) | 1 job a cada 20 min | US$ 0 (3 jobs grátis por conta) |
 
 \*Estimativa para poucas dezenas de usuários. O orçamento configurado avisa por e-mail aos 50%, 90% e 100% (contando o custo real, sem descontar os créditos).
 
@@ -108,8 +108,8 @@ quando a leitura barata não fecha.
 ### 7. Captura de NF-e na Sefaz (opcional)
 
 Com o certificado A1 da empresa, o app busca sozinho as NF-e emitidas contra o CNPJ e as deixa em
-"NF-e recebidas" para lançar. Grave o certificado no Secret Manager e ligue `sefaz_habilitado = true`
-(primeiro em homologação). Passo a passo em [captura-sefaz.md](captura-sefaz.md).
+"NF-e recebidas" para lançar. O Admin cadastra a empresa, envia o `.pfx` e liga a captura na tela **Empresa**.
+A infraestrutura (agendador e chave do cofre) já vem do bootstrap. Detalhes em [captura-sefaz.md](captura-sefaz.md).
 
 ## Dia a dia
 

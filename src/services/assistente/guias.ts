@@ -383,6 +383,7 @@ export const GUIAS: Guia[] = [
     rotas: ["/sefaz"],
     paraQueServe: "Acompanhar se a busca automática de NF-e na Sefaz está funcionando e resolver o que travar.",
     passoAPasso: [
+      "Antes, em Empresa, cadastre os dados e o CNPJ, envie o certificado A1 (.pfx e senha) e ligue a captura.",
       "Em Captura Sefaz, a aba Visão geral mostra cada CNPJ, a última e a próxima consulta e o certificado A1.",
       "Para buscar na hora, clique em \"Consultar agora\". Se a Sefaz ainda não liberou, o sistema avisa o horário.",
       "Na aba Execuções, veja cada consulta e o retorno da Sefaz.",
@@ -394,7 +395,28 @@ export const GUIAS: Guia[] = [
       "O certificado A1 vence todo ano. O painel e o dashboard avisam 30 dias antes.",
       "Só o Admin vê esta tela.",
     ],
-    dicas: ["Trocou o certificado? A captura volta depois do próximo deploy. Veja docs/captura-sefaz.md."],
+    dicas: ["Renovou o certificado? Envie o .pfx novo em Empresa; a captura continua de onde parou."],
+  },
+  {
+    id: "empresa",
+    titulo: "Dados da empresa e certificado digital",
+    papeis: ["ADMIN"],
+    link: "/empresa",
+    rotas: ["/empresa"],
+    paraQueServe: "Cadastrar a empresa dona da plataforma, os CNPJs e o certificado A1 usado para buscar NF-e na Sefaz.",
+    passoAPasso: [
+      "Em Empresa, preencha razão social, CNPJ da matriz, filiais (se houver) e UF. Clique em \"Salvar dados\".",
+      "Em Certificado digital A1, escolha o arquivo .pfx, informe a senha e clique em \"Enviar certificado\".",
+      "Em Captura de NF-e na Sefaz, marque a busca automática, deixe em Homologação e clique em \"Salvar captura\".",
+      "Conferido em Captura Sefaz, volte e troque o ambiente para Produção.",
+    ],
+    regras: [
+      "O certificado tem de ser e-CNPJ A1 da própria empresa (mesma raiz de CNPJ) e estar no prazo.",
+      "A senha só abre o arquivo na hora. O certificado fica guardado cifrado.",
+      "Remover o certificado desliga a captura.",
+      "Só o Admin vê esta tela.",
+    ],
+    dicas: ["Não tem o certificado? Peça ao contador ou compre um e-CNPJ A1 de uma Autoridade Certificadora."],
   },
   {
     id: "conta",

@@ -2,7 +2,7 @@
 
 O sistema busca sozinho, no Ambiente Nacional da NF-e, as notas que fornecedores emitiram contra o CNPJ da
 empresa. Elas aparecem em **Lançamentos → NF-e recebidas**, prontas para lançar pelo fluxo de importação de XML.
-O ADMIN acompanha tudo em **Captura Sefaz** (menu).
+O ADMIN configura em **Empresa** (dados, certificado A1, liga/desliga) e acompanha em **Captura Sefaz**.
 
 ## Como funciona
 
@@ -58,57 +58,53 @@ não fica no histórico. Na prática, a consulta acontece a cada 61 a 80 min.
 - **Cloud Run:** cerca de 2.200 chamadas curtas por mês, dentro da camada gratuita.
 - **Banco e Storage:** algumas linhas e XMLs de ~10–50 KB por nota.
 
-## Configurar (uma vez)
+## Configurar (uma vez, pela tela Empresa)
 
-### 1. Converter o certificado A1 para PEM
+Tudo é feito pelo Admin, no menu **Empresa**, sem mexer no Google Cloud.
 
-O A1 vem em `.pfx`/`.p12`. O app lê PEM (chave privada + certificado), sem biblioteca de PKCS#12.
-No seu computador:
-
-```bash
-# -legacy é necessário no OpenSSL 3 para a maioria dos .pfx de autoridades ICP-Brasil
-openssl pkcs12 -in certificado.pfx -nodes -legacy -out a1.pem
-# confira: tem que aparecer "PRIVATE KEY" e "CERTIFICATE"
-grep -c "BEGIN" a1.pem
-```
-
-Prefere a chave cifrada também dentro do Secret Manager? Tire o `-nodes` e informe a senha em
-`SEFAZ_CERT_SENHA` (variável extra no Cloud Run). O secret já é cifrado em repouso, com acesso só da service
-account do app e leitura registrada no log de auditoria, então a chave sem senha é o padrão.
-
-### 2. Gravar no Secret Manager
-
-O Terraform cria o secret vazio (`gestao-obras-sefaz-cert-pem`). A versão é gravada à mão, para a chave
-nunca passar pelo state do Terraform:
-
-```bash
-gcloud secrets versions add gestao-obras-sefaz-cert-pem --data-file=a1.pem
-shred -u a1.pem   # apague a cópia local
-```
-
-### 3. Ligar, primeiro em homologação
-
-No `terraform.tfvars`:
-
-```hcl
-cnpjs_empresa    = "12.345.678/0001-90"   # matriz e filiais, separadas por vírgula (mesma raiz do certificado)
-sefaz_habilitado = true
-sefaz_ambiente   = "homologacao"
-sefaz_uf_autor   = "41"                    # Paraná
-```
-
-Depois rode `./infra/bootstrap.sh SEU_PROJECT_ID`. O Terraform:
-- ativa o Cloud Scheduler;
-- cria a service account do agendador e o job;
-- passa as variáveis e o secret ao Cloud Run;
-- cria o alerta por e-mail de falhas repetidas e de bloqueio.
-
-Em **Captura Sefaz**, clique em "Consultar agora", confira o retorno (137 em homologação é normal) e veja o
-certificado. Validado, troque para `sefaz_ambiente = "producao"` e rode o bootstrap de novo.
+1. **Ter o certificado.** É preciso o certificado digital **e-CNPJ A1** da empresa, um arquivo `.pfx` ou `.p12`
+   com senha. Ele é comprado de uma Autoridade Certificadora da ICP-Brasil (Certisign, Serasa, Valid, Soluti e
+   outras), custa em média R$ 150 a R$ 300 por ano e é emitido em nome do representante legal. Se a empresa já
+   emite nota fiscal, o contador provavelmente tem um. O tipo **A3** (cartão ou token) não serve: ele não sai do
+   aparelho.
+2. **Dados da empresa.** Preencha razão social, CNPJ da matriz, CNPJs das filiais (um por linha) e UF, e clique
+   em "Salvar dados". Esses CNPJs também conferem o destinatário na leitura de notas, no lugar da variável
+   `CNPJS_EMPRESA`.
+3. **Certificado.** Escolha o `.pfx`, informe a senha e clique em "Enviar certificado". O sistema confere na hora:
+   - a senha;
+   - a validade;
+   - se o certificado é da mesma raiz de CNPJ da empresa.
+4. **Ligar.** Em "Captura de NF-e na Sefaz", marque a busca automática e deixe em **Homologação**. Em
+   **Captura Sefaz**, clique em "Consultar agora" e confira o retorno (137 em homologação é normal). Validado,
+   volte e troque para **Produção**.
 
 > **Primeira consulta em produção:** a fila começa no NSU 0 e a Sefaz devolve até 90 dias de documentos.
 > As primeiras execuções podem trazer dezenas de notas antigas. Descarte as que já foram tratadas fora do
 > sistema, ou lance-as.
+
+### Como o certificado é guardado
+
+- O `.pfx` é convertido para PEM pelo `openssl` da imagem (`src/services/sefaz/pfx.ts`). A senha vai por
+  variável de ambiente do processo filho, nunca na linha de comando.
+- A senha não é guardada.
+- O PEM (chave e certificado) fica no banco cifrado com **AES-256-GCM** (`src/lib/cofre.ts`). A chave do cofre,
+  `CHAVE_COFRE`, é gerada pelo Terraform e fica no Secret Manager, fora do banco. Quem tem só o banco ou um
+  backup não consegue usar o certificado.
+- A tela e o painel mostram só titular, CNPJ e validade, nunca a chave.
+- Remover o certificado desliga a captura. Trocar a `CHAVE_COFRE` torna o certificado guardado ilegível: o
+  painel avisa para enviar o `.pfx` de novo.
+
+### Infraestrutura (uma vez, por quem administra o Google Cloud)
+
+`./infra/bootstrap.sh SEU_PROJECT_ID` cria:
+- o secret `gestao-obras-chave-cofre`;
+- a service account do agendador;
+- o job do Cloud Scheduler (a cada 20 min);
+- o alerta por e-mail de falhas e bloqueio.
+
+Rode **antes** de publicar esta versão, senão o envio do certificado falha por falta da `CHAVE_COFRE`. Com a
+captura desligada na tela, cada chamada do agendador termina na hora. Para desligar o agendador:
+`sefaz_agendador = false`.
 
 ### Certificado da Sefaz não reconhecido
 
@@ -119,24 +115,16 @@ variável `SEFAZ_CA_PEM`.
 
 ## Renovar o certificado (todo ano)
 
-O painel e o dashboard avisam 30 dias antes do vencimento. Para renovar:
-1. Repita os passos 1 e 2 com o `.pfx` novo.
-2. Force uma revisão nova do Cloud Run, que lê a versão `latest` do secret ao subir:
-
-   ```bash
-   gcloud run services update gestao-obras --region southamerica-east1 --update-labels=cert=$(date +%s)
-   ```
-
-O cursor (NSU) não muda com a troca: a fila continua de onde parou.
+O painel e o dashboard avisam 30 dias antes do vencimento. Em **Empresa**, envie o `.pfx` novo com a senha.
+Vale na hora. O cursor (NSU) não muda com a troca: a fila continua de onde parou.
 
 ## Desenvolvimento local
 
+Sem `CHAVE_COFRE`, fora de produção, a chave do cofre é derivada do `AUTH_SECRET`. Basta cadastrar a empresa e
+enviar um `.pfx` pela tela. Para disparar a rota à mão:
+
 ```bash
 # .env
-SEFAZ_HABILITADO=true
-SEFAZ_AMBIENTE=homologacao
-SEFAZ_CERT_PEM="$(cat a1.pem)"        # ou com \n escapados numa linha só
-CNPJS_EMPRESA=12345678000190
 SEFAZ_TOKEN_TESTE=um-token-qualquer   # só fora de produção
 
 curl -X POST -H "Authorization: Bearer um-token-qualquer" http://localhost:3000/api/sefaz/sincronizar
@@ -146,15 +134,11 @@ curl -X POST -H "Authorization: Bearer um-token-qualquer" http://localhost:3000/
 
 | Variável | Para quê |
 |---|---|
-| `SEFAZ_HABILITADO` | `true` liga a captura |
-| `SEFAZ_AMBIENTE` | `homologacao` (padrão) ou `producao` |
-| `SEFAZ_CERT_PEM` | chave privada + certificado A1 em PEM (Secret Manager) |
-| `SEFAZ_CERT_SENHA` | opcional: senha da chave, se ela estiver cifrada |
-| `SEFAZ_UF_AUTOR` | código IBGE da UF da empresa (`41` = PR, padrão) |
-| `SEFAZ_CA_PEM` | opcional: cadeia ICP-Brasil extra para o TLS |
+| `CHAVE_COFRE` | chave AES-256 (base64, 32 bytes) que cifra o certificado no banco (Secret Manager) |
 | `SEFAZ_AGENDADOR_EMAIL` | service account cujo token OIDC é aceito na rota |
+| `SEFAZ_CA_PEM` | opcional: cadeia ICP-Brasil extra para o TLS |
 | `SEFAZ_TOKEN_TESTE` | só fora de produção: token fixo para disparar à mão |
-| `CNPJS_EMPRESA` | CNPJs consultados (os de raiz diferente da do certificado são ignorados e apontados no painel) |
+| `SEFAZ_HABILITADO`, `SEFAZ_AMBIENTE`, `SEFAZ_CERT_PEM`, `SEFAZ_UF_AUTOR`, `CNPJS_EMPRESA` | só sem cadastro na tela Empresa: configuração por variável (instalação antiga e testes) |
 
 ## Arquivos
 
@@ -162,14 +146,16 @@ curl -X POST -H "Authorization: Bearer um-token-qualquer" http://localhost:3000/
   - `regras.ts`: janela, bloqueio e limites;
   - `xml.ts`: envelopes SOAP e leitura do retorno;
   - `assinatura.ts`: evento de Ciência assinado (XMLDSig);
-  - `certificado.ts` e `config.ts`: certificado e configuração;
+  - `certificado.ts`, `pfx.ts` e `config.ts`: leitura e conversão do certificado e configuração (cadastro da empresa ou variáveis);
   - `cliente.ts`: chamadas HTTPS com TLS mútuo;
   - `sincronizar.ts`: o orquestrador;
   - `painel.ts`: consultas do painel e alertas.
 - **`src/app/api/sefaz/sincronizar/route.ts`:** gatilho do agendador.
+- **`src/app/(app)/empresa/`:** cadastro da empresa, certificado e liga/desliga da captura.
+- **`src/lib/cofre.ts`:** cifra AES-256-GCM dos segredos guardados no banco.
 - **`src/app/(app)/sefaz/`:** painel do ADMIN.
 - **`src/app/(app)/notas/recebidas/`:** caixa de NF-e recebidas.
-- **`infra/terraform/scheduler.tf`:** agendador. O secret, as variáveis e o alerta ficam em `secrets.tf`,
+- **`infra/terraform/scheduler.tf`:** agendador. A chave do cofre, as variáveis e o alerta ficam em `secrets.tf`,
   `cloud_run.tf` e `monitoring.tf`.
 
 ## Limitações conhecidas

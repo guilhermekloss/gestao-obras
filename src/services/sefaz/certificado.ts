@@ -2,7 +2,7 @@ import { X509Certificate, createPrivateKey, type KeyObject } from "node:crypto";
 import { normalizarCnpj } from "./xml";
 
 // Certificado A1 (e-CNPJ ICP-Brasil) da empresa, em PEM: chave privada + certificado (+ cadeia, opcional).
-// Vem do Secret Manager já convertido do .pfx (docs/captura-sefaz.md): o Node lê PEM nativamente,
+// Vem cifrado do cadastro da empresa (convertido do .pfx em pfx.ts) ou da variável SEFAZ_CERT_PEM: o Node lê PEM nativamente,
 // sem biblioteca de PKCS#12.
 
 /** Variáveis de ambiente (process.env ou um objeto, nos testes). */
@@ -55,7 +55,7 @@ export function lerCertificadoPem(
   const textoChave = BLOCO_CHAVE.exec(pem)?.[0];
   const blocos = pem.match(BLOCO_CERTIFICADO) ?? [];
   if (!textoChave || blocos.length === 0) {
-    return { ok: false, erro: "O PEM do certificado precisa ter a chave privada e o certificado (ver docs/captura-sefaz.md)." };
+    return { ok: false, erro: "O certificado precisa ter a chave privada e o certificado." };
   }
 
   let chavePrivada: KeyObject;

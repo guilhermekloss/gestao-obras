@@ -1,7 +1,7 @@
 import type { ManifestacaoSefaz, Prisma, SituacaoDocumentoSefaz, StatusDocumentoSefaz, StatusExecucaoSefaz } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
-import { situacaoDaConfig, type SituacaoConfig } from "./config";
+import { carregarFonte, situacaoDaConfig, type SituacaoConfig } from "./config";
 import { podeConsultar } from "./regras";
 import { nomeDoXmlGuardado } from "./sincronizar";
 
@@ -95,18 +95,18 @@ export function alertasDaCaptura(
   if (!e.habilitado || !e.paraAdmin) return alertas;
 
   if (e.erroCertificado) {
-    alertas.push({ id: "sefaz-cert", tipo: "SEFAZ_CERTIFICADO", severidade: "CRITICA", mensagem: `Captura de NF-e parada: ${e.erroCertificado}`, link: "/sefaz" });
+    alertas.push({ id: "sefaz-cert", tipo: "SEFAZ_CERTIFICADO", severidade: "CRITICA", mensagem: `Captura de NF-e parada: ${e.erroCertificado}`, link: "/empresa" });
   } else if (e.validadeCertificado) {
     const dias = Math.ceil((e.validadeCertificado.getTime() - agora.getTime()) / DIA);
     if (dias <= 0) {
-      alertas.push({ id: "sefaz-cert", tipo: "SEFAZ_CERTIFICADO", severidade: "CRITICA", mensagem: "Certificado A1 vencido: a captura de NF-e na Sefaz parou", link: "/sefaz" });
+      alertas.push({ id: "sefaz-cert", tipo: "SEFAZ_CERTIFICADO", severidade: "CRITICA", mensagem: "Certificado A1 vencido: a captura de NF-e na Sefaz parou", link: "/empresa" });
     } else if (dias <= DIAS_AVISO_CERTIFICADO) {
       alertas.push({
         id: "sefaz-cert",
         tipo: "SEFAZ_CERTIFICADO",
         severidade: "ATENCAO",
         mensagem: `Certificado A1 vence em ${dias} dia${dias === 1 ? "" : "s"}: renove para a captura de NF-e não parar`,
-        link: "/sefaz",
+        link: "/empresa",
       });
     }
   }
@@ -127,7 +127,7 @@ export function alertasDaCaptura(
 }
 
 export async function carregarAlertasDaCaptura(paraAdmin: boolean, agora: Date = new Date()): Promise<AlertaCaptura[]> {
-  const config = situacaoDaConfig();
+  const config = situacaoDaConfig(await carregarFonte());
   const [recebidasParadas, cursores] = await Promise.all([
     prisma.documentoSefaz.count({
       where: { status: "NOVA", situacao: "COMPLETO", recebidoEm: { lt: new Date(agora.getTime() - DIAS_RECEBIDA_PARADA * DIA) } },
@@ -170,7 +170,7 @@ export type Painel = {
 };
 
 export async function carregarPainel(agora: Date = new Date()): Promise<Painel> {
-  const config = situacaoDaConfig();
+  const config = situacaoDaConfig(await carregarFonte());
   const [cursores, docs24h, docs7d, aLancar, aguardandoXml, cienciasComErro] = await Promise.all([
     carregarCursores(config.cnpjs),
     prisma.documentoSefaz.count({ where: { recebidoEm: { gte: new Date(agora.getTime() - DIA) } } }),

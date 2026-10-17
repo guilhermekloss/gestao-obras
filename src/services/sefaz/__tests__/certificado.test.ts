@@ -1,6 +1,9 @@
 import { describe, expect, it, beforeAll, vi } from "vitest";
 import { carregarCertificado, cnpjsConsultaveis, infoDoCertificado, lerCertificadoPem } from "../certificado";
-import { situacaoDaConfig, montarConfig } from "../config";
+import { fonteDoAmbiente, montarConfig as montarDe, situacaoDaConfig as situacaoDe } from "../config";
+
+const montarConfig = (env: Record<string, string | undefined>) => montarDe(fonteDoAmbiente(env));
+const situacaoDaConfig = (env: Record<string, string | undefined>) => situacaoDe(fonteDoAmbiente(env));
 import { gerarPemDeTeste } from "./certificado-teste";
 import { CNPJ_EMPRESA } from "./respostas";
 

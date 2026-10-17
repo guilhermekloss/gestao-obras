@@ -55,6 +55,11 @@ enum StatusParcela {
   PAGA
 }
 
+enum AmbienteSefaz {
+  HOMOLOGACAO
+  PRODUCAO
+}
+
 enum OrigemExecucaoSefaz {
   AGENDADA
   MANUAL
@@ -445,4 +450,27 @@ model DocumentoSefaz {
   @@index([dataEmissao])
   @@index([manifestacao])
   @@index([notaFiscalId])
+}
+
+/// Empresa dona da plataforma (registro único, id "principal"): dados, CNPJs e o certificado A1 da captura Sefaz.
+model Empresa {
+  id                      String        @id @default("principal")
+  razaoSocial             String
+  nomeFantasia            String?
+  /// CNPJ da matriz, só dígitos e letras (CNPJ alfanumérico).
+  cnpj                    String
+  /// CNPJs das filiais que também recebem notas.
+  filiais                 String[]      @default([])
+  /// Sigla da UF (PR, SP...): vira o cUFAutor da consulta à Sefaz.
+  uf                      String        @default("PR")
+  capturaAtiva            Boolean       @default(false)
+  ambienteSefaz           AmbienteSefaz @default(HOMOLOGACAO)
+  /// PEM (chave + certificado) cifrado com AES-256-GCM (lib/cofre.ts); a senha do .pfx não é guardada.
+  certificadoCifrado      Bytes?
+  certificadoTitular      String?
+  certificadoCnpj         String?
+  certificadoValidoAte    DateTime?
+  certificadoEnviadoEm    DateTime?
+  certificadoEnviadoPorId String?
+  atualizadoEm            DateTime      @updatedAt
 }

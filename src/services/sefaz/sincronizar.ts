@@ -4,7 +4,7 @@ import { storage } from "@/lib/storage";
 import { registrarAtividade } from "@/lib/atividade";
 import { formatarDocumento } from "@/services/nfe-xml";
 import { ErroSefaz, clienteSefaz, type ClienteSefaz } from "./cliente";
-import { montarConfig } from "./config";
+import { carregarFonte, montarConfig } from "./config";
 import {
   DURACAO_TRAVA_MS,
   MAX_CIENCIAS_POR_EXECUCAO,
@@ -337,7 +337,7 @@ export async function sincronizar(opcoes: {
   cliente?: ClienteSefaz;
   agora?: () => Date;
 }): Promise<{ ok: true; resultados: ResultadoCnpj[] } | { ok: false; erro: string }> {
-  const montada = montarConfig();
+  const montada = montarConfig(await carregarFonte());
   if (!montada.ok) return montada;
   const ctx: Contexto = {
     cliente: opcoes.cliente ?? clienteSefaz(montada.config),
@@ -353,7 +353,7 @@ export async function sincronizar(opcoes: {
 
 /** Reenvio manual da Ciência (painel do ADMIN) para notas que ficaram com erro. */
 export async function reenviarCiencia(ids: string[]): Promise<{ ok: true; enviadas: number; erros: number } | { ok: false; erro: string }> {
-  const montada = montarConfig();
+  const montada = montarConfig(await carregarFonte());
   if (!montada.ok) return montada;
   const cliente = clienteSefaz(montada.config);
   const docs = await prisma.documentoSefaz.findMany({ where: { id: { in: ids } }, select: { cnpjDestinatario: true } });

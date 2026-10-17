@@ -100,12 +100,12 @@ resource "google_logging_metric" "eventos_sefaz" {
 }
 
 resource "google_monitoring_alert_policy" "sefaz_captura" {
-  count        = var.email_alertas != "" && var.sefaz_habilitado ? 1 : 0
+  count        = var.email_alertas != "" && var.sefaz_agendador ? 1 : 0
   display_name = "${var.app_name}: captura de NF-e na Sefaz falhando"
   combiner     = "OR"
 
   documentation {
-    content   = "A consulta à Sefaz falhou 3 vezes em 3 horas ou o CNPJ foi bloqueado por consumo indevido (656). Veja o painel Captura Sefaz no app (aba Execuções) e docs/captura-sefaz.md."
+    content   = "A consulta à Sefaz falhou 3 vezes em 3 horas ou o CNPJ foi bloqueado por consumo indevido (656). Veja o painel Captura Sefaz no app (aba Execuções) e o certificado em Empresa."
     mime_type = "text/markdown"
   }
 

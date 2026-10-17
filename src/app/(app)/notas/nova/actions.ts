@@ -15,10 +15,10 @@ import {
 import {
   correspondenciaFornecedor,
   destinatarioEhEmpresa,
-  lerCnpjsEmpresa,
   type CorrespondenciaFornecedor,
 } from "@/services/correspondencia-fornecedor";
 import { normalizarLeitura, type DocumentoLido, type LeituraNormalizada } from "@/services/leitura-documento";
+import { cnpjsDaEmpresa } from "@/services/empresa";
 import { leituraAutomaticaDisponivel, lerDocumentoNativo, type MidiaDocumento } from "@/services/leitor-nativo";
 import { ErroLeitura } from "@/services/leitor-nativo/extracao/semaforo";
 import { analiseIaDisponivel, analisarComGemini } from "@/services/leitor-gemini";
@@ -95,7 +95,7 @@ async function lerEConferir(
       materiais,
       destinatarioEhEmpresa: destinatarioEhEmpresa(
         leitura.destinatario.documento,
-        lerCnpjsEmpresa(process.env.CNPJS_EMPRESA),
+        await cnpjsDaEmpresa(),
       ),
       notaExistente,
     };
