@@ -4,6 +4,7 @@ import {
   gerarParcelas,
   dividirValor,
   reconciliarParcelas,
+  validarDataPagamento,
   validarParcelas,
   type ParcelaExistente,
 } from "../parcelas";
@@ -271,5 +272,38 @@ describe("avisoParcelasPagas", () => {
     ).toBe(
       "As parcelas 1ª e 2ª, já pagas, foram alteradas e voltam a ficar em aberto; a 3ª parcela, já paga, foi removida. O registro desses pagamentos será perdido.",
     );
+  });
+});
+
+describe("validarDataPagamento", () => {
+  const hoje = new Date(2026, 9, 17, 9, 30);
+
+  it("aceita hoje e dias passados, devolvendo meio-dia local", () => {
+    for (const texto of ["2026-10-17", "2026-10-01", "2026-02-28"]) {
+      const r = validarDataPagamento(texto, hoje);
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.data.getHours()).toBe(12);
+        expect(r.data.getDate()).toBe(Number(texto.slice(8)));
+      }
+    }
+  });
+
+  it("aceita hoje mesmo no fim do dia", () => {
+    expect(validarDataPagamento("2026-10-17", new Date(2026, 9, 17, 23, 59)).ok).toBe(true);
+  });
+
+  it("recusa data futura", () => {
+    expect(validarDataPagamento("2026-10-18", hoje)).toEqual({
+      ok: false,
+      erro: "A data do pagamento não pode ser futura.",
+    });
+  });
+
+  it("recusa texto vazio, formato errado e dia que não existe", () => {
+    for (const texto of ["", "17/10/2026", "2026-13-01", "2026-02-30", "1999-01-01", "abc"]) {
+      expect(validarDataPagamento(texto, hoje)).toEqual({ ok: false, erro: "Data do pagamento inválida." });
+    }
+    expect(validarDataPagamento(undefined, hoje).ok).toBe(false);
   });
 });

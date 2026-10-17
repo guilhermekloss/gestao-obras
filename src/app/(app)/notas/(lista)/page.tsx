@@ -5,6 +5,7 @@ import { exigirPapel } from "@/lib/auth";
 import type { Prisma, TipoDocumento } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { idsDeNotasDivergentes } from "@/services/analises";
 import { StatusBadge } from "@/components/status-badge";
 import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
@@ -34,6 +35,7 @@ type Nota = {
   fornecedor: { nome: string };
   parcelas: { status: string }[];
   _count: { itens: number };
+  divergente?: boolean;
 };
 
 const COLUNAS: ColunaDados<Nota>[] = [
@@ -61,6 +63,7 @@ const COLUNAS: ColunaDados<Nota>[] = [
           {TIPO_DOCUMENTO_BADGE[n.tipoDocumento]}
         </Badge>
         {n.numero}
+        {n.divergente && <StatusBadge estado="atencao">Itens ≠ total</StatusBadge>}
         {n.anexoUrl && (
           <a
             href={n.anexoUrl}
@@ -103,10 +106,18 @@ const COLUNAS: ColunaDados<Nota>[] = [
 export default async function NotasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fornecedor?: string; obra?: string; de?: string; ate?: string; tipo?: string }>;
+  searchParams: Promise<{
+    fornecedor?: string;
+    obra?: string;
+    de?: string;
+    ate?: string;
+    tipo?: string;
+    divergentes?: string;
+  }>;
 }) {
   await exigirPapel("ADMIN", "ESCRITORIO");
-  const { fornecedor, obra, de, ate, tipo: tipoParam } = await searchParams;
+  const { fornecedor, obra, de, ate, tipo: tipoParam, divergentes } = await searchParams;
+  const soDivergentes = divergentes === "1";
   const tipo = parseTipoDocumento(tipoParam);
 
   const where: Prisma.NotaFiscalWhereInput = {};
@@ -120,7 +131,24 @@ export default async function NotasPage({
     };
   }
 
-  const [notas, fornecedores, obras] = await Promise.all([
+  // Mesma regra do alerta do dashboard (itens somam ≠ total), sem carregar os itens: só id/total e a soma por nota.
+  if (soDivergentes) {
+    const [candidatas, somas] = await Promise.all([
+      prisma.notaFiscal.findMany({
+        where,
+        orderBy: { dataCompra: "desc" },
+        select: { id: true, totalCents: true },
+      }),
+      prisma.itemNota.groupBy({ by: ["notaId"], where: { nota: where }, _sum: { totalCents: true } }),
+    ]);
+    const ids = idsDeNotasDivergentes(
+      candidatas,
+      new Map(somas.map((s) => [s.notaId, s._sum.totalCents ?? 0])),
+    );
+    where.id = { in: ids.slice(0, 200) };
+  }
+
+  const [notasDb, fornecedores, obras] = await Promise.all([
     prisma.notaFiscal.findMany({
       where,
       orderBy: { dataCompra: "desc" },
@@ -135,6 +163,7 @@ export default async function NotasPage({
     listarObrasParaFiltro(),
   ]);
 
+  const notas: Nota[] = notasDb.map((n) => ({ ...n, divergente: soDivergentes }));
   const totalPeriodo = notas.reduce((acc, n) => acc + n.totalCents, 0);
 
   return (
@@ -151,7 +180,23 @@ export default async function NotasPage({
         </div>
       </div>
 
+      {soDivergentes && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-estado-atencao-borda bg-estado-atencao p-3 text-estado-atencao-fg"
+        >
+          <p className="min-w-0 flex-[1_1_16rem]">
+            <span className="font-bold">Itens ≠ total.</span> Mostrando só os lançamentos em que a soma dos itens
+            difere do valor total da nota.
+          </p>
+          <Button variant="outline" className="bg-card" render={<Link href="/notas" />}>
+            Ver todos os lançamentos
+          </Button>
+        </div>
+      )}
+
       <form method="get" className="flex flex-wrap items-end gap-2">
+        {soDivergentes && <input type="hidden" name="divergentes" value="1" />}
         <div className="grid gap-1">
           <label htmlFor="filtro-fornecedor" className="text-xs text-muted-foreground">Fornecedor</label>
           <ComboboxFiltro

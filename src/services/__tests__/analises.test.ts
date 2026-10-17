@@ -8,6 +8,9 @@ import {
   alertasOrcamento,
   alertasParcelasVencidas,
   alertasDivergencia,
+  idsDeNotasDivergentes,
+  notaDivergente,
+  rotuloDocumento,
   montarAlertas,
   type NotaParaAbc,
   type EtapaParaAlerta,
@@ -216,5 +219,80 @@ describe("montarAlertas", () => {
       "ORCAMENTO_ATENCAO",
       "NOTA_DIVERGENTE",
     ]);
+  });
+});
+
+describe("rótulo do tipo de documento nos alertas", () => {
+  it("rotuloDocumento usa o rótulo curto do tipo; sem tipo é NF", () => {
+    expect(rotuloDocumento("NF", "123")).toBe("NF 123");
+    expect(rotuloDocumento("RECIBO", "REC-0001")).toBe("Recibo REC-0001");
+    expect(rotuloDocumento("FOLHA", "FOL-0002")).toBe("Folha FOL-0002");
+    expect(rotuloDocumento("GUIA", "GUIA-0001")).toBe("Guia GUIA-0001");
+    expect(rotuloDocumento("OUTRO", "DOC-0003")).toBe("Outro DOC-0003");
+    expect(rotuloDocumento(undefined, "9")).toBe("NF 9");
+  });
+
+  it("parcela vencida de recibo diz Recibo, não NF", () => {
+    const [a] = alertasParcelasVencidas(
+      [
+        {
+          notaId: "r",
+          notaNumero: "REC-0001",
+          tipoDocumento: "RECIBO",
+          fornecedorNome: "Zé",
+          valorCents: 100,
+          vencimento: new Date(2026, 8, 1),
+        },
+      ],
+      new Date(2026, 9, 14),
+    );
+    expect(a.mensagem).toContain("Zé · Recibo REC-0001: parcela de");
+    expect(a.mensagem).not.toContain("NF");
+  });
+
+  it("divergência de guia diz Guia; sem tipo mantém NF", () => {
+    const alertas = alertasDivergencia([
+      { id: "g", numero: "GUIA-0001", tipoDocumento: "GUIA", fornecedorNome: "Prefeitura", totalCents: 10, somaItensCents: 5 },
+      { id: "n", numero: "7", fornecedorNome: "Loja", totalCents: 10, somaItensCents: 5 },
+    ]);
+    expect(alertas[0].mensagem).toContain("Prefeitura · Guia GUIA-0001: itens somam");
+    expect(alertas[1].mensagem).toContain("Loja · NF 7: itens somam");
+  });
+});
+
+describe("notaDivergente / idsDeNotasDivergentes", () => {
+  it("compara soma dos itens com o total", () => {
+    expect(notaDivergente(1_000, 1_000)).toBe(false);
+    expect(notaDivergente(1_000, 999)).toBe(true);
+  });
+
+  it("lista só as divergentes, na ordem recebida; nota sem itens soma zero", () => {
+    const somas = new Map([
+      ["a", 1_000],
+      ["b", 900],
+    ]);
+    const ids = idsDeNotasDivergentes(
+      [
+        { id: "a", totalCents: 1_000 },
+        { id: "b", totalCents: 1_000 },
+        { id: "c", totalCents: 500 },
+      ],
+      somas,
+    );
+    expect(ids).toEqual(["b", "c"]);
+  });
+
+  it("é a mesma regra do alerta do dashboard", () => {
+    const notas = [
+      { id: "a", numero: "1", fornecedorNome: "A", totalCents: 1_000, somaItensCents: 1_000 },
+      { id: "b", numero: "2", fornecedorNome: "B", totalCents: 1_000, somaItensCents: 900 },
+      { id: "c", numero: "3", fornecedorNome: "C", totalCents: 500, somaItensCents: 0 },
+    ];
+    const doAlerta = alertasDivergencia(notas).map((x) => x.id.replace("divergencia:", "")).sort();
+    const doFiltro = idsDeNotasDivergentes(
+      notas,
+      new Map(notas.map((n) => [n.id, n.somaItensCents])),
+    ).sort();
+    expect(doFiltro).toEqual(doAlerta);
   });
 });

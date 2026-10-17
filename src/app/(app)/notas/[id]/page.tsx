@@ -97,7 +97,7 @@ export default async function EditarNotaPage({
       </div>
       {nota.chaveNfe && (
         <p className="text-sm text-muted-foreground">
-          Importada do XML · chave NF-e <span className="font-mono break-all">{nota.chaveNfe}</span>
+          Chave NF-e <span className="font-mono break-all">{nota.chaveNfe}</span>
         </p>
       )}
       {temParcelaPaga && (

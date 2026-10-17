@@ -4,11 +4,12 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { BarraDeAcao } from "@/components/barra-de-acao";
 import { ConfirmarDialog } from "@/components/confirmar-dialog";
 import { StatusBadge } from "@/components/status-badge";
 import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
-import { formatarMoeda, formatarData } from "@/lib/format";
+import { formatarMoeda, formatarData, dataParaInput } from "@/lib/format";
 import { TIPO_DOCUMENTO_BADGE, TIPO_DOCUMENTO_LABELS } from "@/services/financeiro";
 import type { TipoDocumento } from "@prisma/client";
 import { pagarParcelas, reabrirParcela } from "./actions";
@@ -41,6 +42,8 @@ const MAX_NO_DIALOGO = 5;
 export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [confirmando, setConfirmando] = useState(false);
+  const [dataPagamento, setDataPagamento] = useState("");
+  const [reabrindo, setReabrindo] = useState<ParcelaLinha | null>(null);
   const [pendente, startTransition] = useTransition();
 
   // mais atrasadas no topo: a ordem da lista é a ordem do que precisa de atenção
@@ -65,16 +68,27 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
   function pagarSelecionadas() {
     const ids = [...selecionadas];
     startTransition(async () => {
-      const res = await pagarParcelas(ids);
+      const res = await pagarParcelas(ids, dataPagamento);
       if (res.ok) {
         toast.success(
           `${ids.length} ${plural(ids.length, "parcela marcada como paga", "parcelas marcadas como pagas")}`,
         );
         setSelecionadas(new Set());
+        setConfirmando(false);
       } else {
         toast.error(res.erro ?? "Erro");
       }
-      setConfirmando(false);
+    });
+  }
+
+  function reabrirConfirmada() {
+    if (!reabrindo) return;
+    const id = reabrindo.id;
+    startTransition(async () => {
+      const res = await reabrirParcela(id);
+      if (res.ok) toast.success("Parcela reaberta");
+      else toast.error(res.erro ?? "Erro");
+      setReabrindo(null);
     });
   }
 
@@ -192,13 +206,7 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
             title="Reabrir parcela"
             // celular: botão com texto; desktop: só o ícone, como os outros botões de ícone
             className="tabela:size-8 tabela:px-0 tabela:pointer-coarse:size-10"
-            onClick={() =>
-              startTransition(async () => {
-                const res = await reabrirParcela(p.id);
-                if (res.ok) toast.success("Parcela reaberta");
-                else toast.error(res.erro ?? "Erro");
-              })
-            }
+            onClick={() => setReabrindo(p)}
           >
             <Undo2 className="size-4 text-muted-foreground" />
             <span className="tabela:sr-only">Reabrir parcela</span>
@@ -288,7 +296,10 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
                   type="button"
                   className="flex-1 md:flex-none"
                   disabled={pendente}
-                  onClick={() => setConfirmando(true)}
+                  onClick={() => {
+                    setDataPagamento(dataParaInput(new Date()));
+                    setConfirmando(true);
+                  }}
                 >
                   <CheckCheck className="size-4" />
                   Marcar como pagas
@@ -312,8 +323,22 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
         confirmar="Confirmar pagamento"
         pendente={pendente}
         pendenteRotulo="Salvando..."
-        onConfirmar={pagarSelecionadas}
+        onConfirmar={() => dataPagamento && pagarSelecionadas()}
       >
+        <div className="grid gap-1.5">
+          <label htmlFor="data-pagamento" className="text-sm font-medium">
+            Data do pagamento
+          </label>
+          <Input
+            id="data-pagamento"
+            type="date"
+            required
+            value={dataPagamento}
+            max={dataParaInput(new Date())}
+            onChange={(e) => setDataPagamento(e.target.value)}
+            className="h-11 w-full sm:w-48"
+          />
+        </div>
         <ul className="divide-y rounded-lg border text-sm">
           {escolhidas.slice(0, MAX_NO_DIALOGO).map((p) => (
             <li key={p.id} className="flex items-start justify-between gap-3 px-3 py-2">
@@ -333,6 +358,21 @@ export function ContasTable({ parcelas }: { parcelas: ParcelaLinha[] }) {
           )}
         </ul>
       </ConfirmarDialog>
+
+      <ConfirmarDialog
+        aberto={reabrindo !== null}
+        onAbertoChange={(aberto) => !aberto && setReabrindo(null)}
+        titulo="Reabrir esta parcela?"
+        descricao={
+          reabrindo
+            ? `A parcela ${reabrindo.numero}/${reabrindo.totalParcelas} de ${reabrindo.fornecedor} (${formatarMoeda(reabrindo.valorCents)}) volta a ficar em aberto e a data do pagamento é apagada.`
+            : undefined
+        }
+        confirmar="Reabrir"
+        pendente={pendente}
+        pendenteRotulo="Reabrindo..."
+        onConfirmar={reabrirConfirmada}
+      />
     </>
   );
 }

@@ -3,7 +3,15 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { importarPlanilhas, normalizarChave, type NotaImportada } from "@/services/importacao";
-import { erroDeRegras, gravarLancamento, type Lancamento } from "@/services/lancamento";
+import {
+  chaveDeDuplicidade,
+  documentoDaPlanilha,
+  documentoSoDigitos,
+  erroDeRegras,
+  gravarLancamento,
+  type Lancamento,
+} from "@/services/lancamento";
+import { criarFornecedorValidado } from "@/services/fornecedores";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
 import { dataParaInput, formatarMoeda } from "@/lib/format";
@@ -78,27 +86,35 @@ const processar = acaoDeEscrita(
     }
 
     const fornecedoresDb = await prisma.fornecedor.findMany();
-    const porCnpj = new Map(fornecedoresDb.filter((f) => f.cnpj).map((f) => [f.cnpj!, f.id]));
+    // por dígitos: "12.345.678/0001-95" da planilha e "12345678000195" do cadastro são o mesmo fornecedor
+    const porCnpj = new Map(fornecedoresDb.filter((f) => f.cnpj).map((f) => [documentoSoDigitos(f.cnpj), f.id]));
     const porNome = new Map(fornecedoresDb.map((f) => [normalizarChave(f.nome), f.id]));
 
-    const fornecedoresNovos = new Set<string>();
-    for (const n of notas) {
-      const existe =
-        (n.cnpj && porCnpj.has(n.cnpj)) || porNome.has(normalizarChave(n.fornecedor));
-      if (!existe) fornecedoresNovos.add(normalizarChave(n.fornecedor));
-    }
+    const idDoFornecedor = (n: NotaImportada) => {
+      const digitos = documentoSoDigitos(n.cnpj);
+      return (digitos ? porCnpj.get(digitos) : undefined) ?? porNome.get(normalizarChave(n.fornecedor));
+    };
 
-    const idDoFornecedor = (n: NotaImportada) =>
-      (n.cnpj ? porCnpj.get(n.cnpj) : undefined) ?? porNome.get(normalizarChave(n.fornecedor));
+    const fornecedoresNovos = new Set<string>();
+    const avisosDeCnpj = new Map<string, string>();
+    for (const n of notas) {
+      if (idDoFornecedor(n)) continue;
+      const chave = normalizarChave(n.fornecedor);
+      fornecedoresNovos.add(chave);
+      const { aviso } = documentoDaPlanilha(n.cnpj);
+      if (aviso && !avisosDeCnpj.has(chave)) {
+        avisosDeCnpj.set(chave, `Fornecedor "${n.fornecedor}": ${aviso} — será cadastrado sem CNPJ.`);
+      }
+    }
 
     // mesma regra do banco: (fornecedor, número). O nome só cobre fornecedor que ainda não existe.
     const existentes = await prisma.notaFiscal.findMany({
       select: { numero: true, fornecedorId: true },
     });
-    const numerosPorFornecedor = new Set(existentes.map((e) => `${e.fornecedorId}::${e.numero}`));
+    const numerosPorFornecedor = new Set(existentes.map((e) => chaveDeDuplicidade(e.fornecedorId, e.numero)));
     const novas = notas.filter((n) => {
       const fornecedorId = idDoFornecedor(n);
-      return !(fornecedorId && numerosPorFornecedor.has(`${fornecedorId}::${n.numero}`));
+      return !(fornecedorId && numerosPorFornecedor.has(chaveDeDuplicidade(fornecedorId, n.numero)));
     });
 
     const recusadas = new Map<NotaImportada, string>();
@@ -117,7 +133,7 @@ const processar = acaoDeEscrita(
       fornecedoresNovos: fornecedoresNovos.size,
       notasJaExistentes: notas.length - novas.length,
       valorTotalCents: notas.reduce((a, n) => a + n.totalCents, 0),
-      inconsistencias,
+      inconsistencias: [...inconsistencias, ...avisosDeCnpj.values()],
       notasRecusadas: [...recusadas].map(([n, erro]) => `${n.fornecedor} NF ${n.numero}: ${erro}`),
     };
     if (!executar) {
@@ -134,9 +150,12 @@ const processar = acaoDeEscrita(
       try {
         const criado = await prisma.$transaction(async (tx) => {
           let fornecedorId = fornecedorExistente;
-          let fornecedorCriado: { id: string } | null = null;
+          let fornecedorCriado: { id: string; cnpj: string | null } | null = null;
           if (!fornecedorId) {
-            fornecedorCriado = await tx.fornecedor.create({ data: { nome: n.fornecedor, cnpj: n.cnpj } });
+            // mesma validação do cadastro (DV, máscara, CNPJ repetido); CNPJ inválido entra sem documento
+            const resultado = await criarFornecedorValidado({ nome: n.fornecedor, cnpj: documentoDaPlanilha(n.cnpj).cnpj }, tx);
+            if (!resultado.ok) return resultado;
+            fornecedorCriado = resultado.fornecedor;
             fornecedorId = fornecedorCriado.id;
           }
           const { lancamento } = paraLancamento(
@@ -150,12 +169,17 @@ const processar = acaoDeEscrita(
                 : undefined,
           );
           await gravarLancamento(tx, lancamento);
-          return fornecedorCriado;
+          return { ok: true as const, fornecedorCriado };
         });
+        if (!criado.ok) {
+          resumo.notasRecusadas!.push(`${n.fornecedor} NF ${n.numero}: ${criado.erro}`);
+          continue;
+        }
         // o mapa só aprende o fornecedor depois do commit: um rollback não deixa id fantasma
-        if (criado) {
-          if (n.cnpj) porCnpj.set(n.cnpj, criado.id);
-          porNome.set(normalizarChave(n.fornecedor), criado.id);
+        if (criado.fornecedorCriado) {
+          const digitos = documentoSoDigitos(criado.fornecedorCriado.cnpj);
+          if (digitos) porCnpj.set(digitos, criado.fornecedorCriado.id);
+          porNome.set(normalizarChave(n.fornecedor), criado.fornecedorCriado.id);
         }
         importadas++;
         importadasLista.push(n);

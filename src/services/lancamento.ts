@@ -12,6 +12,7 @@ import {
 import { erroEtapasDoRateio } from "./obras";
 import { chaveAcessoValida, normalizarNumeroNf } from "./leitura-documento";
 import { criarFornecedorValidado, validarDocumentoFornecedor } from "./fornecedores";
+import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
 import { buscarMaterialPorNome, criarMaterialValidado, registrarApelido } from "./materiais-db";
 import { normalizarUnidade } from "./materiais";
 
@@ -92,6 +93,24 @@ const MSG_OBRA_REPETIDA = "A mesma obra aparece mais de uma vez no rateio. Junte
 // NF sem zeros à esquerda, como o nNF do XML: a duplicata (fornecedor + número) depende disso.
 export function numeroDoLancamento(tipo: TipoDocumento, numero: string): string {
   return tipo === "NF" ? normalizarNumeroNf(numero) : numero.trim();
+}
+
+// Só os dígitos do CNPJ/CPF: "12.345.678/0001-95" e "12345678000195" são o mesmo fornecedor.
+export function documentoSoDigitos(doc: string | null | undefined): string {
+  return (doc ?? "").replace(/\D/g, "");
+}
+
+// Chave de duplicidade (fornecedor, número) com o número normalizado, como o bloqueio do lançamento.
+export function chaveDeDuplicidade(fornecedorId: string, numero: string, tipo: TipoDocumento = "NF"): string {
+  return `${fornecedorId}::${numeroDoLancamento(tipo, numero)}`;
+}
+
+// CNPJ/CPF da planilha de um fornecedor novo: válido vira o valor com máscara; inválido não derruba a
+// importação, o fornecedor entra sem documento e o motivo vira aviso.
+export function documentoDaPlanilha(cnpj: string | null): { cnpj?: string; aviso?: string } {
+  if (!cnpj || !cnpj.trim()) return {};
+  const doc = normalizarDocumentoCadastro(cnpj);
+  return doc.ok ? { cnpj: doc.valor } : { aviso: `${doc.erro} ("${cnpj.trim()}")` };
 }
 
 // Regras que não dependem do banco. `somaParcelas: false` é para a planilha antiga, que traz parcelas que não fecham.
@@ -303,7 +322,15 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
   return { notaId: idDaNota, numero, fornecedorNome, fornecedorCriado };
 }
 
-// Valida, avisa e grava. `forcar` confirma os avisos (soma dos itens, parcelas pagas alteradas) de uma vez.
+// `dataCompra` aaaa-mm-dd. Só aviso: dá para confirmar com "Salvar mesmo assim" (compra a prazo, data errada...).
+export function avisoDataCompraFutura(dataCompra: string, hoje: Date = new Date()): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dataCompra);
+  if (!m) return null;
+  if (`${m[1]}-${m[2]}-${m[3]}` <= dataParaInput(hoje)) return null;
+  return `A data da compra é futura (${m[3]}/${m[2]}/${m[1]}). Confira antes de salvar.`;
+}
+
+// Valida, avisa e grava. `forcar` confirma os avisos (soma dos itens, data futura, parcelas pagas alteradas) de uma vez.
 export async function registrarLancamento(
   lancamento: Lancamento,
   opcoes: { forcar?: boolean } = {},
@@ -334,6 +361,8 @@ export async function registrarLancamento(
         `Soma dos itens (${formatarMoeda(somaItensCents)}) difere do valor total (${formatarMoeda(l.totalCents)}).`,
       );
     }
+    const avisoData = avisoDataCompraFutura(l.dataCompra);
+    if (avisoData) avisos.push(avisoData);
     if (l.id) {
       const avisoPagas = avisoParcelasPagas(
         reconciliarParcelas(await parcelasExistentes(db, l.id), l.parcelas).pagasAfetadas,

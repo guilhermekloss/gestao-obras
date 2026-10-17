@@ -3,7 +3,16 @@ import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
-const { erroDeRegras, gravarLancamento, numeroDoLancamento, registrarLancamento } = await import("../lancamento");
+const {
+  avisoDataCompraFutura,
+  chaveDeDuplicidade,
+  documentoDaPlanilha,
+  documentoSoDigitos,
+  erroDeRegras,
+  gravarLancamento,
+  numeroDoLancamento,
+  registrarLancamento,
+} = await import("../lancamento");
 type Lancamento = Parameters<typeof registrarLancamento>[0];
 
 // chave de acesso com dígito verificador válido (a mesma dos testes do leitor)
@@ -218,5 +227,69 @@ describe("gravarLancamento", () => {
     const { data } = db.notaFiscal.create.mock.calls[0][0] as { data: { dataCompra: Date } };
     expect(data.dataCompra.getHours()).toBe(12);
     expect(data.dataCompra.getDate()).toBe(1);
+  });
+});
+
+describe("avisoDataCompraFutura", () => {
+  const hoje = new Date(2026, 9, 17, 10, 0);
+  it("não avisa para hoje nem para o passado", () => {
+    expect(avisoDataCompraFutura("2026-10-17", hoje)).toBeNull();
+    expect(avisoDataCompraFutura("2026-01-05", hoje)).toBeNull();
+  });
+  it("avisa para amanhã em diante, com a data em dd/mm/aaaa", () => {
+    expect(avisoDataCompraFutura("2026-10-18", hoje)).toBe(
+      "A data da compra é futura (18/10/2026). Confira antes de salvar.",
+    );
+    expect(avisoDataCompraFutura("2027-01-02", hoje)).toContain("(02/01/2027)");
+  });
+  it("texto fora do formato não avisa (outra validação cuida)", () => {
+    expect(avisoDataCompraFutura("", hoje)).toBeNull();
+  });
+});
+
+describe("registrarLancamento: data de compra futura", () => {
+  it("vira aviso confirmável; com forcar grava", async () => {
+    const db = novoBanco();
+    const futura = lancamento({ dataCompra: "2999-01-15" });
+    const r = await registrarLancamento(futura, {}, comoPrisma(db));
+    expect(r).toMatchObject({ ok: false, aviso: true });
+    expect(!r.ok && r.erro).toContain("A data da compra é futura (15/01/2999). Confira antes de salvar.");
+    expect(!r.ok && r.erro).toContain("Salvar mesmo assim?");
+    expect(db.notaFiscal.create).not.toHaveBeenCalled();
+
+    const ok = await registrarLancamento(futura, { forcar: true }, comoPrisma(db));
+    expect(ok.ok).toBe(true);
+  });
+
+  it("junta com o aviso de soma dos itens numa só pergunta", async () => {
+    const r = await registrarLancamento(lancamento({ dataCompra: "2999-01-15", totalCents: 10_000, itens: [
+      { descricao: "Cimento CP II", tipo: "MATERIAL", qtde: 1, unidade: "SC", unitCents: 500, descontoCents: 0 },
+    ] }), {}, comoPrisma(novoBanco()));
+    expect(!r.ok && r.erro).toContain("Soma dos itens");
+    expect(!r.ok && r.erro).toContain("A data da compra é futura");
+  });
+});
+
+describe("helpers da planilha", () => {
+  it("documentoSoDigitos ignora máscara", () => {
+    expect(documentoSoDigitos("11.222.333/0001-81")).toBe("11222333000181");
+    expect(documentoSoDigitos(null)).toBe("");
+  });
+
+  it("chaveDeDuplicidade normaliza o número da NF (zeros à esquerda e pontos)", () => {
+    expect(chaveDeDuplicidade("f1", "000123")).toBe(chaveDeDuplicidade("f1", "123"));
+    expect(chaveDeDuplicidade("f1", "000.123")).toBe("f1::123");
+    expect(chaveDeDuplicidade("f1", "123")).not.toBe(chaveDeDuplicidade("f2", "123"));
+    expect(chaveDeDuplicidade("f1", " REC-1 ", "RECIBO")).toBe("f1::REC-1");
+  });
+
+  it("documentoDaPlanilha: válido ganha máscara; inválido vira aviso; vazio é nada", () => {
+    expect(documentoDaPlanilha(null)).toEqual({});
+    expect(documentoDaPlanilha("  ")).toEqual({});
+    expect(documentoDaPlanilha("11222333000181")).toEqual({ cnpj: "11.222.333/0001-81" });
+    const ruim = documentoDaPlanilha("11222333000182");
+    expect(ruim.cnpj).toBeUndefined();
+    expect(ruim.aviso).toContain("inválido");
+    expect(documentoDaPlanilha("123").aviso).toContain("14 dígitos");
   });
 });
