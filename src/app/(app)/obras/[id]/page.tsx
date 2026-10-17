@@ -1,4 +1,4 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { obraAutorizada, usuarioAtual } from "@/lib/auth";
 import { podeEditarCadastros } from "@/services/acesso";
@@ -6,13 +6,15 @@ import { StatusObraBadge } from "@/components/status-obra-badge";
 import { ConfirmButton } from "@/components/confirm-button";
 import { EditarObraDialog } from "../obra-dialogs";
 import { excluirObra } from "../actions";
-import { cn } from "@/lib/utils";
+import { AbasDaPagina } from "@/components/abas-da-pagina";
 import { Trash2 } from "lucide-react";
 import { AbaResumo } from "./abas/resumo";
 import { AbaCronograma } from "./abas/cronograma";
 import { AbaDiario } from "./abas/diario";
 import { AbaEquipe } from "./abas/equipe";
 import type { Role } from "@prisma/client";
+
+export const metadata: Metadata = { title: "Obra" };
 
 const TODOS: Role[] = ["ADMIN", "ESCRITORIO", "CAMPO"];
 const ABAS = [
@@ -63,22 +65,15 @@ export default async function ObraPage({
         )}
       </div>
 
-      <nav className="flex gap-1 border-b">
-        {abas.map((a) => (
-          <Link
-            key={a.key}
-            href={a.key === "resumo" ? `/obras/${obra.id}` : `/obras/${obra.id}?aba=${a.key}`}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm font-medium",
-              a.key === aba.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {a.label}
-          </Link>
-        ))}
-      </nav>
+      <AbasDaPagina
+        rotulo="Seções da obra"
+        ativa={aba.key}
+        abas={abas.map((a) => ({
+          key: a.key,
+          label: a.label,
+          href: a.key === "resumo" ? `/obras/${obra.id}` : `/obras/${obra.id}?aba=${a.key}`,
+        }))}
+      />
 
       <aba.Componente obra={obra} role={user.role} />
     </div>

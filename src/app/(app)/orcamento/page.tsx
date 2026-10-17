@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ChartColumn } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { OrcamentoForm, type LinhaOrcamento, type TotalOrcamento } from "./orcamento-form";
 import { ESTILO_FAIXA } from "./faixa";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = { title: "Orçamento" };
 
 function comFaixa(previstoCents: number, realizadoCents: number) {
   return {
@@ -69,8 +72,9 @@ export default async function OrcamentoPage({
 
       <form method="get" className="flex items-end gap-2">
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Obra</label>
+          <label htmlFor="filtro-obra" className="text-xs text-muted-foreground">Obra</label>
           <ComboboxFiltro
+            id="filtro-obra"
             name="obra"
             defaultValue={obraId ?? ""}
             placeholder="Buscar obra..."

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { exigirPapel } from "@/lib/auth";
 import { listarObrasParaFiltro } from "@/services/obras";
@@ -6,6 +7,7 @@ import { CATEGORIA_LABELS, situacaoDeUso, type CategoriaAtividade } from "@/serv
 import { STATUS_CONVITE_LABELS, type StatusConvite } from "@/services/convite";
 import { formatarData, formatarTempoRelativo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { AbasDaPagina } from "@/components/abas-da-pagina";
 import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { StatusBadge, type Estado } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +27,8 @@ import {
   paraEdicao,
   type UsuarioDaLista,
 } from "./dados";
+
+export const metadata: Metadata = { title: "Usuários" };
 
 const ABAS = [
   { key: "pessoas", label: "Pessoas" },
@@ -80,27 +84,21 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
         />
       </div>
 
-      <nav className="flex gap-1 border-b">
-        {ABAS.map((a) => (
-          <Link
-            key={a.key}
-            href={a.key === "pessoas" ? "/usuarios" : `/usuarios?aba=${a.key}`}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm font-medium",
-              a.key === aba.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {a.label}
-            {a.key === "convites" && convitesPendentes > 0 && (
+      <AbasDaPagina
+        rotulo="Seções de usuários"
+        ativa={aba.key}
+        abas={ABAS.map((a) => ({
+          key: a.key,
+          label: a.label,
+          href: a.key === "pessoas" ? "/usuarios" : `/usuarios?aba=${a.key}`,
+          extra:
+            a.key === "convites" && convitesPendentes > 0 ? (
               <Badge variant="secondary" className="ml-1.5">
                 {convitesPendentes}
               </Badge>
-            )}
-          </Link>
-        ))}
-      </nav>
+            ) : undefined,
+        }))}
+      />
 
       {aba.key === "pessoas" && <AbaPessoas usuarios={usuarios} obras={obras} agora={agora} />}
       {aba.key === "convites" && <AbaConvites obras={obras} />}

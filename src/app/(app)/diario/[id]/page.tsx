@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
@@ -23,6 +24,8 @@ import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 
 // seletores amplos são seguros: esta página não usa <nav>/<header> no conteúdo.
 // String crua (dangerouslySetInnerHTML) para o React não escapar o CSS.
+
+export const metadata: Metadata = { title: "RDO" };
 const CSS_IMPRESSAO = `
 @media print {
   @page { size: A4; margin: 12mm 14mm; }

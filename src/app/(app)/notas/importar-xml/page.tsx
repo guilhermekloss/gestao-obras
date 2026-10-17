@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { exigirPapel } from "@/lib/auth";
 import { listarObrasParaRateio } from "@/services/obras";
 import { listarMateriais } from "@/services/materiais-db";
 import { ImportarXmlForm } from "./importar-xml-form";
+
+export const metadata: Metadata = { title: "Importar XML da NF-e" };
 
 export default async function ImportarXmlPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");

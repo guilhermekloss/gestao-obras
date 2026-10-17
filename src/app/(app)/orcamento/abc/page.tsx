@@ -1,6 +1,6 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import type { TipoItem } from "@prisma/client";
-import { ArrowLeft } from "lucide-react";
+import { LinkVoltar } from "@/components/link-voltar";
 import { exigirPapel } from "@/lib/auth";
 import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
+
+export const metadata: Metadata = { title: "Curva ABC de insumos" };
 
 const TIPOS: { value: TipoItem; label: string }[] = [
   { value: "MATERIAL", label: "Material" },
@@ -106,12 +108,7 @@ export default async function CurvaAbcPage({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <Link
-          href={obra ? `/orcamento?obra=${obra}` : "/orcamento"}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" /> Orçamento
-        </Link>
+        <LinkVoltar href={obra ? `/orcamento?obra=${obra}` : "/orcamento"}>Orçamento</LinkVoltar>
         <h1 className="text-2xl md:text-3xl">Curva ABC de insumos</h1>
         <p className="text-sm text-muted-foreground">
           Itens de nota agrupados por descrição e unidade, do maior custo para o menor.
@@ -121,8 +118,9 @@ export default async function CurvaAbcPage({
 
       <form method="get" className="flex flex-wrap items-end gap-2">
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Obra</label>
+          <label htmlFor="filtro-obra" className="text-xs text-muted-foreground">Obra</label>
           <ComboboxFiltro
+            id="filtro-obra"
             name="obra"
             defaultValue={obra ?? ""}
             todosLabel="Todas"
@@ -132,16 +130,16 @@ export default async function CurvaAbcPage({
           />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">De</label>
-          <Input type="date" name="de" defaultValue={de ?? ""} className="w-36" />
+          <label htmlFor="filtro-de" className="text-xs text-muted-foreground">De</label>
+          <Input type="date" id="filtro-de" name="de" defaultValue={de ?? ""} className="w-36" />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Até</label>
-          <Input type="date" name="ate" defaultValue={ate ?? ""} className="w-36" />
+          <label htmlFor="filtro-ate" className="text-xs text-muted-foreground">Até</label>
+          <Input type="date" id="filtro-ate" name="ate" defaultValue={ate ?? ""} className="w-36" />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Tipo</label>
-          <SelectNativo name="tipo" defaultValue={tipo ?? ""} className="w-36">
+          <label htmlFor="filtro-tipo" className="text-xs text-muted-foreground">Tipo</label>
+          <SelectNativo id="filtro-tipo" name="tipo" defaultValue={tipo ?? ""} className="w-36">
             <option value="">Todos</option>
             {TIPOS.map((t) => (
               <option key={t.value} value={t.value}>

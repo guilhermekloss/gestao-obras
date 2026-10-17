@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { podeEditarCadastros } from "@/services/acesso";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,8 @@ import { NovaObraDialog } from "../obra-dialogs";
 import { formatarData } from "@/lib/format";
 import { EstadoVazio } from "@/components/estado-vazio";
 import { Building2 } from "lucide-react";
+
+export const metadata: Metadata = { title: "Obras" };
 
 export default async function ObrasPage() {
   const user = await usuarioAtual();

@@ -67,7 +67,7 @@ export async function CurvaSWidget() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Curva S — obras em andamento</CardTitle>
+        <CardTitle nivel={3}>Curva S — obras em andamento</CardTitle>
         <CardDescription>
           {comCurva.length} obra{comCurva.length > 1 ? "s" : ""} com cronograma
           {" · "}hoje: previsto {formatarPercentBp(previstoHoje)} × realizado{" "}

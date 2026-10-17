@@ -26,8 +26,9 @@ function AccordionItem({ className, ...props }: AccordionPrimitive.Item.Props) {
 }
 
 function AccordionTrigger({ className, children, ...props }: AccordionPrimitive.Trigger.Props) {
+  // título de seção: h2, logo abaixo do h1 da página (o padrão do Base UI é h3 e pula um nível)
   return (
-    <AccordionPrimitive.Header className="flex">
+    <AccordionPrimitive.Header render={<h2 />} className="flex">
       <AccordionPrimitive.Trigger
         data-slot="accordion-trigger"
         className={cn(

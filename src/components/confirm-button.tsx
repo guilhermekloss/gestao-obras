@@ -8,12 +8,15 @@ import type { ActionResult } from "@/lib/acao";
 export function ConfirmButton({
   action,
   mensagem,
+  rotulo,
   children,
   variant = "destructive",
   size = "sm",
 }: {
   action: () => Promise<ActionResult>;
   mensagem: string;
+  /** Nome do botão para leitor de tela. Obrigatório quando o botão só tem ícone. */
+  rotulo?: string;
   children: React.ReactNode;
   variant?: "destructive" | "outline" | "ghost";
   size?: "sm" | "icon" | "default" | "lg";
@@ -25,6 +28,7 @@ export function ConfirmButton({
       variant={variant}
       size={size}
       disabled={pendente}
+      aria-label={rotulo}
       onClick={() => {
         if (!confirm(mensagem)) return;
         startTransition(async () => {

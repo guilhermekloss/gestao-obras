@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -14,6 +15,8 @@ import {
   permissaoRdo,
 } from "@/services/rdo";
 import { RdoForm, type RdoValores } from "../../novo/rdo-form";
+
+export const metadata: Metadata = { title: "Editar RDO" };
 
 export default async function EditarRdoPage({
   params,

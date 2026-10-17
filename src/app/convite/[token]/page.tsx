@@ -11,7 +11,7 @@ import { AvisoDeAcesso, FolhaDeAcesso, TituloCota } from "@/components/folha-de-
 import { CadastroForm } from "./cadastro-form";
 
 export const metadata: Metadata = {
-  title: "Convite · Gestão de Obras",
+  title: "Convite",
   // link pessoal: não indexar nem vazar o token como referer
   robots: { index: false, follow: false },
   referrer: "no-referrer",
@@ -95,8 +95,8 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
 function LinhaDaLegenda({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[6.5rem_minmax(0,1fr)]">
-      <dt className="border-r border-foreground/40 px-3 py-2.5 text-sm text-muted-foreground">{rotulo}</dt>
-      <dd className="px-3 py-2.5">{children}</dd>
+      <dt className="border-r border-foreground/40 px-3 py-3 text-sm text-muted-foreground">{rotulo}</dt>
+      <dd className="px-3 py-3">{children}</dd>
     </div>
   );
 }

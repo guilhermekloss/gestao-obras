@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
@@ -10,6 +11,8 @@ import { centsParaEditavel, dataParaInput, percentBpParaEditavel } from "@/lib/f
 import { TIPO_DOCUMENTO_BADGE } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
 import { Trash2, TriangleAlert } from "lucide-react";
+
+export const metadata: Metadata = { title: "Editar lançamento" };
 
 export default async function EditarNotaPage({
   params,

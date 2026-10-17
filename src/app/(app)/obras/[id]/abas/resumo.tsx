@@ -136,6 +136,7 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
                         <ConfirmButton
                           action={excluirEtapa.bind(null, etapa.id)}
                           mensagem={`Excluir a etapa "${etapa.nome}"?`}
+                          rotulo={`Excluir a etapa ${etapa.nome}`}
                           variant="ghost"
                           size="icon"
                         >
@@ -162,11 +163,11 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
                 ) : (
                   <ul className="divide-y">
                     {proximasParcelas.map((p) => (
-                      <li key={p.id} className="flex items-center justify-between py-2 text-sm">
-                        <span className="truncate">
+                      <li key={p.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <span className="min-w-0 truncate">
                           {formatarData(p.vencimento)} · {p.nota.fornecedor.nome}
                         </span>
-                        <span className="font-medium">{formatarMoeda(p.valorCents)}</span>
+                        <span className="num shrink-0 font-medium">{formatarMoeda(p.valorCents)}</span>
                       </li>
                     ))}
                   </ul>

@@ -125,7 +125,9 @@ export function ConferenciaDialog({
     const lista = errosConferencia(conferencia);
     setErros(lista);
     if (lista.length > 0) {
-      document.getElementById("conferencia-erros")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      // rolagem animada só para quem não pediu menos movimento (o CSS não alcança `behavior` passado por script)
+      const semMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById("conferencia-erros")?.scrollIntoView({ behavior: semMovimento ? "auto" : "smooth", block: "nearest" });
       return;
     }
     startTransition(async () => {
@@ -337,6 +339,7 @@ export function ConferenciaDialog({
                       variant="ghost"
                       size="icon"
                       title="Remover item"
+                      aria-label="Remover item"
                       disabled={v.itens.length === 1}
                       onClick={() => setConferencia((c) => removerItem(c, i))}
                     >
@@ -400,6 +403,7 @@ export function ConferenciaDialog({
                         variant="ghost"
                         size="icon"
                         title="Remover parcela"
+                        aria-label="Remover parcela"
                         disabled={v.parcelas.length === 1}
                         onClick={() =>
                           setLista("parcelas", (l) => l.filter((_, j) => j !== i).map((x, j) => ({ ...x, numero: j + 1 })))
@@ -468,6 +472,7 @@ export function ConferenciaDialog({
                         variant="ghost"
                         size="icon"
                         title="Remover obra"
+                        aria-label="Remover obra"
                         disabled={v.rateios.length === 1}
                         onClick={() => setLista("rateios", (l) => l.filter((_, j) => j !== i))}
                       >
@@ -792,7 +797,7 @@ function Opcao({
   return (
     <div
       className={cn(
-        "rounded-md border p-2.5 text-sm transition-colors",
+        "rounded-md border p-3 text-sm transition-colors",
         ativo ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50",
       )}
     >
@@ -874,9 +879,9 @@ function Alerta({ tom, children }: { tom: "erro" | "aviso"; children: React.Reac
   return (
     <div
       className={cn(
-        "flex gap-2 rounded-md border p-2.5 text-sm",
+        "flex gap-2 rounded-md border p-3 text-sm",
         tom === "erro"
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          ? "border-estado-vencido-borda bg-estado-vencido text-estado-vencido-fg"
           : "border-estado-atencao-borda bg-estado-atencao text-estado-atencao-fg",
       )}
     >

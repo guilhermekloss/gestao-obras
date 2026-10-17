@@ -1,9 +1,9 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { exigirPapel, obraAutorizada } from "@/lib/auth";
 import { podeEditarCadastros, veFinanceiro } from "@/services/acesso";
 import { formatarPercentBp } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { AbasDaPagina } from "@/components/abas-da-pagina";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { Gantt } from "./gantt";
 import { CurvaSChart } from "./curva-s-chart";
 import { EditarDatasDialog } from "./datas-dialog";
 import { SecaoAvanco } from "./avanco";
+
+export const metadata: Metadata = { title: "Cronograma" };
 
 const ABAS = [
   { key: "planejamento", label: "Planejamento" },
@@ -69,8 +71,9 @@ export default async function CronogramaPage({
       <form method="get" className="flex items-end gap-2">
         {aba.key !== "planejamento" && <input type="hidden" name="aba" value={aba.key} />}
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Obra</label>
+          <label htmlFor="filtro-obra" className="text-xs text-muted-foreground">Obra</label>
           <ComboboxFiltro
+            id="filtro-obra"
             name="obra"
             defaultValue={obraId}
             placeholder="Buscar obra..."
@@ -82,22 +85,15 @@ export default async function CronogramaPage({
         <Button type="submit" variant="secondary" size="sm">Ver</Button>
       </form>
 
-      <nav className="flex gap-1 border-b">
-        {ABAS.map((a) => (
-          <Link
-            key={a.key}
-            href={a.key === "planejamento" ? `/cronograma?obra=${obraId}` : `/cronograma?obra=${obraId}&aba=${a.key}`}
-            className={cn(
-              "-mb-px inline-flex min-h-10 items-center border-b-2 px-3 py-2 text-sm font-medium",
-              a.key === aba.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {a.label}
-          </Link>
-        ))}
-      </nav>
+      <AbasDaPagina
+        rotulo="Seções do cronograma"
+        ativa={aba.key}
+        abas={ABAS.map((a) => ({
+          key: a.key,
+          label: a.label,
+          href: a.key === "planejamento" ? `/cronograma?obra=${obraId}` : `/cronograma?obra=${obraId}&aba=${a.key}`,
+        }))}
+      />
 
       {aba.key === "avanco" ? (
         <SecaoAvanco obra={obra} role={user.role} cronograma={cronograma} />

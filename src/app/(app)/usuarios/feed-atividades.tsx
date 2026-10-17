@@ -37,7 +37,7 @@ export function FeedAtividades({
       {atividades.map((a) => {
         const { Icone, cor } = ICONE[categoriaDoTipo(a.tipo) ?? "cadastro"];
         return (
-          <li key={a.id} className="flex items-start gap-3 py-2.5">
+          <li key={a.id} className="flex items-start gap-3 py-3">
             <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full", cor)}>
               <Icone className="size-3.5" />
             </span>
@@ -57,7 +57,7 @@ export function FeedAtividades({
                   ))}
                 {mostrarUsuario && " · "}
                 {a.link ? (
-                  <Link href={a.link} className="hover:underline">
+                  <Link href={a.link} className="-my-3 inline-block py-3 hover:underline">
                     {a.descricao}
                   </Link>
                 ) : (
@@ -69,7 +69,7 @@ export function FeedAtividades({
                   {formatarTempoRelativo(a.criadoEm, agora)}
                 </time>
                 {a.obras.map((o) => (
-                  <Link key={o.id} href={`/obras/${o.id}`} className="hover:text-foreground hover:underline">
+                  <Link key={o.id} href={`/obras/${o.id}`} className="-my-3 py-3 hover:text-foreground hover:underline">
                     {o.nome}
                   </Link>
                 ))}

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { listarObrasParaRateio } from "@/services/obras";
@@ -5,6 +6,8 @@ import { leituraAutomaticaDisponivel } from "@/services/leitor-nativo";
 import { analiseIaDisponivel } from "@/services/leitor-gemini";
 import { listarMateriais } from "@/services/materiais-db";
 import { NovoLancamento } from "./novo-lancamento";
+
+export const metadata: Metadata = { title: "Novo lançamento" };
 
 export default async function NovaNotaPage() {
   await exigirPapel("ADMIN", "ESCRITORIO");

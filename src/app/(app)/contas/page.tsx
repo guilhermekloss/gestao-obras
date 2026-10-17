@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { startOfDay, endOfDay, endOfWeek, endOfMonth, differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
@@ -14,6 +15,8 @@ import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { veFinanceiro } from "@/services/acesso";
 import { CalendarCheck, ReceiptText } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = { title: "Contas a pagar" };
 
 const VISOES = [
   { key: "hoje", label: "Vence hoje" },
@@ -153,8 +156,9 @@ export default async function ContasPage({
       <form method="get" className="flex flex-wrap items-end gap-2">
         <input type="hidden" name="visao" value={visao} />
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Obra</label>
+          <label htmlFor="filtro-obra" className="text-xs text-muted-foreground">Obra</label>
           <ComboboxFiltro
+            id="filtro-obra"
             name="obra"
             defaultValue={obra ?? ""}
             todosLabel="Todas"
@@ -164,8 +168,9 @@ export default async function ContasPage({
           />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Fornecedor</label>
+          <label htmlFor="filtro-fornecedor" className="text-xs text-muted-foreground">Fornecedor</label>
           <ComboboxFiltro
+            id="filtro-fornecedor"
             name="fornecedor"
             defaultValue={fornecedor ?? ""}
             todosLabel="Todos"

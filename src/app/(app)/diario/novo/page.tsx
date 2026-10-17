@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { exigirPapel } from "@/lib/auth";
 import { listarObrasAtivas } from "@/services/obras";
 import { RdoForm } from "./rdo-form";
+
+export const metadata: Metadata = { title: "Novo RDO" };
 
 export default async function NovoRdoPage({
   searchParams,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
@@ -19,6 +20,8 @@ import {
   parseTipoDocumento,
 } from "@/services/financeiro";
 import { FileCode2, Paperclip, Plus } from "lucide-react";
+
+export const metadata: Metadata = { title: "Lançamentos" };
 
 type Nota = {
   id: string;
@@ -65,7 +68,7 @@ const COLUNAS: ColunaDados<Nota>[] = [
             rel="noopener noreferrer"
             title="Ver anexo"
             aria-label={`Ver anexo do documento ${n.numero}`}
-            className="-m-3.5 p-3.5 tabela:m-0 tabela:p-0"
+            className="-m-3 p-3 tabela:m-0 tabela:p-0"
           >
             <Paperclip className="size-4 text-muted-foreground hover:text-foreground" />
           </a>
@@ -150,8 +153,9 @@ export default async function NotasPage({
 
       <form method="get" className="flex flex-wrap items-end gap-2">
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Fornecedor</label>
+          <label htmlFor="filtro-fornecedor" className="text-xs text-muted-foreground">Fornecedor</label>
           <ComboboxFiltro
+            id="filtro-fornecedor"
             name="fornecedor"
             defaultValue={fornecedor ?? ""}
             todosLabel="Todos"
@@ -161,8 +165,9 @@ export default async function NotasPage({
           />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Obra</label>
+          <label htmlFor="filtro-obra" className="text-xs text-muted-foreground">Obra</label>
           <ComboboxFiltro
+            id="filtro-obra"
             name="obra"
             defaultValue={obra ?? ""}
             todosLabel="Todas"
@@ -181,12 +186,12 @@ export default async function NotasPage({
           </SelectNativo>
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">De</label>
-          <Input type="date" name="de" defaultValue={de ?? ""} className="w-36" />
+          <label htmlFor="filtro-de" className="text-xs text-muted-foreground">De</label>
+          <Input type="date" id="filtro-de" name="de" defaultValue={de ?? ""} className="w-36" />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Até</label>
-          <Input type="date" name="ate" defaultValue={ate ?? ""} className="w-36" />
+          <label htmlFor="filtro-ate" className="text-xs text-muted-foreground">Até</label>
+          <Input type="date" id="filtro-ate" name="ate" defaultValue={ate ?? ""} className="w-36" />
         </div>
         <Button type="submit" variant="secondary">Filtrar</Button>
       </form>

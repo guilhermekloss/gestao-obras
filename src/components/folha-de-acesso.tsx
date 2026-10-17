@@ -29,7 +29,7 @@ export function FolhaDeAcesso({ children, desenho = true }: { children: ReactNod
 
 function Marca() {
   return (
-    <div className="relative z-10 flex items-center gap-2.5">
+    <div className="relative z-10 flex items-center gap-3">
       <span className="grid size-8 place-items-center rounded-sm bg-primary text-primary-foreground">
         <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="M4 4v16h16" />

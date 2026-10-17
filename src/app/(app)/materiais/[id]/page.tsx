@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +9,10 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { EditarMaterialDialog, MesclarMaterialButton } from "../material-dialogs";
 import { excluirMaterial, removerApelido } from "../actions";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { LinkVoltar } from "@/components/link-voltar";
+
+export const metadata: Metadata = { title: "Material" };
 
 export default async function MaterialDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await exigirPapel("ADMIN", "ESCRITORIO");
@@ -59,9 +63,7 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Link href="/materiais" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
-          <ArrowLeft className="size-4" /> Materiais
-        </Link>
+        <LinkVoltar href="/materiais">Materiais</LinkVoltar>
         <div className="flex items-start justify-between gap-2">
           <div>
             <h1 className="text-2xl md:text-3xl">{material.nome}</h1>
@@ -83,6 +85,7 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
               <ConfirmButton
                 action={excluirMaterial.bind(null, material.id)}
                 mensagem={`Excluir o material ${material.nome}?`}
+                rotulo={`Excluir o material ${material.nome}`}
                 variant="ghost"
                 size="icon"
               >
@@ -115,6 +118,7 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
                   <ConfirmButton
                     action={removerApelido.bind(null, a.id)}
                     mensagem="Remover este apelido? Notas com este texto deixam de se ligar sozinhas."
+                    rotulo={`Remover o apelido ${a.descricaoOriginal}`}
                     variant="ghost"
                     size="icon"
                   >
