@@ -24,6 +24,7 @@ import { ErroLeitura } from "@/services/leitor-nativo/extracao/semaforo";
 import { analiseIaDisponivel, analisarComGemini } from "@/services/leitor-gemini";
 import { correspondenciaItem, normalizarUnidade, type CorrespondenciaItem, type MaterialCatalogo } from "@/services/materiais";
 import { carregarBaseMateriais, criarMaterialValidado, buscarMaterialPorNome } from "@/services/materiais-db";
+import { obrasPorCno, type ObraDoCno } from "@/services/obras";
 
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
@@ -43,6 +44,7 @@ export type LerDocumentoResult =
       notaExistente: { id: string; numero: string } | null;
       // um por item da leitura, na mesma ordem
       materiais: CorrespondenciaItem[];
+      obrasDoCno: ObraDoCno[];
     }
   | { ok: false; erro: string };
 
@@ -93,6 +95,7 @@ async function lerEConferir(
       leitura,
       correspondencia,
       materiais,
+      obrasDoCno: await obrasPorCno(leitura.cno),
       destinatarioEhEmpresa: destinatarioEhEmpresa(
         leitura.destinatario.documento,
         await cnpjsDaEmpresa(),

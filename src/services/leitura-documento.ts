@@ -4,6 +4,7 @@ import type { FormaPagto, TipoDocumento, TipoItem } from "@prisma/client";
 import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { unitarioCoerente } from "./nfe-xml";
+import { normalizarCno } from "./cno";
 
 // Só tipos simples, nullable e describe: no JSON Schema da API, regex/min/max não são garantidos.
 // A validação de verdade acontece em normalizarLeitura.
@@ -33,6 +34,9 @@ export const documentoLidoSchema = z.object({
   serie: texto("Série da nota, se houver"),
   chaveAcesso: texto("Chave de acesso de 44 dígitos (NF-e/NFC-e), só os dígitos, sem espaços"),
   dataEmissao: texto("Data de emissão no formato AAAA-MM-DD"),
+  cno: texto(
+    "CNO (Cadastro Nacional de Obras) ou CEI da obra, 12 dígitos, quando impresso: nos dados adicionais/informações complementares da NF-e ou no campo Obra da NFS-e; só os dígitos; null se não houver",
+  ),
   valorTotal: valor("Valor total a pagar do documento, em reais"),
   valorFrete: valor("Valor do frete no quadro de totais, em reais; null se não houver"),
   valorOutrasDespesas: valor(
@@ -156,6 +160,8 @@ export type LeituraNormalizada = {
   serie: string | null;
   chaveNfe: string | null;
   dataEmissao: string | null;
+  /** CNO da obra citado no documento (12 dígitos). */
+  cno: string | null;
   totalCents: number;
   formaPagto: FormaPagto;
   itens: ItemLeitura[];
@@ -283,6 +289,9 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
   if (dataEmissao && dataEmissao > hoje) {
     avisos.push("A data de emissão lida está no futuro — confira.");
   }
+
+  const cno = normalizarCno(lido.cno);
+  if (lido.cno?.trim() && !cno) avisos.push(`O CNO lido (${lido.cno.trim()}) não tem 12 dígitos e foi ignorado.`);
 
   // o total da linha manda: o unitário é ajustado e o excedente vira desconto (como no XML)
   const tipoPadrao = TIPO_ITEM_PADRAO[tipoDocumento];
@@ -415,6 +424,7 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
       serie: lido.serie?.trim() || (daChave ? daChave.serie : null),
       chaveNfe,
       dataEmissao,
+      cno,
       totalCents,
       formaPagto,
       itens,

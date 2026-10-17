@@ -7,6 +7,7 @@ import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { exigirAcessoObra } from "@/lib/auth";
 import { anotarAtividade } from "@/lib/atividade";
 import { obraSchema, etapaSchema, ETAPAS_PADRAO } from "@/schemas/obra";
+import { formatarCno, normalizarCno } from "@/services/cno";
 
 function parseObra(formData: FormData) {
   return obraSchema.safeParse({
@@ -78,6 +79,38 @@ export const atualizarObra = acaoDeEscrita(
       },
     });
     anotarAtividade({ descricao: `Editou a obra ${d.nome}`, entidade: "obra", entidadeId: id, obraIds: [id] });
+    return { ok: true };
+  },
+);
+
+// Chamada ao lançar uma nota cujo CNO não está em nenhuma obra: as próximas notas com ele já vêm ligadas.
+export const vincularCnoAObra = acaoDeEscrita(
+  {
+    papeis: ["ADMIN", "ESCRITORIO"],
+    obra: (obraId: string, _cno: string) => obraId,
+    revalidar: (obraId: string, _cno: string) => ["/obras", `/obras/${obraId}`, "/notas/recebidas"],
+    atividade: "obra.editar",
+  },
+  async (_user, obraId: string, cno: string): Promise<ActionResult> => {
+    const digitos = normalizarCno(cno);
+    if (!digitos) return { ok: false, erro: "O CNO deve ter 12 dígitos (XX.XXX.XXXXX/XX)" };
+    const obra = await prisma.obra.findUnique({ where: { id: obraId }, select: { nome: true, cno: true } });
+    if (!obra) return { ok: false, erro: "Obra não encontrada" };
+    if (obra.cno === digitos) return { ok: true };
+    // trocar o CNO de uma obra é decisão de cadastro, não um efeito colateral do lançamento
+    if (obra.cno) {
+      return {
+        ok: false,
+        erro: `A obra ${obra.nome} já tem o CNO ${formatarCno(obra.cno)}. Para trocar, edite o cadastro da obra.`,
+      };
+    }
+    await prisma.obra.update({ where: { id: obraId }, data: { cno: digitos } });
+    anotarAtividade({
+      descricao: `Ligou o CNO ${formatarCno(digitos)} à obra ${obra.nome}`,
+      entidade: "obra",
+      entidadeId: obraId,
+      obraIds: [obraId],
+    });
     return { ok: true };
   },
 );

@@ -13,6 +13,8 @@ import { SelectNativo } from "@/components/select-nativo";
 import { cn } from "@/lib/utils";
 import { formatarMoeda, moedaParaCents, percentBpParaEditavel } from "@/lib/format";
 import { BP_TOTAL } from "@/services/rateio";
+import type { ObraDoCno } from "@/services/obras";
+import { AvisoCno } from "../aviso-cno";
 import { FORMA_PAGTO_LABELS, TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO } from "@/services/financeiro";
 import { formatarDocumento } from "@/services/nfe-xml";
 import { MOTIVO_CANDIDATO_LABEL, palavrasDoNome } from "@/services/correspondencia-fornecedor";
@@ -97,6 +99,10 @@ export function ConferenciaDialog({
   const [analisando, startAnalise] = useTransition();
 
   const { leitura, correspondencia, notaExistente, arquivo } = dados;
+  // CNO gravado numa obra por esta tela vale enquanto a leitura trouxer o mesmo CNO
+  const [cnoGravado, setCnoGravado] = useState<{ cno: string; obra: ObraDoCno } | null>(null);
+  const cnoLido = leitura.cno;
+  const obrasDoCno = cnoGravado && cnoGravado.cno === cnoLido ? [cnoGravado.obra] : dados.obrasDoCno;
   const v = conferencia.valores;
   const totalCents = moedaParaCents(v.total);
   const somaItens = somaItensForm(v.itens);
@@ -433,6 +439,15 @@ export function ConferenciaDialog({
               extra={<Soma ok={somaRateio === BP_TOTAL} texto={`${percentBpParaEditavel(somaRateio)}% de 100%`} />}
             >
               <div className="space-y-2">
+                {cnoLido && (
+                  <AvisoCno
+                    cno={cnoLido}
+                    obrasDoCno={obrasDoCno}
+                    obraEscolhida={v.rateios.length === 1 ? obras.find((o) => o.id === v.rateios[0].obraId) : undefined}
+                    onUsarObra={(obraId) => setLista("rateios", () => [{ obraId, etapaId: "", percent: "100" }])}
+                    onCnoGravado={(obra) => setCnoGravado({ cno: cnoLido, obra })}
+                  />
+                )}
                 {v.rateios.map((r, i) => {
                   const obra = obras.find((o) => o.id === r.obraId);
                   return (

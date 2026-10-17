@@ -2,6 +2,7 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import type { FormaPagto, TipoItem } from "@prisma/client";
 import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
+import { extrairCnos, formatarCno } from "./cno";
 
 type ItemNfe = {
   descricao: string;
@@ -38,6 +39,8 @@ export type Nfe = {
   emitente: EmitenteNfe;
   /** CNPJ/CPF do destinatário (dest), só dígitos; nulo quando a nota não identifica. */
   destinatario: string | null;
+  /** CNO da obra (12 dígitos), quando a nota cita um; liga a nota à obra. */
+  cno: string | null;
   itens: ItemNfe[];
   totalCents: number;
   duplicatas: DuplicataNfe[];
@@ -250,10 +253,35 @@ export function parseNfeXml(xml: string): ResultadoNfe {
     .sort((a, b) => b.valor - a.valor);
   const formaPagto = mapearFormaPagto(pagamentos[0]?.tPag);
 
+  const cnos = cnosDaNfe(inf, dets);
+  if (cnos.length > 1) {
+    avisos.push(`A nota cita mais de um CNO (${cnos.map(formatarCno).join(", ")}); foi usado o primeiro — confira a obra.`);
+  }
+  const cno = cnos[0] ?? null;
+
   return {
     ok: true,
-    nfe: { chave, numero, serie, dataEmissao, emitente, destinatario, itens, totalCents, duplicatas, formaPagto, avisos },
+    nfe: { chave, numero, serie, dataEmissao, emitente, destinatario, cno, itens, totalCents, duplicatas, formaPagto, avisos },
   };
+}
+
+// O leiaute da NF-e não tem tag de CNO: o emitente o põe num campo de observação ou no complemento do endereço da obra.
+function cnosDaNfe(inf: No, dets: No[]): string[] {
+  const infAdic = no(inf.infAdic);
+  const obsCno = lista(infAdic?.obsCont)
+    .filter((o) => /CNO|CEI|OBRA/i.test(texto(o, "@_xCampo") ?? ""))
+    .map((o) => texto(o, "xTexto"));
+  const textos = [
+    // no obsCont dedicado o rótulo é o próprio xCampo
+    ...obsCno.map((t) => (t ? `CNO ${t}` : undefined)),
+    texto(infAdic, "infCpl"),
+    texto(infAdic, "infAdFisco"),
+    ...lista(infAdic?.obsCont).map((o) => texto(o, "xTexto")),
+    texto(no(inf.entrega), "xCpl"),
+    texto(no(no(inf.dest)?.enderDest), "xCpl"),
+    ...dets.map((d) => texto(d, "infAdProd")),
+  ];
+  return [...new Set(textos.flatMap((t) => extrairCnos(t)))];
 }
 
 // Soma dos itens = vNF exato, para o custo por obra (itens × rateio) bater com o financeiro.

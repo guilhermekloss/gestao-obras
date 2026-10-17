@@ -29,6 +29,7 @@ function documento(parcial: Partial<DocumentoLido> = {}): DocumentoLido {
     serie: "1",
     chaveAcesso: null,
     dataEmissao: "2026-09-15",
+    cno: null,
     valorTotal: 150.5,
     valorFrete: null,
     valorOutrasDespesas: null,
@@ -280,5 +281,25 @@ describe("normalizarLeitura", () => {
 describe("documentoLidoSchema", () => {
   it("aceita o formato que o leitor devolve", () => {
     expect(documentoLidoSchema.safeParse(documento()).success).toBe(true);
+  });
+});
+
+describe("normalizarLeitura — CNO", () => {
+  it("CNO impresso com máscara fica só em dígitos", () => {
+    const leitura = ok(documento({ cno: "90.000.12345/67" }));
+    expect(leitura.cno).toBe("900001234567");
+    expect(leitura.avisos.some((a) => a.includes("CNO"))).toBe(false);
+  });
+
+  it("sem CNO fica nulo, sem aviso", () => {
+    const leitura = ok(documento({ cno: null }));
+    expect(leitura.cno).toBeNull();
+    expect(leitura.avisos.some((a) => a.includes("CNO"))).toBe(false);
+  });
+
+  it("CNO com dígitos faltando é ignorado com aviso", () => {
+    const leitura = ok(documento({ cno: "90.000.1234/67" }));
+    expect(leitura.cno).toBeNull();
+    expect(leitura.avisos).toContain("O CNO lido (90.000.1234/67) não tem 12 dígitos e foi ignorado.");
   });
 });

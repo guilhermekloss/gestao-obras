@@ -250,6 +250,7 @@ describe("valoresDaLeitura", () => {
     serie: "1",
     chaveNfe: "35260911222333000181550010000123451876543218",
     dataEmissao: "2026-09-15",
+    cno: null,
     totalCents: 15050,
     formaPagto: "PIX",
     itens: [

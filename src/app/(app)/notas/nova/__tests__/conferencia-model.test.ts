@@ -26,6 +26,7 @@ const LEITURA: LeituraNormalizada = {
   serie: "1",
   chaveNfe: null,
   dataEmissao: "2026-09-15",
+  cno: null,
   totalCents: 15050,
   formaPagto: "PIX",
   itens: [{ descricao: "Cimento", tipo: "MATERIAL", qtde: 3, unidade: "SC", unitCents: 5017, descontoCents: 1, totalCents: 15050 }],

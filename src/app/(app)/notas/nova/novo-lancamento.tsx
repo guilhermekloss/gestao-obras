@@ -12,6 +12,7 @@ import type { NotaFormValues } from "../nota-form-model";
 import { ImportarXmlForm } from "../importar-xml/importar-xml-form";
 import { AvisoNotaExistente } from "../importar-xml/previa-nfe";
 import type { MaterialCatalogo } from "@/services/materiais";
+import type { ObraDoCno } from "@/services/obras";
 import { lerDocumento, resolverMateriais, type LerDocumentoResult } from "./actions";
 import { ConferenciaDialog, type LeituraConferida } from "./conferencia-dialog";
 import {
@@ -67,6 +68,12 @@ export function NovoLancamento({
   const [arrastando, setArrastando] = useState(false);
   const inputArquivo = useRef<HTMLInputElement>(null);
   const inputCamera = useRef<HTMLInputElement>(null);
+
+  // a obra do CNO lido, quando é uma só e está entre as do rateio; senão a primeira, como sempre
+  function obraPadrao(obrasDoCno: ObraDoCno[]): string {
+    const ativas = obrasDoCno.filter((o) => o.ativa && obras.some((x) => x.id === o.id));
+    return ativas.length === 1 ? ativas[0].id : (obras[0]?.id ?? "");
+  }
 
   function preencherFormulario(f: Formulario) {
     setFormulario(f);
@@ -133,7 +140,7 @@ export function NovoLancamento({
         anexoUrl: url,
         anexoNome: nome,
         hoje: dataParaInput(new Date()),
-        obraPadrao: obras[0]?.id ?? "",
+        obraPadrao: obraPadrao(r.obrasDoCno),
         materiais: r.materiais,
       }),
     );
@@ -150,7 +157,7 @@ export function NovoLancamento({
         anexoUrl: arquivo.url,
         anexoNome: arquivo.nome,
         hoje: dataParaInput(new Date()),
-        obraPadrao: obras[0]?.id ?? "",
+        obraPadrao: obraPadrao(r.obrasDoCno),
         materiais: r.materiais,
       }),
     );

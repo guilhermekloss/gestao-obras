@@ -131,6 +131,7 @@ export async function gravarDocumento(doc: DocumentoDistribuido, cnpj: string): 
     serie: doc.nfe.serie,
     dataEmissao: dataDoDia(doc.nfe.dataEmissao),
     valorCents: doc.nfe.totalCents,
+    cno: doc.nfe.cno,
     xmlUrl,
   } satisfies Prisma.DocumentoSefazUpdateInput;
   try {

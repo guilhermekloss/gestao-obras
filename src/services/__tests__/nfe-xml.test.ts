@@ -311,3 +311,55 @@ describe("parseNfeXml — arquivos recusados", () => {
     expect(semTotal.ok).toBe(false);
   });
 });
+
+describe("parseNfeXml — CNO da obra", () => {
+  const base = fixture("nfe-1-item.xml");
+  const comInfAdic = (conteudo: string) => base.replace("</pag>", `</pag><infAdic>${conteudo}</infAdic>`);
+
+  it("sem CNO na nota fica nulo", () => {
+    expect(nfeOk(base).cno).toBeNull();
+  });
+
+  it("obsCont com xCampo CNO (o rótulo é o próprio campo)", () => {
+    const xml = comInfAdic('<obsCont xCampo="CNO"><xTexto>900001234567</xTexto></obsCont>');
+    expect(nfeOk(xml).cno).toBe("900001234567");
+  });
+
+  it("texto livre das informações complementares", () => {
+    const xml = comInfAdic("<infCpl>PEDIDO 4471. ENTREGA NA OBRA RESIDENCIAL JARDIM - CNO: 90.000.12345/67</infCpl>");
+    expect(nfeOk(xml).cno).toBe("900001234567");
+  });
+
+  it("complemento do local de entrega", () => {
+    const xml = base.replace(
+      "</dest>",
+      "</dest><entrega><CNPJ>11222333000181</CNPJ><xLgr>RUA DA OBRA</xLgr><nro>10</nro><xCpl>LOTE 12 CEI 90.000.12345/67</xCpl><xBairro>CENTRO</xBairro><cMun>3550308</cMun><xMun>SAO PAULO</xMun><UF>SP</UF></entrega>",
+    );
+    expect(nfeOk(xml).cno).toBe("900001234567");
+  });
+
+  it("informação adicional do item", () => {
+    const xml = base.replace("</imposto>", "</imposto><infAdProd>Obra CNO 900001234567</infAdProd>");
+    expect(nfeOk(xml).cno).toBe("900001234567");
+  });
+
+  it("dois CNOs distintos: usa o primeiro e avisa", () => {
+    const xml = comInfAdic(
+      '<infCpl>CNO 11.111.11111/11</infCpl><obsCont xCampo="CNO"><xTexto>90.000.12345/67</xTexto></obsCont>',
+    );
+    const nfe = nfeOk(xml);
+    expect(nfe.cno).toBe("900001234567");
+    expect(nfe.avisos.some((a) => a.includes("mais de um CNO") && a.includes("11.111.11111/11"))).toBe(true);
+  });
+
+  it("o mesmo CNO repetido em dois campos não gera aviso", () => {
+    const xml = comInfAdic('<infCpl>CNO 90.000.12345/67</infCpl><obsCont xCampo="CNO"><xTexto>900001234567</xTexto></obsCont>');
+    const nfe = nfeOk(xml);
+    expect(nfe.cno).toBe("900001234567");
+    expect(nfe.avisos).toEqual([]);
+  });
+
+  it("número de pedido com 12 dígitos não vira CNO", () => {
+    expect(nfeOk(comInfAdic("<infCpl>PEDIDO 900001234567</infCpl>")).cno).toBeNull();
+  });
+});

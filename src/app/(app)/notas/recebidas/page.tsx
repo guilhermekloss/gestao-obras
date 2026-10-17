@@ -10,6 +10,7 @@ import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { formatarDocumento } from "@/services/nfe-xml";
+import { formatarCno } from "@/services/cno";
 import { listarRecebidas } from "@/services/sefaz/painel";
 import { descartarDocumento } from "../../sefaz/actions";
 
@@ -34,6 +35,23 @@ export default async function RecebidasPage() {
       ),
     },
     { id: "valor", titulo: "Valor", papel: "valor", numerica: true, celula: (r) => formatarMoeda(r.valorCents) },
+    {
+      id: "obra",
+      titulo: "Obra (CNO)",
+      celula: (r) =>
+        !r.cno ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <>
+            {r.obrasDoCno.length > 0 ? (
+              <span className="font-medium">{r.obrasDoCno.join(", ")}</span>
+            ) : (
+              <StatusBadge estado="neutro">Sem obra com este CNO</StatusBadge>
+            )}
+            <span className="block text-xs text-muted-foreground num">{formatarCno(r.cno)}</span>
+          </>
+        ),
+    },
     {
       id: "situacao",
       titulo: "Situação",

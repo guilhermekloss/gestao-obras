@@ -52,6 +52,7 @@ export type FornecedorOption = { id: string; nome: string; cnpj?: string | null 
 export type ObraOption = {
   id: string;
   nome: string;
+  cno?: string | null;
   etapas: { id: string; nome: string }[];
 };
 
