@@ -5,7 +5,9 @@ import path from "node:path";
 
 // Certificado autoassinado no formato do e-CNPJ ICP-Brasil (CN "RAZAO:CNPJ" e otherName 2.16.76.1.3.3).
 // Gerado na hora pelo openssl: chave privada não fica no repositório.
-export function gerarPemDeTeste(opcoes: { cnpj?: string; senha?: string; servidorLocal?: boolean } = {}): string {
+export function gerarPemDeTeste(
+  opcoes: { cnpj?: string; senha?: string; servidorLocal?: boolean; ecpf?: boolean } = {},
+): string {
   const cnpj = opcoes.cnpj ?? "11222333000181";
   const dir = mkdtempSync(path.join(tmpdir(), "a1-teste-"));
   try {
@@ -20,12 +22,15 @@ export function gerarPemDeTeste(opcoes: { cnpj?: string; senha?: string; servido
         "[dn]",
         "C=BR",
         "O=ICP-Brasil",
-        `CN=CONSTRUTORA TESTE LTDA:${cnpj}`,
+        // e-CPF: CN "NOME:CPF" e sem o OID do CNPJ
+        opcoes.ecpf ? "CN=FULANO DE TAL:12345678909" : `CN=CONSTRUTORA TESTE LTDA:${cnpj}`,
         "[v3]",
         // servidorLocal: certificado de um servidor HTTPS falso em localhost (teste do TLS mútuo)
         opcoes.servidorLocal
           ? "subjectAltName=DNS:localhost,IP:127.0.0.1"
-          : `subjectAltName=otherName:2.16.76.1.3.3;PRINTABLESTRING:${cnpj}`,
+          : opcoes.ecpf
+            ? "subjectAltName=otherName:2.16.76.1.3.1;PRINTABLESTRING:0101199012345678909"
+            : `subjectAltName=otherName:2.16.76.1.3.3;PRINTABLESTRING:${cnpj}`,
         "basicConstraints=CA:FALSE",
       ].join("\n"),
     );
@@ -47,8 +52,8 @@ export function gerarPemDeTeste(opcoes: { cnpj?: string; senha?: string; servido
 }
 
 /** .pfx do certificado de teste, como a Autoridade Certificadora entrega (legado = cifras RC2/3DES antigas). */
-export function gerarPfxDeTeste(opcoes: { cnpj?: string; senha: string; legado?: boolean }): Buffer {
-  const pem = gerarPemDeTeste({ cnpj: opcoes.cnpj });
+export function gerarPfxDeTeste(opcoes: { cnpj?: string; senha: string; legado?: boolean; ecpf?: boolean }): Buffer {
+  const pem = gerarPemDeTeste({ cnpj: opcoes.cnpj, ecpf: opcoes.ecpf });
   const dir = mkdtempSync(path.join(tmpdir(), "pfx-teste-"));
   try {
     const entrada = path.join(dir, "a1.pem");

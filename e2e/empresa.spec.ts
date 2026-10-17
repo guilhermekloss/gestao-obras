@@ -50,6 +50,8 @@ test("ADMIN cadastra a empresa, envia o certificado A1 e liga a captura", async 
   await entrar(page, await criarUsuario("ADMIN"));
   await page.goto("/empresa");
   await expect(page.getByText("Nenhum certificado enviado.")).toBeVisible();
+  // sem certificado, o guia "o que é e como pedir" já vem aberto
+  await expect(page.getByText("Na compra, peça")).toBeVisible();
 
   await page.fill("#razaoSocial", "Construtora Teste Ltda");
   await page.fill("#cnpj", "11.222.333/0001-81");
@@ -73,7 +75,11 @@ test("ADMIN cadastra a empresa, envia o certificado A1 e liga a captura", async 
   await page.fill("#senha", "senha-do-a1");
   await page.getByRole("button", { name: "Enviar certificado" }).click();
   await expect(page.getByText("Certificado guardado com segurança.")).toBeVisible();
-  await expect(page.getByText("CONSTRUTORA TESTE LTDA:11222333000181")).toBeVisible();
+  const certificado = page.locator("#secao-certificado");
+  await expect(certificado.getByText("CONSTRUTORA TESTE LTDA:11222333000181").first()).toBeVisible();
+  await expect(certificado.getByText("e-CNPJ A1 (ICP-Brasil)")).toBeVisible();
+  await expect(certificado.getByText("Renovar a partir de")).toBeVisible();
+  await expect(certificado.getByText(/Em dia: faltam \d+ dias/)).toBeVisible();
 
   const guardada = await prisma.empresa.findUniqueOrThrow({ where: { id: "principal" } });
   expect(Buffer.from(guardada.certificadoCifrado!).toString("latin1")).not.toContain("PRIVATE KEY");

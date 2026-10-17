@@ -14,6 +14,8 @@ CREATE TABLE "Empresa" (
     "certificadoCifrado" BYTEA,
     "certificadoTitular" TEXT,
     "certificadoCnpj" TEXT,
+    "certificadoEmissor" TEXT,
+    "certificadoValidoDesde" TIMESTAMP(3),
     "certificadoValidoAte" TIMESTAMP(3),
     "certificadoEnviadoEm" TIMESTAMP(3),
     "certificadoEnviadoPorId" TEXT,

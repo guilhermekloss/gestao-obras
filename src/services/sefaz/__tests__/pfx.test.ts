@@ -33,13 +33,19 @@ describe("prepararCertificado", () => {
   it("aceita o certificado da própria empresa, inclusive de filial (mesma raiz)", async () => {
     const r = await prepararCertificado(gerarPfxDeTeste({ senha: "s" }), "s", "11.222.333/0002-62");
     if (!r.ok) throw new Error(r.erro);
-    expect(r.certificado).toMatchObject({ cnpj: CNPJ_EMPRESA, titular: `CONSTRUTORA TESTE LTDA:${CNPJ_EMPRESA}` });
+    expect(r.certificado).toMatchObject({ cnpj: CNPJ_EMPRESA, titular: `CONSTRUTORA TESTE LTDA:${CNPJ_EMPRESA}`, emissor: expect.any(String) });
+    expect(r.certificado.validoDesde.getTime()).toBeLessThan(r.certificado.validoAte.getTime());
     expect(r.certificado.pem).toContain("PRIVATE KEY");
   });
 
   it("recusa certificado de outra empresa", async () => {
     const r = await prepararCertificado(gerarPfxDeTeste({ senha: "s", cnpj: "99888777000166" }), "s", CNPJ_EMPRESA);
     expect(r).toEqual({ ok: false, erro: expect.stringContaining("de outra empresa") });
+  });
+
+  it("recusa e-CPF (pessoa física): a Sefaz exige o e-CNPJ da empresa", async () => {
+    const r = await prepararCertificado(gerarPfxDeTeste({ senha: "s", ecpf: true }), "s", CNPJ_EMPRESA);
+    expect(r).toEqual({ ok: false, erro: expect.stringContaining("parece ser e-CPF") });
   });
 
   it("recusa certificado vencido", async () => {

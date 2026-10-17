@@ -11,6 +11,7 @@ import { UFS, carregarEmpresa, rotuloCnpj } from "@/services/empresa";
 import { DIAS_AVISO_CERTIFICADO } from "@/services/sefaz/painel";
 import { removerCertificado } from "./actions";
 import { CapturaForm, CertificadoForm, DadosEmpresaForm } from "./formularios";
+import { GuiaCertificado } from "./guia-certificado";
 
 export const metadata: Metadata = { title: "Empresa" };
 
@@ -21,6 +22,7 @@ export default async function EmpresaPage() {
   const validade = empresa?.certificadoValidoAte ?? null;
   const dias = validade ? Math.ceil((validade.getTime() - agora.getTime()) / 86_400_000) : null;
   const temCertificado = Boolean(empresa?.certificadoCifrado);
+  const renovarEm = validade ? new Date(validade.getTime() - DIAS_AVISO_CERTIFICADO * 86_400_000) : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -60,47 +62,55 @@ export default async function EmpresaPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {temCertificado && empresa ? (
-            <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border p-3 text-sm">
-              <div className="space-y-1">
-                <p className="font-medium break-words">{empresa.certificadoTitular}</p>
-                <p className="text-muted-foreground">
-                  {empresa.certificadoCnpj ? `CNPJ ${rotuloCnpj(empresa.certificadoCnpj)} · ` : ""}
-                  válido até {validade ? formatarData(validade) : "—"}
-                  {empresa.certificadoEnviadoEm && ` · enviado em ${formatarData(empresa.certificadoEnviadoEm)}`}
-                </p>
-                {dias !== null && dias <= 0 ? (
-                  <StatusBadge estado="vencido">Vencido</StatusBadge>
-                ) : dias !== null && dias <= DIAS_AVISO_CERTIFICADO ? (
-                  <StatusBadge estado="atencao">Vence em {dias} dia(s)</StatusBadge>
-                ) : (
-                  <StatusBadge estado="no-prazo">Em dia</StatusBadge>
-                )}
+            <div className="space-y-3 rounded-xl border p-3 text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="font-medium break-words">{empresa.certificadoTitular}</p>
+                  {dias !== null && dias <= 0 ? (
+                    <StatusBadge estado="vencido">Vencido: a captura parou</StatusBadge>
+                  ) : dias !== null && dias <= DIAS_AVISO_CERTIFICADO ? (
+                    <StatusBadge estado="atencao">Vence em {dias} dia(s): renove já</StatusBadge>
+                  ) : (
+                    <StatusBadge estado="no-prazo">Em dia{dias !== null ? `: faltam ${dias} dias` : ""}</StatusBadge>
+                  )}
+                </div>
+                <ConfirmButton
+                  action={removerCertificado}
+                  mensagem="Remover o certificado? A captura de NF-e na Sefaz será desligada."
+                  variant="ghost"
+                >
+                  <Trash2 className="size-4" /> Remover
+                </ConfirmButton>
               </div>
-              <ConfirmButton
-                action={removerCertificado}
-                mensagem="Remover o certificado? A captura de NF-e na Sefaz será desligada."
-                variant="ghost"
-              >
-                <Trash2 className="size-4" /> Remover
-              </ConfirmButton>
+              <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                <Dado rotulo="Tipo">e-CNPJ A1 (ICP-Brasil)</Dado>
+                <Dado rotulo="CNPJ do certificado">{empresa.certificadoCnpj ? rotuloCnpj(empresa.certificadoCnpj) : "—"}</Dado>
+                <Dado rotulo="Emitido por">{empresa.certificadoEmissor ?? "—"}</Dado>
+                <Dado rotulo="Válido de">
+                  {empresa.certificadoValidoDesde ? formatarData(empresa.certificadoValidoDesde) : "—"} até{" "}
+                  <strong className="text-foreground">{validade ? formatarData(validade) : "—"}</strong>
+                </Dado>
+                <Dado rotulo="Renovar a partir de">{renovarEm ? formatarData(renovarEm) : "—"}</Dado>
+                <Dado rotulo="Enviado em">{empresa.certificadoEnviadoEm ? formatarData(empresa.certificadoEnviadoEm) : "—"}</Dado>
+              </dl>
             </div>
           ) : (
-            <div className="space-y-2 rounded-xl border border-dashed p-3 text-sm">
+            <div className="space-y-1 rounded-xl border border-dashed p-3 text-sm">
               <p className="font-medium">Nenhum certificado enviado.</p>
               <p className="text-muted-foreground">
-                A Sefaz só libera a consulta das NF-e emitidas contra a empresa com o certificado digital{" "}
-                <strong>e-CNPJ do tipo A1</strong> (arquivo .pfx). Ele é comprado de uma Autoridade Certificadora da
-                ICP-Brasil (Certisign, Serasa, Valid, Soluti, entre outras), custa em média R$ 150 a R$ 300 por ano e
-                é emitido em nome do representante legal. Se a empresa já emite nota fiscal, o contador provavelmente tem um.
+                A busca de NF-e na Sefaz precisa do certificado digital <strong>e-CNPJ A1</strong> da empresa. Veja abaixo o
+                que ele precisa ter e como pedir.
               </p>
             </div>
           )}
 
+          <GuiaCertificado aberto={!temCertificado} />
+
           <CertificadoForm substituir={temCertificado} desabilitado={!empresa} />
           {!empresa && <p className="text-sm text-muted-foreground">Salve os dados da empresa para poder enviar o certificado.</p>}
           <p className="text-xs text-muted-foreground">
-            O arquivo é conferido na hora (senha, validade e CNPJ) e guardado cifrado (AES-256). A senha não é
-            guardada. Só o Admin vê esta tela.
+            O arquivo é conferido na hora (senha, validade, tipo e-CNPJ e CNPJ da empresa) e guardado cifrado
+            (AES-256). A senha não é guardada. Só o Admin vê esta tela.
           </p>
         </CardContent>
       </Card>
@@ -123,6 +133,15 @@ export default async function EmpresaPage() {
           />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{rotulo}</dt>
+      <dd className="break-words">{children}</dd>
     </div>
   );
 }

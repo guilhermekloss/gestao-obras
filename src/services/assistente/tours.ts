@@ -177,6 +177,11 @@ export const TOURS: Tour[] = [
         texto: "Preencha razão social, CNPJ da matriz, filiais (um por linha) e UF. Clique em \"Salvar dados\". Sem isso, o certificado não pode ser enviado.",
       },
       {
+        alvo: "#guia-certificado",
+        titulo: "Ainda não tem o certificado?",
+        texto: "Aqui está o que ele precisa ter (e-CNPJ A1, arquivo .pfx), como pedir, quanto custa e quando vence.",
+      },
+      {
         alvo: "#arquivo",
         titulo: "2. Arquivo do certificado",
         texto: "Escolha o arquivo .pfx ou .p12 do certificado e-CNPJ A1 da empresa. Não tem? Peça ao contador ou compre de uma Autoridade Certificadora.",

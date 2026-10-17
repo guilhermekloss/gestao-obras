@@ -45,7 +45,9 @@ export async function pfxParaPem(pfx: Buffer, senha: string): Promise<{ ok: true
 export type CertificadoPreparado = {
   pem: string;
   titular: string;
-  cnpj: string | null;
+  cnpj: string;
+  emissor: string;
+  validoDesde: Date;
   validoAte: Date;
 };
 
@@ -63,8 +65,18 @@ export async function prepararCertificado(
   const c = lido.certificado;
   if (c.validoAte <= agora) return { ok: false, erro: `Este certificado venceu em ${c.validoAte.toLocaleDateString("pt-BR")}.` };
   if (c.validoDesde > agora) return { ok: false, erro: "Este certificado ainda não está valendo." };
-  if (c.cnpj && c.cnpj.slice(0, 8) !== normalizarCnpj(cnpjEmpresa).slice(0, 8)) {
+  // e-CPF (pessoa física) e certificados que não são ICP-Brasil não trazem o CNPJ: a Sefaz recusa
+  if (!c.cnpj) {
+    return {
+      ok: false,
+      erro: "Este certificado não identifica um CNPJ: parece ser e-CPF (pessoa física) ou não ser ICP-Brasil. A Sefaz exige o e-CNPJ A1 da empresa.",
+    };
+  }
+  if (c.cnpj.slice(0, 8) !== normalizarCnpj(cnpjEmpresa).slice(0, 8)) {
     return { ok: false, erro: `Este certificado é do CNPJ ${c.cnpj}, de outra empresa. A Sefaz só aceita o certificado da própria empresa (mesma raiz de CNPJ).` };
   }
-  return { ok: true, certificado: { pem: convertido.pem, titular: c.titular, cnpj: c.cnpj, validoAte: c.validoAte } };
+  return {
+    ok: true,
+    certificado: { pem: convertido.pem, titular: c.titular, cnpj: c.cnpj, emissor: c.emissor, validoDesde: c.validoDesde, validoAte: c.validoAte },
+  };
 }

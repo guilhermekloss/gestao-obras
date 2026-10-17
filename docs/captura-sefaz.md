@@ -62,8 +62,9 @@ não fica no histórico. Na prática, a consulta acontece a cada 61 a 80 min.
 
 Tudo é feito pelo Admin, no menu **Empresa**, sem mexer no Google Cloud.
 
-1. **Ter o certificado.** É preciso o certificado digital **e-CNPJ A1** da empresa, um arquivo `.pfx` ou `.p12`
-   com senha. Ele é comprado de uma Autoridade Certificadora da ICP-Brasil (Certisign, Serasa, Valid, Soluti e
+1. **Ter o certificado.** A própria tela Empresa explica, em "Certificado digital: o que é e como pedir", o que ele
+   precisa ter, como pedir, validade e segurança. É preciso o certificado digital **e-CNPJ A1** da empresa, um
+   arquivo `.pfx` ou `.p12` com senha. Ele é comprado de uma Autoridade Certificadora da ICP-Brasil (Certisign, Serasa, Valid, Soluti e
    outras), custa em média R$ 150 a R$ 300 por ano e é emitido em nome do representante legal. Se a empresa já
    emite nota fiscal, o contador provavelmente tem um. O tipo **A3** (cartão ou token) não serve: ele não sai do
    aparelho.
@@ -73,7 +74,11 @@ Tudo é feito pelo Admin, no menu **Empresa**, sem mexer no Google Cloud.
 3. **Certificado.** Escolha o `.pfx`, informe a senha e clique em "Enviar certificado". O sistema confere na hora:
    - a senha;
    - a validade;
+   - se é e-CNPJ (e-CPF é recusado);
    - se o certificado é da mesma raiz de CNPJ da empresa.
+
+   Depois, a tela mostra titular, CNPJ, Autoridade Certificadora, validade (de/até), dias restantes e a data para
+   começar a renovar (30 dias antes).
 4. **Ligar.** Em "Captura de NF-e na Sefaz", marque a busca automática e deixe em **Homologação**. Em
    **Captura Sefaz**, clique em "Consultar agora" e confira o retorno (137 em homologação é normal). Validado,
    volte e troque para **Produção**.

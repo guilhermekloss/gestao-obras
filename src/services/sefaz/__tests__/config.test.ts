@@ -28,6 +28,8 @@ function empresa(campos: Partial<Empresa> = {}): Empresa {
     certificadoCifrado: cifrar(pem, { 1: CHAVE }),
     certificadoTitular: null,
     certificadoCnpj: "11222333000181",
+    certificadoEmissor: null,
+    certificadoValidoDesde: null,
     certificadoValidoAte: null,
     certificadoEnviadoEm: null,
     certificadoEnviadoPorId: null,

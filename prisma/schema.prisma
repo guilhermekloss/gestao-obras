@@ -469,6 +469,9 @@ model Empresa {
   certificadoCifrado      Bytes?
   certificadoTitular      String?
   certificadoCnpj         String?
+  /// Autoridade Certificadora que emitiu (ex.: AC SERASA RFB v5).
+  certificadoEmissor      String?
+  certificadoValidoDesde  DateTime?
   certificadoValidoAte    DateTime?
   certificadoEnviadoEm    DateTime?
   certificadoEnviadoPorId String?

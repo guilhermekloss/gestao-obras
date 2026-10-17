@@ -416,7 +416,11 @@ export const GUIAS: Guia[] = [
       "Remover o certificado desliga a captura.",
       "Só o Admin vê esta tela.",
     ],
-    dicas: ["Não tem o certificado? Peça ao contador ou compre um e-CNPJ A1 de uma Autoridade Certificadora."],
+    dicas: [
+      "Não tem o certificado? Abra \"Certificado digital: o que é e como pedir\" na tela Empresa: lá está o que ele precisa ter e como pedir.",
+      "O certificado tem de ser e-CNPJ A1 (arquivo .pfx ou .p12). e-CPF e A3 (cartão ou token) não servem.",
+      "O A1 vale 1 ano. O sistema avisa 30 dias antes de vencer.",
+    ],
   },
   {
     id: "conta",
