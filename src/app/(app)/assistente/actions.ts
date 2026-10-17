@@ -2,7 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
-import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
+import { acaoDeEscrita, mensagemDeErro, type ActionResult } from "@/lib/acao";
+import { analiseIaDisponivel } from "@/services/gemini";
+import { limiteDePerguntas, perguntar } from "@/services/assistente/ia";
 import type { MensagemChat, TelaSugerida } from "@/services/assistente";
 
 export type RespostaAssistente = ActionResult & { resposta?: string; telas?: TelaSugerida[] };
@@ -16,11 +18,41 @@ export const marcarAssistenteVisto = acaoDeEscrita({}, async (usuario): Promise<
   return { ok: true };
 });
 
+const MAX_MENSAGENS_RECEBIDAS = 50;
+
+// Server action é endpoint POST público: não confie nos tipos do TypeScript.
+function historicoValido(h: unknown): h is MensagemChat[] {
+  return (
+    Array.isArray(h) &&
+    h.length <= MAX_MENSAGENS_RECEBIDAS &&
+    h.every(
+      (m) =>
+        m &&
+        typeof m === "object" &&
+        (m.autor === "pessoa" || m.autor === "assistente") &&
+        typeof m.texto === "string" &&
+        m.texto.length <= 20_000,
+    )
+  );
+}
+
 export async function perguntarAssistente(
-  _pergunta: string,
-  _historico: MensagemChat[],
-  _rota: string,
+  pergunta: string,
+  historico: MensagemChat[],
+  rota: string,
 ): Promise<RespostaAssistente> {
-  await exigirPapel();
-  return { ok: false, erro: "Assistente com IA indisponível." };
+  const usuario = await exigirPapel();
+  if (!analiseIaDisponivel()) return { ok: false, erro: "O assistente com IA não está configurado neste servidor." };
+  if (typeof pergunta !== "string" || !historicoValido(historico) || typeof rota !== "string" || rota.length > 200) {
+    return { ok: false, erro: "Pergunta inválida." };
+  }
+  try {
+    limiteDePerguntas(usuario.id);
+    // Nunca registre o texto da pergunta: só o tamanho e a tela.
+    console.info(JSON.stringify({ evento: "assistente_pergunta", usuarioId: usuario.id, tamanho: pergunta.length, rota }));
+    const { resposta, telas } = await perguntar({ pergunta, historico, role: usuario.role, rota });
+    return { ok: true, resposta, telas };
+  } catch (e) {
+    return { ok: false, erro: mensagemDeErro(e, "Não foi possível obter a resposta do assistente. Tente de novo.") };
+  }
 }
