@@ -114,3 +114,14 @@ describe("proximosDias", () => {
     expect(proximosDias(new Date(2026, 9, 16, 8), 3).ate).toEqual(new Date(2026, 9, 19, 8));
   });
 });
+
+describe("parseSituacaoFluxo", () => {
+  it("aceita aberta e paga; qualquer outra coisa é todas", async () => {
+    const { parseSituacaoFluxo } = await import("../financeiro");
+    expect(parseSituacaoFluxo("aberta")).toBe("aberta");
+    expect(parseSituacaoFluxo("paga")).toBe("paga");
+    expect(parseSituacaoFluxo("todas")).toBe("todas");
+    expect(parseSituacaoFluxo(undefined)).toBe("todas");
+    expect(parseSituacaoFluxo("x")).toBe("todas");
+  });
+});

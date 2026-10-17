@@ -154,7 +154,7 @@ export default async function DashboardPage() {
                 : "Itens e total conferem em todas as notas."
             }
             acao="Conferir notas"
-            href="/notas"
+            href="/notas?divergentes=1"
           />
         </div>
 

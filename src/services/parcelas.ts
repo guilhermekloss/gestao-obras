@@ -159,3 +159,20 @@ export function validarParcelas(
   const soma = parcelas.reduce((acc, p) => acc + p.valorCents, 0);
   return { ok: soma === totalCents, diferencaCents: soma - totalCents };
 }
+
+type DataPagamento = { ok: true; data: Date } | { ok: false; erro: string };
+
+// Texto `aaaa-mm-dd` (input type=date). Devolve meio-dia local, como inputParaData, para o fuso não mudar o dia.
+// "Hoje" é o dia local do servidor; datas futuras são recusadas.
+export function validarDataPagamento(texto: unknown, hoje: Date = new Date()): DataPagamento {
+  const m = typeof texto === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto.trim()) : null;
+  if (!m) return { ok: false, erro: "Data do pagamento inválida." };
+  const [ano, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const data = new Date(ano, mes - 1, dia, 12, 0, 0);
+  if (ano < 2000 || data.getMonth() !== mes - 1 || data.getDate() !== dia) {
+    return { ok: false, erro: "Data do pagamento inválida." };
+  }
+  const limite = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59, 999);
+  if (data > limite) return { ok: false, erro: "A data do pagamento não pode ser futura." };
+  return { ok: true, data };
+}

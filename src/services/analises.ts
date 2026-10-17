@@ -1,9 +1,10 @@
 import { startOfDay } from "date-fns";
-import type { Prisma, TipoItem } from "@prisma/client";
+import type { Prisma, TipoDocumento, TipoItem } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { BP_TOTAL, custoRateado } from "./rateio";
 import { realizadoPorEtapaTodas } from "./custos";
+import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
 
 export type ClasseAbc = "A" | "B" | "C";
@@ -222,9 +223,28 @@ export function alertasOrcamento(etapas: EtapaParaAlerta[]): Alerta[] {
   return [...estouros.sort(porPeso), ...atencoes.sort(porPeso)].map(([, alerta]) => alerta);
 }
 
+// "NF 123", "Recibo REC-0001"; ausente = NF.
+export function rotuloDocumento(tipo: TipoDocumento | undefined, numero: string): string {
+  return `${TIPO_DOCUMENTO_BADGE[tipo ?? "NF"]} ${numero}`;
+}
+
+// Mesma regra do alerta do dashboard e do filtro "divergentes" da lista de lançamentos.
+export function notaDivergente(totalCents: number, somaItensCents: number): boolean {
+  return somaItensCents !== totalCents;
+}
+
+// Ids das notas cuja soma dos itens difere do total, na ordem recebida. Nota sem itens soma 0.
+export function idsDeNotasDivergentes(
+  notas: { id: string; totalCents: number }[],
+  somaItensPorNota: Map<string, number>,
+): string[] {
+  return notas.filter((n) => notaDivergente(n.totalCents, somaItensPorNota.get(n.id) ?? 0)).map((n) => n.id);
+}
+
 type ParcelaParaAlerta = {
   notaId: string;
   notaNumero: string;
+  tipoDocumento?: TipoDocumento;
   fornecedorNome: string;
   valorCents: number;
   vencimento: Date;
@@ -238,7 +258,7 @@ export function alertasParcelasVencidas(
   const limite = startOfDay(hoje);
   const porNota = new Map<
     string,
-    { numero: string; fornecedor: string; qtd: number; valor: number; maisAntiga: Date }
+    { numero: string; tipo?: TipoDocumento; fornecedor: string; qtd: number; valor: number; maisAntiga: Date }
   >();
 
   for (const p of parcelas) {
@@ -247,6 +267,7 @@ export function alertasParcelasVencidas(
     if (!g) {
       porNota.set(p.notaId, {
         numero: p.notaNumero,
+        tipo: p.tipoDocumento,
         fornecedor: p.fornecedorNome,
         qtd: 1,
         valor: p.valorCents,
@@ -267,8 +288,8 @@ export function alertasParcelasVencidas(
       severidade: "CRITICA" as const,
       mensagem:
         g.qtd === 1
-          ? `${g.fornecedor} · NF ${g.numero}: parcela de ${formatarMoeda(g.valor)} vencida em ${formatarData(g.maisAntiga)}`
-          : `${g.fornecedor} · NF ${g.numero}: ${g.qtd} parcelas vencidas (${formatarMoeda(g.valor)}) desde ${formatarData(g.maisAntiga)}`,
+          ? `${g.fornecedor} · ${rotuloDocumento(g.tipo, g.numero)}: parcela de ${formatarMoeda(g.valor)} vencida em ${formatarData(g.maisAntiga)}`
+          : `${g.fornecedor} · ${rotuloDocumento(g.tipo, g.numero)}: ${g.qtd} parcelas vencidas (${formatarMoeda(g.valor)}) desde ${formatarData(g.maisAntiga)}`,
       link: `/notas/${notaId}`,
     }));
 }
@@ -276,6 +297,7 @@ export function alertasParcelasVencidas(
 type NotaParaAlerta = {
   id: string;
   numero: string;
+  tipoDocumento?: TipoDocumento;
   fornecedorNome: string;
   totalCents: number;
   somaItensCents: number;
@@ -283,7 +305,7 @@ type NotaParaAlerta = {
 
 export function alertasDivergencia(notas: NotaParaAlerta[]): Alerta[] {
   return notas
-    .filter((n) => n.somaItensCents !== n.totalCents)
+    .filter((n) => notaDivergente(n.totalCents, n.somaItensCents))
     .sort(
       (a, b) =>
         Math.abs(b.totalCents - b.somaItensCents) - Math.abs(a.totalCents - a.somaItensCents),
@@ -292,7 +314,7 @@ export function alertasDivergencia(notas: NotaParaAlerta[]): Alerta[] {
       id: `divergencia:${n.id}`,
       tipo: "NOTA_DIVERGENTE" as const,
       severidade: "ATENCAO" as const,
-      mensagem: `${n.fornecedorNome} · NF ${n.numero}: itens somam ${formatarMoeda(n.somaItensCents)}, nota ${formatarMoeda(n.totalCents)}`,
+      mensagem: `${n.fornecedorNome} · ${rotuloDocumento(n.tipoDocumento, n.numero)}: itens somam ${formatarMoeda(n.somaItensCents)}, nota ${formatarMoeda(n.totalCents)}`,
       link: `/notas/${n.id}`,
     }));
 }
@@ -370,13 +392,14 @@ export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]
       select: {
         valorCents: true,
         vencimento: true,
-        nota: { select: { id: true, numero: true, fornecedor: { select: { nome: true } } } },
+        nota: { select: { id: true, numero: true, tipoDocumento: true, fornecedor: { select: { nome: true } } } },
       },
     }),
     prisma.notaFiscal.findMany({
       select: {
         id: true,
         numero: true,
+        tipoDocumento: true,
         totalCents: true,
         fornecedor: { select: { nome: true } },
         itens: { select: { totalCents: true } },
@@ -397,6 +420,7 @@ export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]
     parcelas: parcelas.map((p) => ({
       notaId: p.nota.id,
       notaNumero: p.nota.numero,
+      tipoDocumento: p.nota.tipoDocumento,
       fornecedorNome: p.nota.fornecedor.nome,
       valorCents: p.valorCents,
       vencimento: p.vencimento,
@@ -404,6 +428,7 @@ export async function carregarAlertas(hoje: Date = new Date()): Promise<Alerta[]
     notas: notas.map((n) => ({
       id: n.id,
       numero: n.numero,
+      tipoDocumento: n.tipoDocumento,
       fornecedorNome: n.fornecedor.nome,
       totalCents: n.totalCents,
       somaItensCents: n.itens.reduce((a, i) => a + i.totalCents, 0),
