@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
+import { CHAVE, comoPrisma, lancamento, novoBanco, type Banco } from "./lancamento-banco";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
@@ -13,64 +14,6 @@ const {
   numeroDoLancamento,
   registrarLancamento,
 } = await import("../lancamento");
-type Lancamento = Parameters<typeof registrarLancamento>[0];
-
-// chave de acesso com dígito verificador válido (a mesma dos testes do leitor)
-const CHAVE = "35200114200166000187550010000000046000000040";
-
-function novoBanco() {
-  const db = {
-    notaFiscal: {
-      findFirst: vi.fn(async (_: object) => null as { id: string } | null),
-      findUnique: vi.fn(async (_: object) => null as { id: string; numero: string } | null),
-      findMany: vi.fn(async () => [] as { numero: string }[]),
-      create: vi.fn(async (_: object) => ({ id: "nota-1" })),
-      update: vi.fn(async () => ({})),
-    },
-    material: {
-      count: vi.fn(async () => 0),
-      findUnique: vi.fn(async () => ({ nome: "Cimento CP II" })),
-      findFirst: vi.fn(async () => null as { id: string } | null),
-      create: vi.fn(async () => ({ id: "mat-novo", nome: "Areia", unidade: "M3", tipo: "MATERIAL", categoria: null })),
-    },
-    materialApelido: { upsert: vi.fn(async () => ({})) },
-    etapa: { findMany: vi.fn(async () => [] as { id: string; obraId: string }[]) },
-    fornecedor: {
-      findFirst: vi.fn(async () => null),
-      findUnique: vi.fn(async () => ({ nome: "Ferragens Silva" })),
-      create: vi.fn(async ({ data }: { data: { nome: string } }) => ({ id: "forn-novo", ...data })),
-    },
-    parcela: {
-      findMany: vi.fn(async () => [] as object[]),
-      deleteMany: vi.fn(async () => ({})),
-      update: vi.fn(async () => ({})),
-      createMany: vi.fn(async (_: object) => ({})),
-    },
-    itemNota: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async (_: object) => ({})) },
-    rateioNota: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async (_: object) => ({})) },
-    $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
-  };
-  return db;
-}
-
-type Banco = ReturnType<typeof novoBanco>;
-const comoPrisma = (db: Banco) => db as never;
-
-function lancamento(extra: Partial<Lancamento> = {}): Lancamento {
-  return {
-    fornecedor: { id: "forn-1" },
-    tipoDocumento: "NF",
-    numero: "123",
-    dataCompra: "2026-10-01",
-    totalCents: 10_000,
-    formaPagto: "BOLETO",
-    itens: [{ descricao: "Cimento CP II", tipo: "MATERIAL", qtde: 10, unidade: "SC", unitCents: 1_000, descontoCents: 0 }],
-    rateios: [{ obraId: "o1", fracaoBp: 10_000 }],
-    parcelas: [{ numero: 1, valorCents: 10_000, vencimento: "2026-11-01" }],
-    criadoPor: "u1",
-    ...extra,
-  };
-}
 
 describe("erroDeRegras", () => {
   it("aceita um lançamento consistente", () => {
