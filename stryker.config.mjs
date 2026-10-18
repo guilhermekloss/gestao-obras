@@ -11,6 +11,8 @@ const config = {
     "!src/services/leitor-nativo/extracao/{tesseract,pdf,imagem,vision,caminhos}.ts",
     "!src/services/{fornecedores,obras,materiais-db}.ts",
   ],
+  // Symlinks para diretórios (ex.: .claude/skills) quebram a cópia do sandbox.
+  ignorePatterns: [".claude", ".agents"],
   ignoreStatic: true,
   incremental: true,
   incrementalFile: "reports/stryker-incremental.json",
