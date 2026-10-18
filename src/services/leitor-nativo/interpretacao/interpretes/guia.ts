@@ -18,6 +18,11 @@ function orgaoImpresso(doc: Doc): string | null {
   return null;
 }
 
+// O traço da coluna Principal em branco ("COFINS - SIMPLES NACIONAL -  5,00 ...") não é parte da descrição.
+function semTracoFinal(descricao: string): string {
+  return descricao.replace(/\s+[-–]$/, "") || descricao;
+}
+
 function composicao(doc: Doc): Item[] {
   const i = acharLinha(doc, /COMPOSICAO\s*DO\s*DOCUMENTO|CODIGO\s*DENOMINACAO|CODIGO\s*DA\s*RECEITA\s*DENOMINACAO/);
   if (i === -1) return [];
@@ -39,7 +44,7 @@ function composicao(doc: Doc): Item[] {
     const total = /\d/.test(ultimo) ? lerValor(ultimo) : null;
     if (iNum <= 1 || total === null) continue;
     itens.push({
-      descricao: limparEspacos(tokens.slice(1, iNum).join(" ")),
+      descricao: semTracoFinal(limparEspacos(tokens.slice(1, iNum).join(" "))),
       quantidade: null,
       unidade: null,
       valorUnitario: null,
