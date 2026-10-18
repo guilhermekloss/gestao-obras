@@ -54,8 +54,10 @@ const K = "[0-9OoDIl|SZB]";
 const PREFIXO_RS = "(?:R\\s?[$S5]\\.?\\s?)";
 
 // "R$1 234,56": milhar com espaço só depois de R$; não casa "20,0000" nem "5,00%".
+// Vírgula logo depois do valor é pontuação ("R$ 900,00, referente a..."); só vírgula seguida de dígito
+// ("10,00,50") indica que o número continua.
 const PADRAO_DINHEIRO = new RegExp(
-  `(?<![0-9A-Za-z.,])(?:${PREFIXO_RS}-?\\s?${K}{1,3}(?: ${K}{3})+,${K}{2}|${PREFIXO_RS}?-?\\s?(?:${K}{1,3}(?:\\.${K}{3})+|${K}+),${K}{2})(?![0-9A-Za-z,]|\\s?%)`,
+  `(?<![0-9A-Za-z.,])(?:${PREFIXO_RS}-?\\s?${K}{1,3}(?: ${K}{3})+,${K}{2}|${PREFIXO_RS}?-?\\s?(?:${K}{1,3}(?:\\.${K}{3})+|${K}+),${K}{2})(?![0-9A-Za-z]|,\\d|\\s?%)`,
   "g",
 );
 

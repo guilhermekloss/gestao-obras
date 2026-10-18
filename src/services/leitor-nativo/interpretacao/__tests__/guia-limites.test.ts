@@ -153,11 +153,14 @@ describe("guia: composição do documento", () => {
     expect(ler(texto).itens).toEqual([item("COM TOTAL", 6)]);
   });
 
-  it("coluna Principal em branco ('-') não derruba o total do encargo", () => {
+  it("coluna Principal em branco ('-') não deixa traço na descrição nem derruba o total", () => {
     const itens = ler(`Guia\nCódigo Denominação\n1004   COFINS - SIMPLES NACIONAL   -   5,00   -   5,00`).itens;
-    expect(itens).toHaveLength(1);
-    expect(itens[0].valorTotal).toBe(5);
-    expect(itens[0].descricao).toContain("COFINS");
+    expect(itens).toEqual([item("COFINS - SIMPLES NACIONAL", 5)]);
+  });
+
+  it("traço separador antes dos valores sai da descrição; descrição que só tem traço é mantida", () => {
+    expect(ler(`Guia\nCódigo Denominação\n1004   IRPJ -   25,12   25,12`).itens).toEqual([item("IRPJ", 25.12)]);
+    expect(ler(`Guia\nCódigo Denominação\n1004   -   5,00   5,00`).itens).toEqual([item("-", 5)]);
   });
 
   it("DAS completo: seis encargos", () => {

@@ -139,6 +139,12 @@ describe("recibo: referente a, item e forma de pagamento", () => {
     expect(lido.itens[0]?.descricao).toBe(descricao);
   });
 
+  it("vírgula logo depois do valor é pontuação: o valor e o item são lidos", () => {
+    const lido = ler(corpo("Recebi de FULANO, a importância de R$ 900,00, referente aos serviços de pintura."));
+    expect(lido.valorTotal).toBe(900);
+    expect(lido.itens[0]).toMatchObject({ descricao: "serviços de pintura", valorTotal: 900 });
+  });
+
   it("sem 'referente a' ou sem valor, não há item", () => {
     expect(ler(corpo("Recebi de FULANO, a importância de R$ 900,00.")).itens).toEqual([]);
     expect(ler(corpo("Recebi de FULANO, referente a serviços.")).itens).toEqual([]);
