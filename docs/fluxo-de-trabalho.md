@@ -56,7 +56,7 @@ As migrations rodam **antes** da nova versão entrar no ar, enquanto a versão a
 
 - **Falhou antes de "Promove para 100% do tráfego":** os usuários continuam na versão anterior. Corrija num novo PR. Se o erro foi na migration, veja o log do passo *Migrations*.
 - **Falhou depois da migration:** o banco já está na versão nova. Isso é seguro se a regra da seção 2 foi seguida, porque a versão antiga continua funcionando com ele.
-- **Avisos:** o GitHub manda e-mail para quem fez o merge. O Google manda e-mail se o app ficar fora do ar ou começar a dar erro 5xx.
+- **Avisos:** o GitHub manda e-mail para quem fez o merge. O Google manda e-mail se o app começar a dar erro 5xx (e se ficar fora do ar, com `verificacao_disponibilidade = true` no Terraform).
 
 ### A versão nova está com problema: rollback
 

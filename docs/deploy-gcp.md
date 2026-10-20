@@ -17,12 +17,12 @@ GitHub (main) ──► GitHub Actions ──OIDC──► Workload Identity Fed
                                      └──► Sefaz / Ambiente Nacional (captura de NF-e, TLS com o A1)
             Cloud Run job "gestao-obras-migrate" ──► prisma migrate deploy
             Cloud Scheduler (opcional) ──OIDC──► /api/sefaz/sincronizar de hora em hora
-            Monitoring: uptime check em /api/health, alertas por e-mail, orçamento mensal
+            Monitoring: alertas por e-mail, orçamento mensal (uptime check opcional)
 ```
 
 | Recurso | Configuração padrão | Custo aproximado/mês* |
 |---|---|---|
-| Cloud Run | 1 vCPU, 1 GiB, escala a zero, CPU só durante requisições | US$ 0–5 (uso de escritório) |
+| Cloud Run | 1 vCPU, 1 GiB, escala a zero (só sobe quando alguém acessa), CPU só durante requisições | US$ 0–5 (uso de escritório) |
 | Cloud SQL | `db-f1-micro`, 10 GB SSD, zonal, backups + PITR | US$ 12–15 |
 | Cloud Storage, Artifact Registry, Secret Manager, Monitoring | — | < US$ 2 |
 | Cloud Scheduler (captura Sefaz, opcional) | 1 job de hora em hora | US$ 0 (3 jobs grátis por conta) |
@@ -146,7 +146,7 @@ Backup automático diário (retenção de 14) + point-in-time recovery dos últi
 - **Cabeçalhos HTTP**: Content-Security-Policy com nonce (`src/proxy.ts`), HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`.
 - **Login**: bloqueio após 5 senhas erradas por e-mail (30 por IP) em 15 min, guardado no banco (vale com várias instâncias); o IP vem do `X-Forwarded-For` com `PROXY_SALTOS` (1 = Cloud Run direto). Sessão de 8 h ociosa / 7 dias no máximo, revogável.
 - **Cadeia de suprimentos**: GitHub Actions fixadas por SHA, Dependabot (npm, Actions, Docker, Terraform), `npm audit` bloqueando vulnerabilidade crítica e `npm audit signatures` conferindo as assinaturas do registro. Opcional: `varredura_imagens = true` (varredura de vulnerabilidades das imagens, cobrada por imagem).
-- **Operação**: uptime check, alertas de indisponibilidade e de erros 5xx, orçamento mensal, logs de queries lentas (> 1 s) e de conexões ao banco.
+- **Operação**: alerta de erros 5xx (e, com `verificacao_disponibilidade = true`, uptime check e alerta de indisponibilidade), orçamento mensal, logs de queries lentas (> 1 s) e de conexões ao banco.
 - **Detecção** (`seguranca.tf`, com `email_alertas`): alertas de força bruta no login, contas bloqueadas, acessos negados a arquivos e qualquer mudança de IAM/chave de service account; auditoria de leitura de segredos; o e-mail vira o contato de segurança do projeto no Google. O alerta de IAM também dispara quando você mesmo roda o `bootstrap.sh` com mudança de permissão — esperado.
 - **Link de convite**: montado a partir de `APP_URL` (URL do Cloud Run, ou `app_url` no `terraform.tfvars` com domínio próprio).
 
@@ -158,5 +158,6 @@ Camadas completas, riscos aceitos e roteiro de incidente: [`seguranca.md`](segur
 - **Domínio próprio** (ex.: `obras.suaempresa.com.br`): o mapeamento de domínio do Cloud Run não existe em São Paulo. Opções: um Load Balancer HTTPS global na frente do Cloud Run (~US$ 18/mês, permite também Cloud Armor/WAF) ou mover o serviço para `us-central1`, onde o mapeamento direto é gratuito.
 - **Staging**: um segundo projeto com o mesmo Terraform (outro `terraform.tfvars` e `prefix` de estado) e deploy a partir de outra branch.
 - **Sem cold start**: `min_instancias = 1` deixa uma instância sempre quente (custo fixo maior).
+- **Alerta de app fora do ar**: `verificacao_disponibilidade = true` liga o uptime check em `/api/health`. Ele chama o app de várias regiões a cada 5 min, então o Cloud Run deixa de desligar quando ninguém usa. Desligado (padrão), o app só sobe com o primeiro acesso, que leva alguns segundos; o agendador da Sefaz, se ligado, também acorda o app uma vez por hora.
 - **Alta disponibilidade do banco**: `db_alta_disponibilidade = true` (dobra o custo do banco).
 - **WAF**: o Load Balancer acima permite o Cloud Armor (regras OWASP e limite por IP antes de chegar ao app). Com ele, ajuste `proxy_saltos = 2`.
