@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const findMany = vi.fn();
-vi.mock("@/lib/prisma", () => ({ prisma: { notaFiscal: { findMany } } }));
+const medicaoFindMany = vi.fn();
+vi.mock("@/lib/prisma", () => ({ prisma: { notaFiscal: { findMany }, medicao: { findMany: medicaoFindMany } } }));
 
-const { acumular, chaveMes, realizadoPorEtapaTodas, realizadoPorMes, realizadoPorObra, ultimoAvancoPorEtapa } = await import(
-  "../custos"
-);
+const {
+  acumular,
+  avancoPorEtapa,
+  chaveMes,
+  realizadoPorEtapaTodas,
+  realizadoPorMes,
+  realizadoPorObra,
+  ultimoAvancoPorEtapa,
+} = await import("../custos");
 
 const nota = (
   dataCompra: Date,
@@ -13,7 +20,22 @@ const nota = (
   rateios: { obraId: string; etapaId: string | null; fracaoBp: number }[],
 ) => ({ dataCompra, itens: itens.map((totalCents) => ({ totalCents })), rateios });
 
-beforeEach(() => findMany.mockReset());
+beforeEach(() => {
+  findMany.mockReset();
+  medicaoFindMany.mockReset();
+});
+
+// todos leem a mesma lista (notasParaAnalise): sem where, com o select da união dos consumidores
+function esperaLeituraUnica() {
+  expect(findMany).toHaveBeenCalledTimes(1);
+  const [args] = findMany.mock.calls[0];
+  expect(args).not.toHaveProperty("where");
+  expect(args.select).toMatchObject({
+    dataCompra: true,
+    itens: { select: { totalCents: true } },
+    rateios: { select: { obraId: true, etapaId: true, fracaoBp: true } },
+  });
+}
 
 describe("chaveMes", () => {
   it("formata aaaa-mm no mês local", () => {
@@ -34,6 +56,7 @@ describe("realizadoPorObra", () => {
     const mapa = await realizadoPorObra();
     expect(mapa.get("o1")).toBe(1_500);
     expect(mapa.get("o2")).toBe(500);
+    esperaLeituraUnica();
   });
 });
 
@@ -48,6 +71,24 @@ describe("realizadoPorEtapaTodas", () => {
     ]);
     const mapa = await realizadoPorEtapaTodas();
     expect([...mapa.entries()]).toEqual([["e1", 1_200]]);
+    esperaLeituraUnica();
+  });
+
+  it("rateio sem etapa não altera o valor do outro rateio da mesma nota, nem a ordem das chaves", async () => {
+    findMany.mockResolvedValue([
+      nota(new Date(2026, 9, 1), [333], [{ obraId: "o1", etapaId: null, fracaoBp: 10_000 }]),
+      nota(new Date(2026, 9, 1), [333], [
+        { obraId: "o1", etapaId: null, fracaoBp: 5_000 },
+        { obraId: "o1", etapaId: "e2", fracaoBp: 5_000 },
+      ]),
+      nota(new Date(2026, 9, 2), [100], [{ obraId: "o1", etapaId: "e1", fracaoBp: 10_000 }]),
+    ]);
+    const mapa = await realizadoPorEtapaTodas();
+    // 333 × 50% = 166,5 → 167, como na consulta antiga que só trazia o rateio com etapa
+    expect([...mapa.entries()]).toEqual([
+      ["e2", 167],
+      ["e1", 100],
+    ]);
   });
 });
 
@@ -61,6 +102,22 @@ describe("realizadoPorMes", () => {
     const porMes = await realizadoPorMes(new Date(2026, 8, 1));
     expect(porMes.get("2026-09")?.get("o1")).toBe(1_000);
     expect(porMes.get("2026-10")?.get("o1")).toBe(2_300);
+    esperaLeituraUnica();
+  });
+
+  it("descarta as notas antes de `desde`; a do instante exato entra (gte)", async () => {
+    const desde = new Date(2026, 8, 1);
+    findMany.mockResolvedValue([
+      nota(new Date(2026, 7, 31, 23, 59, 59, 999), [9_000], [{ obraId: "o1", etapaId: null, fracaoBp: 10_000 }]),
+      nota(new Date(desde), [1_000], [{ obraId: "o1", etapaId: null, fracaoBp: 10_000 }]),
+      nota(new Date(2026, 8, 2), [500], [{ obraId: "o2", etapaId: null, fracaoBp: 10_000 }]),
+    ]);
+    const porMes = await realizadoPorMes(desde);
+    expect([...porMes.keys()]).toEqual(["2026-09"]);
+    expect([...porMes.get("2026-09")!.entries()]).toEqual([
+      ["o1", 1_000],
+      ["o2", 500],
+    ]);
   });
 });
 
@@ -73,6 +130,25 @@ describe("ultimoAvancoPorEtapa", () => {
     ]);
     expect(mapa.get("e1")).toBe(4_000);
     expect(mapa.get("e2")).toBe(5_000);
+  });
+});
+
+describe("avancoPorEtapa sem obra", () => {
+  it("usa todas as medições em ordem de data e id (medicoesTodas)", async () => {
+    medicaoFindMany.mockResolvedValue([
+      { etapaId: "e1", data: new Date(2026, 9, 1), percentBp: 3_000 },
+      { etapaId: "e2", data: new Date(2026, 9, 2), percentBp: 10_000 },
+      { etapaId: "e1", data: new Date(2026, 9, 3), percentBp: 2_500 },
+    ]);
+    const mapa = await avancoPorEtapa();
+    expect([...mapa.entries()]).toEqual([
+      ["e1", 2_500],
+      ["e2", 10_000],
+    ]);
+    expect(medicaoFindMany).toHaveBeenCalledWith({
+      orderBy: [{ data: "asc" }, { id: "asc" }],
+      select: { etapaId: true, data: true, percentBp: true },
+    });
   });
 });
 

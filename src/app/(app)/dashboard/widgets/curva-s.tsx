@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatarPercentBp } from "@/lib/format";
 import { avancoPonderado, orcamentoTotal } from "@/services/obra";
+import { medicoesTodas } from "@/services/custos";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   agregarCurvasS,
@@ -16,31 +17,30 @@ import { CurvaSChart } from "@/app/(app)/cronograma/curva-s-chart";
 
 // cada obra pesa pelo seu orçamento (mesma regra de `avancoPonderado`)
 export async function CurvaSWidget() {
-  const obras = await prisma.obra.findMany({
-    where: { status: "ANDAMENTO", etapas: { some: { inicioPrevisto: { not: null }, fimPrevisto: { not: null } } } },
-    orderBy: { codigo: "asc" },
-    select: {
-      id: true,
-      etapas: {
-        select: {
-          id: true,
-          orcamentoCents: true,
-          inicioPrevisto: true,
-          fimPrevisto: true,
-          medicoes: {
-            orderBy: [{ data: "asc" }, { id: "asc" }],
-            select: { etapaId: true, data: true, percentBp: true },
-          },
-        },
+  const [obras, medicoes] = await Promise.all([
+    prisma.obra.findMany({
+      where: { status: "ANDAMENTO", etapas: { some: { inicioPrevisto: { not: null }, fimPrevisto: { not: null } } } },
+      orderBy: { codigo: "asc" },
+      select: {
+        id: true,
+        etapas: { select: { id: true, orcamentoCents: true, inicioPrevisto: true, fimPrevisto: true } },
       },
-    },
-  });
+    }),
+    medicoesTodas(),
+  ]);
 
+  // agrupadas por etapa, na ordem das etapas; dentro do grupo segue data, id
+  const porEtapa = new Map<string, typeof medicoes>();
+  for (const m of medicoes) {
+    const lista = porEtapa.get(m.etapaId);
+    if (lista) lista.push(m);
+    else porEtapa.set(m.etapaId, [m]);
+  }
   const hoje = hojeDia();
   const planos = obras.map((o) => {
     const { plano, pontos } = paraPlano(
       o.etapas,
-      o.etapas.flatMap((e) => e.medicoes),
+      o.etapas.flatMap((e) => porEtapa.get(e.id) ?? []),
     );
     return { plano, pontos, faixa: faixaDaCurvaS(plano, pontos, hoje) };
   });

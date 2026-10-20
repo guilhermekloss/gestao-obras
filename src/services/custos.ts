@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { chaveMes } from "@/lib/format";
 import { custoRateado } from "./rateio";
@@ -25,15 +26,32 @@ export function acumular<N extends NotaComRateio, K>(
   return mapa;
 }
 
-const SELECT_NOTA_COM_RATEIO = {
-  dataCompra: true,
-  itens: { select: { totalCents: true } },
-  rateios: { select: { obraId: true, etapaId: true, fracaoBp: true } },
-} as const;
+// Uma leitura por requisição para todo o dashboard (cache() só memoiza no render); compartilhado, não mutar.
+export const notasParaAnalise = cache(async () =>
+  prisma.notaFiscal.findMany({
+    select: {
+      id: true,
+      numero: true,
+      tipoDocumento: true,
+      totalCents: true,
+      dataCompra: true,
+      fornecedorId: true,
+      fornecedor: { select: { nome: true } },
+      itens: { select: { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true } },
+      rateios: { select: { obraId: true, etapaId: true, fracaoBp: true } },
+    },
+  }),
+);
+
+export const medicoesTodas = cache(async () =>
+  prisma.medicao.findMany({
+    orderBy: [{ data: "asc" }, { id: "asc" }],
+    select: { etapaId: true, data: true, percentBp: true },
+  }),
+);
 
 export async function realizadoPorObra(): Promise<Map<string, number>> {
-  const notas = await prisma.notaFiscal.findMany({ select: SELECT_NOTA_COM_RATEIO });
-  return acumular(notas, (_, r) => r.obraId);
+  return acumular(await notasParaAnalise(), (_, r) => r.obraId);
 }
 
 export async function realizadoPorEtapa(obraId: string): Promise<Map<string | null, number>> {
@@ -47,18 +65,9 @@ export async function realizadoPorEtapa(obraId: string): Promise<Map<string | nu
   return acumular(notas, (_, r) => r.etapaId);
 }
 
+// Rateio sem etapa cai na chave null e sai; os outros rateios da mesma nota não mudam.
 export async function realizadoPorEtapaTodas(): Promise<Map<string, number>> {
-  const notas = await prisma.notaFiscal.findMany({
-    where: { rateios: { some: { etapaId: { not: null } } } },
-    select: {
-      itens: { select: { totalCents: true } },
-      rateios: {
-        where: { etapaId: { not: null } },
-        select: { obraId: true, etapaId: true, fracaoBp: true },
-      },
-    },
-  });
-  const porEtapa = acumular(notas, (_, r) => r.etapaId);
+  const porEtapa = acumular(await notasParaAnalise(), (_, r) => r.etapaId);
   porEtapa.delete(null);
   return porEtapa as Map<string, number>;
 }
@@ -66,10 +75,7 @@ export async function realizadoPorEtapaTodas(): Promise<Map<string, number>> {
 export async function realizadoPorMes(
   desde: Date,
 ): Promise<Map<string, Map<string, number>>> {
-  const notas = await prisma.notaFiscal.findMany({
-    where: { dataCompra: { gte: desde } },
-    select: SELECT_NOTA_COM_RATEIO,
-  });
+  const notas = (await notasParaAnalise()).filter((n) => n.dataCompra.getTime() >= desde.getTime());
   const porChave = acumular(notas, (nota, r) => `${chaveMes(nota.dataCompra)}::${r.obraId}`);
   const porMes = new Map<string, Map<string, number>>();
   for (const [chave, cents] of porChave) {
@@ -89,8 +95,9 @@ export function ultimoAvancoPorEtapa(medicoes: { etapaId: string; percentBp: num
 }
 
 export async function avancoPorEtapa(obraId?: string): Promise<Map<string, number>> {
+  if (!obraId) return ultimoAvancoPorEtapa(await medicoesTodas());
   const medicoes = await prisma.medicao.findMany({
-    where: obraId ? { etapa: { obraId } } : {},
+    where: { etapa: { obraId } },
     orderBy: [{ data: "asc" }, { id: "asc" }],
     select: { etapaId: true, percentBp: true },
   });

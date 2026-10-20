@@ -3,7 +3,7 @@ import type { Prisma, TipoDocumento, TipoItem } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { BP_TOTAL, custoRateado } from "./rateio";
-import { realizadoPorEtapaTodas } from "./custos";
+import { notasParaAnalise, realizadoPorEtapaTodas } from "./custos";
 import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
 import { carregarAlertasDaCaptura } from "./sefaz/painel";
@@ -355,6 +355,18 @@ type FiltroAbc = {
 
 // Sem filtro de obra a nota entra inteira, inclusive sem rateio (compra da empresa).
 export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc> {
+  // sem filtro nenhum, reaproveita a leitura de notas da requisição (mesmo resultado da consulta abaixo)
+  if (!filtro.obraId && !filtro.de && !filtro.ate && !filtro.tipo) {
+    const todas = await notasParaAnalise();
+    return curvaAbc(
+      todas.map((n) => ({
+        fornecedorId: n.fornecedorId,
+        fracaoBp: BP_TOTAL,
+        itens: n.itens.map((i) => ({ ...i, qtde: Number(i.qtde) })),
+      })),
+    );
+  }
+
   const where: Prisma.NotaFiscalWhereInput = {};
   if (filtro.obraId) where.rateios = { some: { obraId: filtro.obraId } };
   if (filtro.de || filtro.ate) {
@@ -403,16 +415,7 @@ export async function carregarAlertas(hoje: Date = new Date(), opcoes: { paraAdm
         nota: { select: { id: true, numero: true, tipoDocumento: true, fornecedor: { select: { nome: true } } } },
       },
     }),
-    prisma.notaFiscal.findMany({
-      select: {
-        id: true,
-        numero: true,
-        tipoDocumento: true,
-        totalCents: true,
-        fornecedor: { select: { nome: true } },
-        itens: { select: { totalCents: true } },
-      },
-    }),
+    notasParaAnalise(),
     carregarAlertasDaCaptura(opcoes.paraAdmin ?? false, hoje),
   ]);
 
