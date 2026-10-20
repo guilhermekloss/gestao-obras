@@ -1,4 +1,7 @@
+# Opcional: o uptime check chama /api/health de várias regiões a cada 5 min e, com isso, o Cloud Run nunca fica sem
+# instância. Desligado (padrão), o app só sobe quando alguém acessa; quedas aparecem pelo alerta de 5xx.
 resource "google_monitoring_uptime_check_config" "app" {
+  count        = var.verificacao_disponibilidade ? 1 : 0
   display_name = "${var.app_name} /api/health"
   timeout      = "10s"
   period       = "300s"
@@ -30,15 +33,20 @@ resource "google_monitoring_notification_channel" "email" {
   }
 }
 
+moved {
+  from = google_monitoring_uptime_check_config.app
+  to   = google_monitoring_uptime_check_config.app[0]
+}
+
 resource "google_monitoring_alert_policy" "app_fora_do_ar" {
-  count        = var.email_alertas == "" ? 0 : 1
+  count        = var.email_alertas != "" && var.verificacao_disponibilidade ? 1 : 0
   display_name = "${var.app_name} fora do ar"
   combiner     = "OR"
 
   conditions {
     display_name = "Uptime check falhando"
     condition_threshold {
-      filter          = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"${google_monitoring_uptime_check_config.app.uptime_check_id}\" AND resource.type=\"uptime_url\""
+      filter          = "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"${google_monitoring_uptime_check_config.app[0].uptime_check_id}\" AND resource.type=\"uptime_url\""
       comparison      = "COMPARISON_GT"
       threshold_value = 1
       duration        = "600s"

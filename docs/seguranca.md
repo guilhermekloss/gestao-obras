@@ -70,7 +70,7 @@ Mapa de como a plataforma se protege, do usuário à nuvem: o que existe, onde f
 
 - Log de atividade do app (tela Usuários): quem fez o quê, inclusive logins, trocas de senha e encerramento de sessões.
 - Eventos de segurança no Cloud Logging (`jsonPayload.categoria="seguranca"`): `login_falhou`, `login_bloqueado`, `sessao_revogada`, `senha_alterada`, `acesso_negado_arquivo`, `upload_recusado`.
-- Alertas por e-mail (com `email_alertas`): mais de 30 falhas de login em 10 min, mais de 3 bloqueios em 10 min, mais de 10 acessos negados a arquivos em 10 min, qualquer mudança de IAM ou chave de service account — além de app fora do ar e erros 5xx.
+- Alertas por e-mail (com `email_alertas`): mais de 30 falhas de login em 10 min, mais de 3 bloqueios em 10 min, mais de 10 acessos negados a arquivos em 10 min, qualquer mudança de IAM ou chave de service account — além de erros 5xx e, com `verificacao_disponibilidade = true`, app fora do ar.
 - Banco: conexões/desconexões e queries lentas no log; leitura de segredos no log de auditoria.
 
 **Roteiro de incidente**

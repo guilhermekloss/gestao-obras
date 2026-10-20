@@ -51,6 +51,12 @@ variable "min_instancias" {
   default     = 0
 }
 
+variable "verificacao_disponibilidade" {
+  description = "Uptime check em /api/health a cada 5 min, com alerta de app fora do ar. Mantém o Cloud Run sempre com uma instância ligada; false = o app só sobe quando alguém acessa."
+  type        = bool
+  default     = false
+}
+
 variable "max_instancias" {
   description = "Teto de instâncias (protege custo e o limite de conexões do banco)."
   type        = number
