@@ -131,6 +131,16 @@ cloud-sql-proxy SEU_PROJECT_ID:southamerica-east1:gestao-obras-pg --port 6543
 DATABASE_URL="postgresql://app:SENHA@localhost:6543/gestao_obras" npx prisma studio
 ```
 
+### Pool de conexões
+
+Cada instância do Cloud Run mantém um pool próprio do Prisma (`db_conexoes_por_instancia`, padrão 5, vai no `connection_limit` da `DATABASE_URL`). A soma precisa caber no limite do banco: o `db-f1-micro` aceita 25 conexões, 3 delas reservadas ao superusuário.
+
+```
+(3 instâncias + 1 revisão nova no deploy) × 5 + 2 (migration e Auth Proxy) = 22 ≤ 25 − 3
+```
+
+O `terraform plan` falha com a conta na mensagem se `max_instancias` ou `db_conexoes_por_instancia` passarem do que o banco aceita. Precisa de mais instâncias? Suba `db_tier` (`db-g1-small` aceita 50) ou reduza o pool por instância (mínimo 2).
+
 ### Backups e restauração
 
 Backup automático diário (retenção de 14) + point-in-time recovery dos últimos 7 dias. Para restaurar: Console → SQL → gestao-obras-pg → Backups. Prefira **restaurar numa instância nova** (clone para um horário), conferir e só então apontar o app. Fotos e anexos têm versionamento no bucket: versões apagadas ou substituídas ficam 90 dias.

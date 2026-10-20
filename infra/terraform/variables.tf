@@ -34,9 +34,19 @@ variable "github_branch_deploy" {
 }
 
 variable "db_tier" {
-  description = "Máquina do Cloud SQL. db-f1-micro (~US$ 10/mês) atende o início; db-g1-small ou db-custom-1-3840 quando crescer."
+  description = "Máquina do Cloud SQL. db-f1-micro (~US$ 10/mês, 25 conexões) atende o início; db-g1-small (50 conexões) ou db-custom-1-3840 quando crescer."
   type        = string
   default     = "db-f1-micro"
+}
+
+variable "db_conexoes_por_instancia" {
+  description = "Tamanho do pool do Prisma em cada instância do Cloud Run (connection_limit da DATABASE_URL)."
+  type        = number
+  default     = 5
+  validation {
+    condition     = var.db_conexoes_por_instancia >= 2
+    error_message = "db_conexoes_por_instancia deve ser pelo menos 2."
+  }
 }
 
 variable "db_alta_disponibilidade" {
@@ -58,7 +68,7 @@ variable "verificacao_disponibilidade" {
 }
 
 variable "max_instancias" {
-  description = "Teto de instâncias (protege custo e o limite de conexões do banco)."
+  description = "Teto de instâncias (protege custo e o limite de conexões do banco: f1-micro aceita 25, g1-small 50)."
   type        = number
   default     = 3
 }

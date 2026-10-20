@@ -5,11 +5,12 @@ const etapaFindMany = vi.fn();
 const parcelaFindMany = vi.fn();
 const notaFindMany = vi.fn();
 const realizadoPorEtapaTodas = vi.fn();
+const notasParaAnalise = vi.fn();
 const carregarAlertasDaCaptura = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: { etapa: { findMany: etapaFindMany }, parcela: { findMany: parcelaFindMany }, notaFiscal: { findMany: notaFindMany } },
 }));
-vi.mock("../custos", () => ({ realizadoPorEtapaTodas }));
+vi.mock("../custos", () => ({ realizadoPorEtapaTodas, notasParaAnalise }));
 vi.mock("../sefaz/painel", () => ({ carregarAlertasDaCaptura }));
 
 const { alertasOrcamento, alertasParcelasVencidas, carregarAlertas, carregarCurvaAbc, curvaAbc } = await import("../analises");
@@ -99,10 +100,47 @@ describe("carregarCurvaAbc", () => {
     expect(curva.insumos[0]).toMatchObject({ custoCents: 500, qtde: 5, precoMedioCents: 100 });
   });
 
-  it("sem obra, a nota entra inteira e a quantidade do banco vira número", async () => {
-    notaFindMany.mockResolvedValue([notaDoBanco([], "2.5")]);
+  it("sem filtro, usa a leitura compartilhada: nota inteira (mesmo com rateio) e quantidade vira número", async () => {
+    notasParaAnalise.mockResolvedValue([
+      { ...notaDoBanco([], "2.5"), rateios: [{ obraId: "o1", etapaId: null, fracaoBp: 3_000 }] },
+      notaDoBanco([], "1.5"),
+    ]);
     const curva = await carregarCurvaAbc();
-    expect(curva.insumos[0]).toMatchObject({ custoCents: 1_000, qtde: 2.5, precoMedioCents: 400 });
+    expect(curva.insumos[0]).toMatchObject({ custoCents: 2_000, qtde: 4, precoMedioCents: 500 });
+    expect(notaFindMany).not.toHaveBeenCalled();
+  });
+
+  it("com qualquer filtro, mantém a consulta própria com o mesmo where", async () => {
+    notaFindMany.mockResolvedValue([notaDoBanco([], "2")]);
+    const de = new Date(2026, 0, 1);
+    const ate = new Date(2026, 5, 30);
+    const curva = await carregarCurvaAbc({ de, ate, tipo: "MATERIAL" });
+    expect(curva.insumos[0]).toMatchObject({ custoCents: 1_000, qtde: 2 });
+    expect(notasParaAnalise).not.toHaveBeenCalled();
+    expect(notaFindMany).toHaveBeenCalledWith({
+      where: { dataCompra: { gte: de, lte: ate } },
+      select: {
+        fornecedorId: true,
+        rateios: { where: { obraId: "" }, select: { fracaoBp: true } },
+        itens: {
+          where: { tipo: "MATERIAL" },
+          select: { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true },
+        },
+      },
+    });
+
+    await carregarCurvaAbc({ obraId: "o1" });
+    expect(notaFindMany).toHaveBeenLastCalledWith({
+      where: { rateios: { some: { obraId: "o1" } } },
+      select: {
+        fornecedorId: true,
+        rateios: { where: { obraId: "o1" }, select: { fracaoBp: true } },
+        itens: {
+          where: undefined,
+          select: { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true },
+        },
+      },
+    });
   });
 });
 
@@ -118,9 +156,12 @@ describe("carregarAlertas", () => {
     parcelaFindMany.mockResolvedValue([
       { valorCents: 700, vencimento: new Date(2026, 9, 1), nota: { id: "n1", numero: "REC-0001", tipoDocumento: "RECIBO", fornecedor: { nome: "Ferragens" } } },
     ]);
-    notaFindMany.mockResolvedValue([
-      { id: "n2", numero: "46", tipoDocumento: "NF", totalCents: 1_000, fornecedor: { nome: "Depósito" }, itens: [{ totalCents: 400 }, { totalCents: 500 }] },
-      { id: "n3", numero: "47", tipoDocumento: "NF", totalCents: 300, fornecedor: { nome: "Depósito" }, itens: [{ totalCents: 300 }] },
+    // formato de notasParaAnalise: campos a mais (rateios, dataCompra, item completo) não mudam o alerta
+    const itemNota = (totalCents: number) => ({ descricao: "x", unidade: "UN", tipo: "MATERIAL", qtde: "1", totalCents });
+    const doBanco = { dataCompra: new Date(2026, 9, 1), fornecedorId: "f1", rateios: [{ obraId: "o1", etapaId: "e1", fracaoBp: 10_000 }] };
+    notasParaAnalise.mockResolvedValue([
+      { ...doBanco, id: "n2", numero: "46", tipoDocumento: "NF", totalCents: 1_000, fornecedor: { nome: "Depósito" }, itens: [itemNota(400), itemNota(500)] },
+      { ...doBanco, id: "n3", numero: "47", tipoDocumento: "NF", totalCents: 300, fornecedor: { nome: "Depósito" }, itens: [itemNota(300)] },
     ]);
     carregarAlertasDaCaptura.mockResolvedValue([
       { id: "nfe-recebida-parada", tipo: "NFE_RECEBIDA", severidade: "ATENCAO", mensagem: "x", link: "/sefaz" },
@@ -156,6 +197,7 @@ describe("carregarAlertas", () => {
       { id: "nfe-recebida-parada", tipo: "NFE_RECEBIDA", severidade: "ATENCAO", mensagem: "x", link: "/sefaz" },
     ]);
     expect(carregarAlertasDaCaptura).toHaveBeenCalledWith(false, hoje);
+    expect(notaFindMany).not.toHaveBeenCalled();
   });
 
   it("repassa paraAdmin para os alertas da captura", async () => {

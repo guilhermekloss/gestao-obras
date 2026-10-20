@@ -40,5 +40,10 @@ describe("avancoPorEtapa", () => {
       ["e1", 2_500],
       ["e2", 10_000],
     ]);
+    expect(medicaoFindMany).toHaveBeenCalledWith({
+      where: { etapa: { obraId: "o1" } },
+      orderBy: [{ data: "asc" }, { id: "asc" }],
+      select: { etapaId: true, percentBp: true },
+    });
   });
 });

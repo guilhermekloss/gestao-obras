@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { z } from "zod";
 import type { Empresa } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -50,9 +51,8 @@ export const empresaSchema = z
 
 export type DadosEmpresa = z.infer<typeof empresaSchema>;
 
-export async function carregarEmpresa(): Promise<Empresa | null> {
-  return prisma.empresa.findUnique({ where: { id: ID_EMPRESA } });
-}
+// lida uma vez por requisição (layout, painel da captura, página Empresa); fora da renderização (actions, rotas) o cache não guarda nada
+export const carregarEmpresa = cache(async (): Promise<Empresa | null> => prisma.empresa.findUnique({ where: { id: ID_EMPRESA } }));
 
 /** CNPJs da empresa (matriz primeiro). Sem cadastro, vale a variável CNPJS_EMPRESA da instalação antiga. */
 export function cnpjsDe(empresa: Pick<Empresa, "cnpj" | "filiais"> | null, env: Record<string, string | undefined> = process.env): string[] {

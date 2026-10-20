@@ -13,7 +13,7 @@ import { erroEtapasDoRateio } from "./obras";
 import { chaveAcessoValida, normalizarNumeroNf } from "./leitura-documento";
 import { criarFornecedorValidado, validarDocumentoFornecedor } from "./fornecedores";
 import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
-import { buscarMaterialPorNome, criarMaterialValidado, registrarApelido } from "./materiais-db";
+import { buscarMaterialPorNome, criarMaterialValidado, registrarApelidos } from "./materiais-db";
 import { normalizarUnidade } from "./materiais";
 
 // Todo lançamento (form, leitura, XML, planilha) passa por aqui: as regras e a gravação moram num lugar só.
@@ -315,16 +315,13 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
   }
 
   // o texto da nota (e o código do produto, quando há) vira apelido: da próxima vez o material liga sozinho
-  for (const [i, item] of l.itens.entries()) {
-    const materialId = materialIds[i];
-    if (!materialId) continue;
-    await registrarApelido(tx, {
-      materialId,
-      descricao: item.descricao,
-      fornecedorId,
-      codigoProduto: item.codigoProduto,
-    });
-  }
+  await registrarApelidos(
+    tx,
+    l.itens.flatMap((item, i) => {
+      const materialId = materialIds[i];
+      return materialId ? [{ materialId, descricao: item.descricao, fornecedorId, codigoProduto: item.codigoProduto }] : [];
+    }),
+  );
 
   return { notaId: idDaNota, numero, fornecedorNome, fornecedorCriado };
 }

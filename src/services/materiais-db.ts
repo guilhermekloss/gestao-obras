@@ -58,32 +58,48 @@ export async function criarMaterialValidado(
 
 // A chave do texto aponta para o material escolhido; escolher de novo reaponta (a decisão do usuário vale mais).
 // Com código de produto, grava também uma linha por fornecedor + código: a mesma descrição pode mudar, o código não.
-export async function registrarApelido(
-  db: Db,
-  a: { materialId: string; descricao: string; fornecedorId?: string | null; codigoProduto?: string | null },
-) {
-  const descricaoOriginal = a.descricao.trim().slice(0, 500);
-  const chave = chaveMaterial(descricaoOriginal);
-  const fornecedorId = a.fornecedorId || null;
-  const codigoProduto = a.codigoProduto?.trim() || null;
+type Apelido = { materialId: string; descricao: string; fornecedorId?: string | null; codigoProduto?: string | null };
 
-  if (chave) {
-    const material = await db.material.findUnique({ where: { id: a.materialId }, select: { nome: true } });
-    if (material && chaveMaterial(material.nome) !== chave) {
+export async function registrarApelido(db: Db, a: Apelido) {
+  await registrarApelidos(db, [a]);
+}
+
+// Uma leitura dos nomes para a nota toda; os upserts seguem em ordem (chave repetida: o último item vence).
+export async function registrarApelidos(db: Db, apelidos: Apelido[]) {
+  const itens = apelidos.map((a) => {
+    const descricaoOriginal = a.descricao.trim().slice(0, 500);
+    return {
+      materialId: a.materialId,
+      descricaoOriginal,
+      chave: chaveMaterial(descricaoOriginal),
+      fornecedorId: a.fornecedorId || null,
+      codigoProduto: a.codigoProduto?.trim() || null,
+    };
+  });
+  const ids = [...new Set(itens.filter((i) => i.chave).map((i) => i.materialId))];
+  const nomes = new Map(
+    ids.length > 0
+      ? (await db.material.findMany({ where: { id: { in: ids } }, select: { id: true, nome: true } })).map((m) => [m.id, m.nome])
+      : [],
+  );
+
+  for (const { materialId, descricaoOriginal, chave, fornecedorId, codigoProduto } of itens) {
+    const nome = nomes.get(materialId);
+    if (chave && nome !== undefined && chaveMaterial(nome) !== chave) {
       await db.materialApelido.upsert({
         where: { chave },
-        create: { chave, materialId: a.materialId, descricaoOriginal, fornecedorId },
-        update: { materialId: a.materialId, descricaoOriginal, fornecedorId },
+        create: { chave, materialId, descricaoOriginal, fornecedorId },
+        update: { materialId, descricaoOriginal, fornecedorId },
       });
     }
-  }
-  if (fornecedorId && codigoProduto) {
-    const chaveCodigo = `COD ${fornecedorId} ${codigoProduto}`;
-    await db.materialApelido.upsert({
-      where: { chave: chaveCodigo },
-      create: { chave: chaveCodigo, materialId: a.materialId, descricaoOriginal, fornecedorId, codigoProduto },
-      update: { materialId: a.materialId, descricaoOriginal },
-    });
+    if (fornecedorId && codigoProduto) {
+      const chaveCodigo = `COD ${fornecedorId} ${codigoProduto}`;
+      await db.materialApelido.upsert({
+        where: { chave: chaveCodigo },
+        create: { chave: chaveCodigo, materialId, descricaoOriginal, fornecedorId, codigoProduto },
+        update: { materialId, descricaoOriginal },
+      });
+    }
   }
 }
 

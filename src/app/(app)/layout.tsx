@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { Assistente } from "@/components/assistente/assistente";
 import { CapturaAutomatica } from "@/components/captura-automatica";
-import { prisma } from "@/lib/prisma";
+import { carregarEmpresa } from "@/services/empresa";
 import { analiseIaDisponivel } from "@/services/gemini";
 import { LogOut, UserRound } from "lucide-react";
 
@@ -25,9 +25,7 @@ export default async function AppLayout({
 
   const tema = lerTema((await cookies()).get(COOKIE_TEMA)?.value);
   // captura de NF-e ligada na tela Empresa: quem usa o sistema mantém a busca andando (sem agendador na GCP)
-  const capturaAtiva =
-    user.role !== "CAMPO" &&
-    Boolean((await prisma.empresa.findUnique({ where: { id: "principal" }, select: { capturaAtiva: true } }))?.capturaAtiva);
+  const capturaAtiva = user.role !== "CAMPO" && Boolean((await carregarEmpresa())?.capturaAtiva);
 
   async function sair() {
     "use server";

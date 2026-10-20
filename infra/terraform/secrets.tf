@@ -1,5 +1,16 @@
 locals {
-  database_url = "postgresql://${google_sql_user.app.name}:${random_password.db.result}@localhost/${google_sql_database.app.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}&connection_limit=5"
+  database_url = "postgresql://${google_sql_user.app.name}:${random_password.db.result}@localhost/${google_sql_database.app.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}&connection_limit=${var.db_conexoes_por_instancia}&pool_timeout=20"
+
+  # max_connections padrão do Cloud SQL por máquina; as demais aceitam ao menos 100.
+  db_max_conexoes = lookup({
+    "db-f1-micro" = 25
+    "db-g1-small" = 50
+  }, var.db_tier, 100)
+
+  # +1 instância = revisão nova subindo no deploy; +2 = job de migration e Auth Proxy local.
+  db_conexoes_necessarias = (var.max_instancias + 1) * var.db_conexoes_por_instancia + 2
+  # 3 ficam reservadas ao superusuário.
+  db_conexoes_disponiveis = local.db_max_conexoes - 3
 }
 
 resource "google_secret_manager_secret" "database_url" {
@@ -17,6 +28,13 @@ resource "google_secret_manager_secret" "database_url" {
 resource "google_secret_manager_secret_version" "database_url" {
   secret      = google_secret_manager_secret.database_url.id
   secret_data = local.database_url
+
+  lifecycle {
+    precondition {
+      condition     = local.db_conexoes_necessarias <= local.db_conexoes_disponiveis
+      error_message = "O app pode abrir ${local.db_conexoes_necessarias} conexões ((${var.max_instancias} + 1) instâncias × ${var.db_conexoes_por_instancia} + 2), mas ${var.db_tier} aceita ${local.db_conexoes_disponiveis} (${local.db_max_conexoes} − 3 do superusuário). Reduza max_instancias ou db_conexoes_por_instancia, ou suba db_tier."
+    }
+  }
 }
 
 resource "random_password" "auth_secret" {
