@@ -351,7 +351,82 @@ describe("gravarLancamento: materiais dos itens", () => {
   it("item sem material não registra apelido", async () => {
     await gravarLancamento(tx(), lancamento({ itens: [{ ...item, descricao: "CIMENTO GENERICO" }] }));
     expect(materiaisGravados()).toEqual([null]);
-    expect(db.material.findUnique).not.toHaveBeenCalled();
+    expect(db.material.findMany).not.toHaveBeenCalled();
     expect(db.materialApelido.upsert).not.toHaveBeenCalled();
+  });
+
+  const chavesGravadas = () =>
+    db.materialApelido.upsert.mock.calls.map(([a]) => {
+      const { where, update } = a as { where: { chave: string }; update: { materialId: string } };
+      return [where.chave, update.materialId];
+    });
+
+  it("vários itens com material: uma leitura só, apelidos na ordem dos itens", async () => {
+    await gravarLancamento(
+      tx(),
+      lancamento({
+        itens: [
+          { ...item, descricao: "CIMENTO CPII 50KG", materialId: "m1", codigoProduto: "A1" },
+          { ...item, descricao: "AREIA MEDIA", materialId: "m2" },
+          { ...item, descricao: "CIMENTO VOTORAN", materialId: "m1", codigoProduto: " B2 " },
+          { ...item, descricao: "SEM VINCULO" },
+        ],
+      }),
+    );
+    expect(db.material.findMany).toHaveBeenCalledTimes(1);
+    expect(db.material.findMany.mock.calls[0][0]).toEqual({ where: { id: { in: ["m1", "m2"] } }, select: { id: true, nome: true } });
+    expect(chavesGravadas()).toEqual([
+      ["CIMENTO CPII 50KG", "m1"],
+      ["COD forn-1 A1", "m1"],
+      ["AREIA MEDIA", "m2"],
+      ["CIMENTO VOTORAN", "m1"],
+      ["COD forn-1 B2", "m1"],
+    ]);
+  });
+
+  it("descrição igual ao nome do material não vira apelido; o código vira", async () => {
+    await gravarLancamento(tx(), lancamento({ itens: [{ ...item, descricao: " cimento cp-ii ", materialId: "m1", codigoProduto: "77" }] }));
+    expect(chavesGravadas()).toEqual([["COD forn-1 77", "m1"]]);
+    expect(db.materialApelido.upsert.mock.calls[0][0]).toMatchObject({
+      create: { chave: "COD forn-1 77", materialId: "m1", descricaoOriginal: "cimento cp-ii", fornecedorId: "forn-1", codigoProduto: "77" },
+    });
+  });
+
+  it("material sumido não grava apelido do texto, só o do código", async () => {
+    db.material.findMany.mockResolvedValue([]);
+    await gravarLancamento(tx(), lancamento({ itens: [{ ...item, descricao: "AREIA", materialId: "m1", codigoProduto: "9" }] }));
+    expect(chavesGravadas()).toEqual([["COD forn-1 9", "m1"]]);
+  });
+
+  it("mesma chave duas vezes na nota: o último item vence", async () => {
+    await gravarLancamento(
+      tx(),
+      lancamento({
+        itens: [
+          { ...item, descricao: "Areia Fina", materialId: "m1" },
+          { ...item, descricao: "AREIA  FINA", materialId: "m2" },
+        ],
+      }),
+    );
+    expect(db.material.findMany).toHaveBeenCalledTimes(1);
+    expect(chavesGravadas()).toEqual([
+      ["AREIA FINA", "m1"],
+      ["AREIA FINA", "m2"],
+    ]);
+  });
+});
+
+describe("registrarApelido(s)", () => {
+  it("sem chave de texto nem código não consulta nem grava; o avulso usa a mesma leitura em lote", async () => {
+    const { registrarApelido, registrarApelidos } = await import("../materiais-db");
+    const db = novoBanco();
+    await registrarApelidos(db as never, [{ materialId: "m1", descricao: " -- " }]);
+    await registrarApelidos(db as never, []);
+    expect(db.material.findMany).not.toHaveBeenCalled();
+    expect(db.materialApelido.upsert).not.toHaveBeenCalled();
+
+    await registrarApelido(db as never, { materialId: "m1", descricao: "Areia" });
+    expect(db.material.findMany).toHaveBeenCalledTimes(1);
+    expect(db.materialApelido.upsert.mock.calls[0][0]).toMatchObject({ where: { chave: "AREIA" } });
   });
 });

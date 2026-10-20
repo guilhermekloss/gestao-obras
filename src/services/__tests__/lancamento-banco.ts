@@ -17,7 +17,10 @@ export function novoBanco() {
     },
     material: {
       count: vi.fn(async (_: object) => 0),
-      findUnique: vi.fn(async (_: object) => ({ nome: "Cimento CP II" }) as { nome: string } | null),
+      // todo material pedido existe e se chama "Cimento CP II"
+      findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+        where.id.in.map((id) => ({ id, nome: "Cimento CP II" })),
+      ),
       findFirst: vi.fn(async (_: object) => null as { id: string; nome: string } | null),
       create: vi.fn(async (_: object) => ({ id: "mat-novo", nome: "Areia", unidade: "M3", tipo: "MATERIAL", categoria: null })),
     },

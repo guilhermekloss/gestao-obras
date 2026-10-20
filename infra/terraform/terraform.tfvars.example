@@ -16,6 +16,7 @@ email_alertas = ""
 # cnpjs_empresa = "12.345.678/0001-90"
 # min_instancias = 1   # elimina o "cold start" (custo fixo maior)
 # verificacao_disponibilidade = true   # uptime check + alerta de fora do ar (mantém o app sempre ligado)
+# db_conexoes_por_instancia = 4   # pool do Prisma por instância; o plan falha se estourar o limite do banco
 
 # Domínio próprio (vazio = URL do Cloud Run)
 # app_url = "https://obras.suaempresa.com.br"

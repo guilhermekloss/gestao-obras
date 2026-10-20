@@ -2,6 +2,5 @@ import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// guardado no globalThis também em produção: se o módulo for avaliado em mais de um bundle, o processo segue com um só pool
+export const prisma = (globalForPrisma.prisma ??= new PrismaClient());
