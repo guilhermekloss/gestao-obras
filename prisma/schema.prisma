@@ -201,6 +201,8 @@ model Etapa {
   fimPrevisto    DateTime?    @db.Date
   medicoes       Medicao[]
   rateios        RateioNota[]
+
+  @@index([obraId, ordem])
 }
 
 model Fornecedor {
@@ -236,7 +238,7 @@ model NotaFiscal {
 
   @@unique([fornecedorId, numero])
   @@index([dataCompra])
-  @@index([fornecedorId])
+  @@index([fornecedorId, dataCompra])
 }
 
 model ItemNota {
@@ -315,8 +317,7 @@ model Parcela {
   status     StatusParcela @default(ABERTA)
 
   @@unique([notaId, numero])
-  @@index([vencimento, status])
-  @@index([notaId])
+  @@index([status, vencimento])
 }
 
 model Medicao {
@@ -330,7 +331,7 @@ model Medicao {
   autorId   String?
   autor     Usuario? @relation(fields: [autorId], references: [id])
 
-  @@index([etapaId])
+  @@index([etapaId, data])
 }
 
 model DiarioObra {
@@ -354,7 +355,6 @@ model DiarioObra {
   updatedAt    DateTime          @default(now()) @updatedAt
 
   @@unique([obraId, data])
-  @@index([obraId, data])
 }
 
 model Foto {
@@ -365,6 +365,7 @@ model Foto {
   legenda  String?
 
   @@index([url])
+  @@index([diarioId])
 }
 
 /// Quem enviou pode ler o próprio arquivo antes de ele ser ligado a um RDO ou lançamento.
@@ -456,8 +457,9 @@ model DocumentoSefaz {
   recebidoEm       DateTime               @default(now())
   atualizadoEm     DateTime               @updatedAt
 
-  @@index([status, situacao])
+  @@index([status, situacao, dataEmissao(sort: Desc)])
   @@index([dataEmissao])
+  @@index([recebidoEm])
   @@index([manifestacao])
   @@index([notaFiscalId])
 }
