@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { enviarArquivo, estourouPrazo, MSG_ENVIO_DEMOROU } from "@/lib/envio";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { dataParaInput, formatarMoeda } from "@/lib/format";
@@ -102,14 +103,12 @@ export function NovoLancamento({
     try {
       const preparado = await prepararFoto(file);
       if (preparado.size > MAX_BYTES) throw new Error("Arquivo maior que 8 MB.");
-      const fd = new FormData();
-      fd.append("file", preparado);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await enviarArquivo(preparado);
       const corpo = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(corpo.erro ?? "Falha no envio do arquivo.");
       url = corpo.url;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha no envio do arquivo.");
+      toast.error(estourouPrazo(e) ? MSG_ENVIO_DEMOROU : e instanceof Error ? e.message : "Falha no envio do arquivo.");
       setEstado({ etapa: "inicio" });
       return;
     }

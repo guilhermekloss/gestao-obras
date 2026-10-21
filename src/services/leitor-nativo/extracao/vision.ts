@@ -10,7 +10,8 @@ import {
 } from "./vision-conversao";
 
 const ESCOPO = "https://www.googleapis.com/auth/cloud-vision";
-const PRAZO_MS = 60_000;
+// por tentativa; com 1 nova tentativa o pior caso fica em ~60 s (o Gemini ainda pode vir depois)
+const PRAZO_MS = 30_000;
 
 // Limite de 10 MB do JSON da requisição; em base64 o arquivo cresce ~37 %.
 export const MAX_BYTES_INLINE = 7 * 1024 * 1024;
@@ -33,7 +34,7 @@ async function postar<T>(caminho: string, corpo: unknown): Promise<T> {
       data: corpo,
       timeout: PRAZO_MS,
       retry: true,
-      retryConfig: { retry: 2, httpMethodsToRetry: ["POST"], statusCodesToRetry: [[500, 599]] },
+      retryConfig: { retry: 1, httpMethodsToRetry: ["POST"], statusCodesToRetry: [[500, 599]] },
     });
     return resposta.data;
   } catch (e) {

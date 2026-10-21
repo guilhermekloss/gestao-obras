@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { enviarArquivo, estourouPrazo, MSG_ENVIO_DEMOROU } from "@/lib/envio";
 import type { CondicaoTrabalho } from "@prisma/client";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Accordion, AccordionItem, AccordionPanel, AccordionTrigger } from "@/components/ui/accordion";
@@ -273,15 +274,13 @@ export function RdoForm({
     try {
       for (const file of Array.from(files)) {
         const blob = await comprimirImagem(file);
-        const fd = new FormData();
-        fd.append("file", new File([blob], "foto.jpg", { type: "image/jpeg" }));
-        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        const res = await enviarArquivo(new File([blob], "foto.jpg", { type: "image/jpeg" }));
         if (!res.ok) throw new Error("Falha no upload");
         const { url } = await res.json();
         setFotos((prev) => [...prev, { url, preview: URL.createObjectURL(blob) }]);
       }
-    } catch {
-      toast.error("Erro ao enviar foto — verifique a conexão e tente de novo");
+    } catch (e) {
+      toast.error(estourouPrazo(e) ? MSG_ENVIO_DEMOROU : "Erro ao enviar foto — verifique a conexão e tente de novo");
     } finally {
       setEnviandoFoto(false);
       if (inputFotoRef.current) inputFotoRef.current.value = "";
