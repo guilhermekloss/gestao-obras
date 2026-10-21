@@ -165,7 +165,7 @@ const processar = acaoDeEscrita(
             user.id,
             (item) =>
               item.tipo === "MATERIAL"
-                ? correspondenciaItem({ descricao: item.descricao }, { ...baseMateriais, fornecedorId }).exato?.id
+                ? correspondenciaItem({ descricao: item.descricao }, { ...baseMateriais, fornecedorId }, 0).exato?.id
                 : undefined,
           );
           await gravarLancamento(tx, lancamento);

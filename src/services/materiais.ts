@@ -98,8 +98,10 @@ const PENALIDADE_MEDIDA = 0.85;
 
 // Medidas (50KG, 25MM, 4X2) distinguem produtos: cada lado com uma medida que o outro não tem (8MM × 10MM) é conflito.
 export function similaridadeMaterial(a: string, b: string): number {
-  const pa = new Set(palavrasMaterial(a));
-  const pb = new Set(palavrasMaterial(b));
+  return similaridadeConjuntos(new Set(palavrasMaterial(a)), new Set(palavrasMaterial(b)));
+}
+
+function similaridadeConjuntos(pa: Set<string>, pb: Set<string>): number {
   if (pa.size === 0 || pb.size === 0) return 0;
   let comuns = 0;
   for (const p of pa) if (pb.has(p)) comuns++;
@@ -112,42 +114,88 @@ export function similaridadeMaterial(a: string, b: string): number {
 
 export const LIMIAR_CANDIDATO = 0.5;
 
+type IndiceMateriais = {
+  porId: Map<string, MaterialCatalogo>;
+  apelidoPorCodigo: Map<string, ApelidoCatalogo>;
+  apelidoPorChave: Map<string, ApelidoCatalogo>;
+  materialPorChave: Map<string, MaterialCatalogo>;
+  palavras: { material: MaterialCatalogo; conjuntos: Set<string>[] }[];
+};
+
+const chaveCodigo = (fornecedorId: string, codigo: string) => `${fornecedorId}\u0000${codigo}`;
+
+// Um índice por base carregada: a leitura de uma nota (ou planilha) casa todos os itens com o mesmo catálogo.
+// Os arrays da base não podem ser alterados depois da primeira busca.
+const indices = new WeakMap<MaterialCatalogo[], WeakMap<ApelidoCatalogo[], IndiceMateriais>>();
+
+function indiceDe(catalogo: MaterialCatalogo[], apelidos: ApelidoCatalogo[]): IndiceMateriais {
+  let porApelidos = indices.get(catalogo);
+  const pronto = porApelidos?.get(apelidos);
+  if (pronto) return pronto;
+
+  // a primeira ocorrência vence, como no find
+  const primeiro = <V>(mapa: Map<string, V>, chave: string, valor: V) => {
+    if (!mapa.has(chave)) mapa.set(chave, valor);
+  };
+  const apelidoPorCodigo = new Map<string, ApelidoCatalogo>();
+  const apelidoPorChave = new Map<string, ApelidoCatalogo>();
+  const textosPorMaterial = new Map<string, string[]>();
+  for (const a of apelidos) {
+    if (a.fornecedorId && a.codigoProduto) primeiro(apelidoPorCodigo, chaveCodigo(a.fornecedorId, a.codigoProduto), a);
+    primeiro(apelidoPorChave, a.chave, a);
+    const l = textosPorMaterial.get(a.materialId);
+    if (l) l.push(a.descricaoOriginal);
+    else textosPorMaterial.set(a.materialId, [a.descricaoOriginal]);
+  }
+  const materialPorChave = new Map<string, MaterialCatalogo>();
+  for (const m of catalogo) primeiro(materialPorChave, chaveMaterial(m.nome), m);
+
+  const indice: IndiceMateriais = {
+    porId: new Map(catalogo.map((m) => [m.id, m])),
+    apelidoPorCodigo,
+    apelidoPorChave,
+    materialPorChave,
+    palavras: catalogo.map((m) => ({
+      material: m,
+      conjuntos: [m.nome, ...(textosPorMaterial.get(m.id) ?? [])].map((t) => new Set(palavrasMaterial(t))),
+    })),
+  };
+  if (!porApelidos) indices.set(catalogo, (porApelidos = new WeakMap()));
+  porApelidos.set(apelidos, indice);
+  return indice;
+}
+
+// limite 0 dispensa a busca aproximada (só interessa a ligação exata)
 export function correspondenciaItem(
   item: ItemParaVincular,
   base: { catalogo: MaterialCatalogo[]; apelidos: ApelidoCatalogo[]; fornecedorId?: string | null },
   limite = 5,
 ): CorrespondenciaItem {
-  const porId = new Map(base.catalogo.map((m) => [m.id, m]));
-  const achar = (id: string) => porId.get(id) ?? null;
+  const indice = indiceDe(base.catalogo, base.apelidos);
+  const achar = (id: string) => indice.porId.get(id) ?? null;
 
   const codigo = item.codigo?.trim();
   if (codigo && base.fornecedorId) {
-    const a = base.apelidos.find((x) => x.fornecedorId === base.fornecedorId && x.codigoProduto === codigo);
+    const a = indice.apelidoPorCodigo.get(chaveCodigo(base.fornecedorId, codigo));
     const m = a && achar(a.materialId);
     if (m) return { exato: m, origem: "codigo", candidatos: [] };
   }
 
   const chave = chaveMaterial(item.descricao);
   if (chave) {
-    const a = base.apelidos.find((x) => x.chave === chave);
+    const a = indice.apelidoPorChave.get(chave);
     const viaApelido = a && achar(a.materialId);
     if (viaApelido) return { exato: viaApelido, origem: "texto", candidatos: [] };
-    const viaNome = base.catalogo.find((m) => chaveMaterial(m.nome) === chave);
+    const viaNome = indice.materialPorChave.get(chave);
     if (viaNome) return { exato: viaNome, origem: "nome", candidatos: [] };
   }
+  if (limite <= 0) return { exato: null, origem: null, candidatos: [] };
 
-  const textosPorMaterial = new Map<string, string[]>();
-  for (const a of base.apelidos) {
-    const l = textosPorMaterial.get(a.materialId);
-    if (l) l.push(a.descricaoOriginal);
-    else textosPorMaterial.set(a.materialId, [a.descricaoOriginal]);
-  }
-
+  const doItem = new Set(palavrasMaterial(item.descricao));
   const candidatos: CandidatoMaterial[] = [];
-  for (const m of base.catalogo) {
-    const textos = [m.nome, ...(textosPorMaterial.get(m.id) ?? [])];
-    const similaridade = Math.max(...textos.map((t) => similaridadeMaterial(item.descricao, t)));
-    if (similaridade >= LIMIAR_CANDIDATO) candidatos.push({ material: m, similaridade });
+  for (const { material, conjuntos } of indice.palavras) {
+    const similaridade = Math.max(...conjuntos.map((c) => similaridadeConjuntos(doItem, c)));
+    if (similaridade >= LIMIAR_CANDIDATO) candidatos.push({ material, similaridade });
   }
   candidatos.sort((x, y) => y.similaridade - x.similaridade || x.material.nome.localeCompare(y.material.nome));
   return { exato: null, origem: null, candidatos: candidatos.slice(0, limite) };
