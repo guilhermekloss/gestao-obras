@@ -34,8 +34,12 @@ const storageLocal: StorageDriver = {
   },
 };
 
+// O padrão da lib re-tenta por até 600 s: aqui o upload e a leitura são de rota rápida (upload, foto, leitura de nota).
+const RETENTATIVAS_GCS = { totalTimeout: 15, maxRetries: 2 };
+const PRAZO_GCS_MS = 10_000; // por requisição HTTP
+
 export function storageGcs(bucketName: string): StorageDriver {
-  const bucket = new Storage().bucket(bucketName);
+  const bucket = new Storage({ retryOptions: RETENTATIVAS_GCS, timeout: PRAZO_GCS_MS }).bucket(bucketName);
   const PREFIXO = "uploads/";
   return {
     async salvar(buffer, extensao) {

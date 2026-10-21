@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
+import { enviarArquivo, estourouPrazo, MSG_ENVIO_DEMOROU } from "@/lib/envio";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -193,9 +194,7 @@ export function NotaForm({
     if (!file) return;
     setEnviandoAnexo(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await enviarArquivo(file);
       if (!res.ok) {
         const { erro } = await res.json().catch(() => ({ erro: null }));
         throw new Error(erro ?? "Falha no upload");
@@ -204,7 +203,8 @@ export function NotaForm({
       setValue("anexoUrl", url);
       setValue("anexoNome", file.name);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao enviar arquivo — verifique a conexão e tente de novo");
+      if (estourouPrazo(e)) toast.error(MSG_ENVIO_DEMOROU);
+      else toast.error(e instanceof Error ? e.message : "Erro ao enviar arquivo — verifique a conexão e tente de novo");
     } finally {
       setEnviandoAnexo(false);
       if (inputAnexoRef.current) inputAnexoRef.current.value = "";

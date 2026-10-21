@@ -1,5 +1,5 @@
 locals {
-  database_url = "postgresql://${google_sql_user.app.name}:${random_password.db.result}@localhost/${google_sql_database.app.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}&connection_limit=${var.db_conexoes_por_instancia}&pool_timeout=20"
+  database_url = "postgresql://${google_sql_user.app.name}:${random_password.db.result}@localhost/${google_sql_database.app.name}?host=/cloudsql/${google_sql_database_instance.main.connection_name}&connection_limit=${var.db_conexoes_por_instancia}&pool_timeout=5&connect_timeout=5"
 
   # max_connections padrão do Cloud SQL por máquina; as demais aceitam ao menos 100.
   db_max_conexoes = lookup({

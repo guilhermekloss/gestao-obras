@@ -135,6 +135,8 @@ DATABASE_URL="postgresql://app:SENHA@localhost:6543/gestao_obras" npx prisma stu
 
 Cada instância do Cloud Run mantém um pool próprio do Prisma (`db_conexoes_por_instancia`, padrão 5, vai no `connection_limit` da `DATABASE_URL`). A soma precisa caber no limite do banco: o `db-f1-micro` aceita 25 conexões, 3 delas reservadas ao superusuário.
 
+A URL também leva `pool_timeout=5&connect_timeout=5`: com o pool cheio a requisição falha em 5 s em vez de enfileirar. O usuário do app tem `statement_timeout` de 15 s, `lock_timeout` de 5 s e `idle_in_transaction_session_timeout` de 15 s (migração `20261021120000_timeouts_sessao`); detalhes em [auditoria-timeouts.md](auditoria-timeouts.md).
+
 ```
 (3 instâncias + 1 revisão nova no deploy) × 5 + 2 (migration e Auth Proxy) = 22 ≤ 25 − 3
 ```

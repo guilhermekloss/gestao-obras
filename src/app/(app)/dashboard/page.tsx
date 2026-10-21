@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -15,7 +16,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { GastoMensalChart, OrcadoRealizadoChart } from "./dashboard-charts";
 import { AvancoLotes } from "./avanco-lotes";
-import { CurvaSWidget } from "./widgets/curva-s";
+import { CurvaSWidget, CurvaSWidgetCarregando } from "./widgets/curva-s";
 import { AlertasLista } from "./alertas-lista";
 import { TopInsumos } from "./top-insumos";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
@@ -271,7 +272,9 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <CurvaSWidget />
+          <Suspense fallback={<CurvaSWidgetCarregando />}>
+            <CurvaSWidget />
+          </Suspense>
         </div>
       </section>
     </div>
