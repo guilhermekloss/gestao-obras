@@ -123,6 +123,29 @@ describe("correspondenciaItem", () => {
     const r = correspondenciaItem({ descricao: "Cimento Votoran 50kg" }, { catalogo: muitos, apelidos: [] }, 3);
     expect(r.candidatos).toHaveLength(3);
   });
+
+  it("limite 0 só procura a ligação exata", () => {
+    expect(correspondenciaItem({ descricao: "CIMENTO 50KG VOTORAN" }, base, 0).exato?.id).toBe("cim");
+    expect(correspondenciaItem({ descricao: "CA50 8,00MM RETO 12,0M FX 2000KG" }, base, 0)).toEqual({
+      exato: null,
+      origem: null,
+      candidatos: [],
+    });
+  });
+
+  it("com apelidos repetidos, vale o primeiro", () => {
+    const apelidos: ApelidoCatalogo[] = [
+      { materialId: "ca8", chave: "VERGALHAO", descricaoOriginal: "VERGALHAO", fornecedorId: null, codigoProduto: null },
+      { materialId: "ca10", chave: "VERGALHAO", descricaoOriginal: "VERGALHAO", fornecedorId: null, codigoProduto: null },
+    ];
+    expect(correspondenciaItem({ descricao: "vergalhão" }, { catalogo: CATALOGO, apelidos }).exato?.id).toBe("ca8");
+  });
+
+  it("a mesma base com outro fornecedor não reaproveita o código do anterior", () => {
+    const item = { descricao: "algo sem relação", codigo: "TJ-09" };
+    expect(correspondenciaItem(item, { ...base, fornecedorId: "f2" }).exato?.id).toBe("tij");
+    expect(correspondenciaItem(item, { ...base, fornecedorId: "f1" }).exato).toBeNull();
+  });
 });
 
 describe("vínculo na leitura de nota", () => {
