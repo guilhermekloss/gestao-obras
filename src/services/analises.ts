@@ -3,10 +3,11 @@ import type { Prisma, TipoDocumento, TipoItem } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { BP_TOTAL, custoRateado } from "./rateio";
-import { notasParaAnalise, realizadoPorEtapaTodas } from "./custos";
+import { avancoPorEtapa, notasParaAnalise, realizadoPorEtapaTodas, realizadoPorObra } from "./custos";
 import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
 import { carregarAlertasDaCaptura } from "./sefaz/painel";
+import { desempenhoCusto, totalDesempenho } from "./desempenho-custo";
 
 export type ClasseAbc = "A" | "B" | "C";
 
@@ -165,6 +166,8 @@ export type Severidade = "CRITICA" | "ATENCAO";
 type TipoAlerta =
   | "ORCAMENTO_ESTOURO"
   | "ORCAMENTO_ATENCAO"
+  | "ORCAMENTO_TENDENCIA"
+  | "ETAPA_ATRASADA"
   | "PARCELA_VENCIDA"
   | "NOTA_DIVERGENTE"
   | "SEFAZ_CERTIFICADO"
@@ -177,6 +180,8 @@ export type Alerta = {
   severidade: Severidade;
   mensagem: string;
   link: string;
+  /** Obra a que o alerta se refere, quando é de uma obra só (filtro do dashboard). */
+  obraId?: string;
 };
 
 export type EtapaParaAlerta = {
@@ -207,6 +212,7 @@ export function alertasOrcamento(etapas: EtapaParaAlerta[]): Alerta[] {
           severidade: "CRITICA",
           mensagem: `${e.obraNome} · ${e.etapaNome}: orçamento estourado em ${formatarMoeda(excesso)} (${formatarPercentBp(consumo)} consumido)`,
           link,
+          obraId: e.obraId,
         },
       ]);
     } else if (faixa === "ATENCAO") {
@@ -218,6 +224,7 @@ export function alertasOrcamento(etapas: EtapaParaAlerta[]): Alerta[] {
           severidade: "ATENCAO",
           mensagem: `${e.obraNome} · ${e.etapaNome}: ${formatarPercentBp(consumo)} do orçamento consumido`,
           link,
+          obraId: e.obraId,
         },
       ]);
     }
@@ -225,6 +232,42 @@ export function alertasOrcamento(etapas: EtapaParaAlerta[]): Alerta[] {
 
   const porPeso = (a: [number, Alerta], b: [number, Alerta]) => b[0] - a[0];
   return [...estouros.sort(porPeso), ...atencoes.sort(porPeso)].map(([, alerta]) => alerta);
+}
+
+// Resumo de uma obra para os alertas que olham a obra inteira. A fase do cronograma
+// (ETAPA_ATRASADA) entra aqui com a contagem de etapas atrasadas.
+export type ObraParaAlerta = {
+  obraId: string;
+  obraNome: string;
+  orcamentoCents: number;
+  /** Tendência de custo da obra (soma das etapas, ver `desempenho-custo`). */
+  tendenciaCents: number;
+  /** Avanço físico ponderado da obra, em base 10000. */
+  fisicoBp: number;
+};
+
+export const TENDENCIA_LIMITE_BP = 500; // 5% acima do orçado
+export const TENDENCIA_FISICO_MINIMO_BP = 1_000; // abaixo de 10% de físico a projeção é ruído
+
+// Uma por obra, maior desvio primeiro. Obra sem orçamento fica de fora (não há com o que comparar).
+export function alertasTendencia(obras: ObraParaAlerta[]): Alerta[] {
+  return obras
+    .filter(
+      (o) =>
+        o.orcamentoCents > 0 &&
+        o.fisicoBp >= TENDENCIA_FISICO_MINIMO_BP &&
+        (o.tendenciaCents - o.orcamentoCents) * BP_TOTAL > o.orcamentoCents * TENDENCIA_LIMITE_BP,
+    )
+    .map((o) => ({ o, desvioBp: Math.round(((o.tendenciaCents - o.orcamentoCents) * BP_TOTAL) / o.orcamentoCents) }))
+    .sort((a, b) => b.desvioBp - a.desvioBp)
+    .map(({ o, desvioBp }) => ({
+      id: `tendencia:${o.obraId}`,
+      tipo: "ORCAMENTO_TENDENCIA" as const,
+      severidade: "ATENCAO" as const,
+      mensagem: `${o.obraNome}: no ritmo atual a obra deve custar ${formatarMoeda(o.tendenciaCents)}, ${formatarPercentBp(desvioBp)} acima do orçado (${formatarMoeda(o.orcamentoCents)})`,
+      link: `/orcamento?obra=${o.obraId}`,
+      obraId: o.obraId,
+    }));
 }
 
 // "NF 123", "Recibo REC-0001"; ausente = NF.
@@ -329,21 +372,29 @@ const ORDEM_TIPO: Record<TipoAlerta, number> = {
   SEFAZ_CERTIFICADO: 2,
   SEFAZ_FALHA: 3,
   ORCAMENTO_ATENCAO: 4,
-  NOTA_DIVERGENTE: 5,
-  NFE_RECEBIDA: 6,
+  ETAPA_ATRASADA: 5,
+  ORCAMENTO_TENDENCIA: 6,
+  NOTA_DIVERGENTE: 7,
+  NFE_RECEBIDA: 8,
 };
+
+export function ordenarAlertas(alertas: Alerta[]): Alerta[] {
+  return [...alertas].sort((a, b) => ORDEM_TIPO[a.tipo] - ORDEM_TIPO[b.tipo]);
+}
 
 export function montarAlertas(entrada: {
   etapas: EtapaParaAlerta[];
+  obras?: ObraParaAlerta[];
   parcelas: ParcelaParaAlerta[];
   notas: NotaParaAlerta[];
   hoje?: Date;
 }): Alerta[] {
-  return [
+  return ordenarAlertas([
     ...alertasOrcamento(entrada.etapas),
+    ...alertasTendencia(entrada.obras ?? []),
     ...alertasParcelasVencidas(entrada.parcelas, entrada.hoje),
     ...alertasDivergencia(entrada.notas),
-  ].sort((a, b) => ORDEM_TIPO[a.tipo] - ORDEM_TIPO[b.tipo]);
+  ]);
 }
 
 type FiltroAbc = {
@@ -398,17 +449,73 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
   );
 }
 
-/** `paraAdmin`: inclui os alertas da captura na Sefaz que só o ADMIN resolve (certificado, falhas). */
-export async function carregarAlertas(hoje: Date = new Date(), opcoes: { paraAdmin?: boolean } = {}): Promise<Alerta[]> {
-  const [etapas, realizado, parcelas, notas, captura] = await Promise.all([
+type EtapaComObra = { id: string; obraId: string; orcamentoCents: number };
+
+// Tendência por obra: uma linha por etapa e o realizado sem etapa como linha à parte (sem orçado, sem físico),
+// a mesma conta da tela de Orçamento.
+export function resumirObrasParaAlerta(
+  obras: { id: string; nome: string }[],
+  etapas: EtapaComObra[],
+  realizadoPorEtapa: Map<string, number>,
+  realizadoPorObra: Map<string, number>,
+  avancos: Map<string, number>,
+): ObraParaAlerta[] {
+  const porObra = new Map<string, EtapaComObra[]>();
+  for (const e of etapas) {
+    const lista = porObra.get(e.obraId);
+    if (lista) lista.push(e);
+    else porObra.set(e.obraId, [e]);
+  }
+  return obras.map((o) => {
+    const linhas = (porObra.get(o.id) ?? []).map((e) =>
+      desempenhoCusto({
+        orcamentoCents: e.orcamentoCents,
+        realizadoCents: realizadoPorEtapa.get(e.id) ?? 0,
+        fisicoBp: avancos.get(e.id) ?? 0,
+      }),
+    );
+    const comEtapa = linhas.reduce((a, l) => a + l.realizadoCents, 0);
+    const semEtapa = (realizadoPorObra.get(o.id) ?? 0) - comEtapa;
+    const total = totalDesempenho(
+      semEtapa > 0
+        ? [...linhas, desempenhoCusto({ orcamentoCents: 0, realizadoCents: semEtapa, fisicoBp: 0 })]
+        : linhas,
+    );
+    return {
+      obraId: o.id,
+      obraNome: o.nome,
+      orcamentoCents: total.orcamentoCents,
+      tendenciaCents: total.tendenciaCents,
+      fisicoBp: total.fisicoBp,
+    };
+  });
+}
+
+/**
+ * `paraAdmin`: inclui os alertas da captura na Sefaz que só o ADMIN resolve (certificado, falhas).
+ * `obraId`: só o que é daquela obra (orçamento e tendência dela; parcelas e notas rateadas para ela).
+ * Os alertas da captura são da empresa, não de uma obra, e ficam fora do filtro.
+ */
+export async function carregarAlertas(
+  hoje: Date = new Date(),
+  opcoes: { paraAdmin?: boolean; obraId?: string } = {},
+): Promise<Alerta[]> {
+  const { obraId } = opcoes;
+  const [etapas, realizadoEtapa, realizadoObra, avancos, parcelas, notas, captura] = await Promise.all([
     prisma.etapa.findMany({
-      where: { orcamentoCents: { gt: 0 } },
+      where: obraId ? { obraId } : {},
       orderBy: [{ obra: { codigo: "asc" } }, { ordem: "asc" }],
       select: { id: true, nome: true, orcamentoCents: true, obra: { select: { id: true, nome: true } } },
     }),
     realizadoPorEtapaTodas(),
+    realizadoPorObra(),
+    avancoPorEtapa(),
     prisma.parcela.findMany({
-      where: { status: "ABERTA", vencimento: { lt: startOfDay(hoje) } },
+      where: {
+        status: "ABERTA",
+        vencimento: { lt: startOfDay(hoje) },
+        ...(obraId ? { nota: { rateios: { some: { obraId } } } } : {}),
+      },
       select: {
         valorCents: true,
         vencimento: true,
@@ -416,9 +523,11 @@ export async function carregarAlertas(hoje: Date = new Date(), opcoes: { paraAdm
       },
     }),
     notasParaAnalise(),
-    carregarAlertasDaCaptura(opcoes.paraAdmin ?? false, hoje),
+    obraId ? Promise.resolve([]) : carregarAlertasDaCaptura(opcoes.paraAdmin ?? false, hoje),
   ]);
 
+  // obra sem etapa não tem orçamento, então não gera alerta de obra: basta tirar as obras das etapas
+  const obras = [...new Map(etapas.map((e) => [e.obra.id, e.obra])).values()];
   const alertas = montarAlertas({
     hoje,
     etapas: etapas.map((e) => ({
@@ -427,8 +536,15 @@ export async function carregarAlertas(hoje: Date = new Date(), opcoes: { paraAdm
       obraId: e.obra.id,
       obraNome: e.obra.nome,
       previstoCents: e.orcamentoCents,
-      realizadoCents: realizado.get(e.id) ?? 0,
+      realizadoCents: realizadoEtapa.get(e.id) ?? 0,
     })),
+    obras: resumirObrasParaAlerta(
+      obras,
+      etapas.map((e) => ({ id: e.id, obraId: e.obra.id, orcamentoCents: e.orcamentoCents })),
+      realizadoEtapa,
+      realizadoObra,
+      avancos,
+    ),
     parcelas: parcelas.map((p) => ({
       notaId: p.nota.id,
       notaNumero: p.nota.numero,
@@ -437,14 +553,16 @@ export async function carregarAlertas(hoje: Date = new Date(), opcoes: { paraAdm
       valorCents: p.valorCents,
       vencimento: p.vencimento,
     })),
-    notas: notas.map((n) => ({
-      id: n.id,
-      numero: n.numero,
-      tipoDocumento: n.tipoDocumento,
-      fornecedorNome: n.fornecedor.nome,
-      totalCents: n.totalCents,
-      somaItensCents: n.itens.reduce((a, i) => a + i.totalCents, 0),
-    })),
+    notas: notas
+      .filter((n) => !obraId || n.rateios.some((r) => r.obraId === obraId))
+      .map((n) => ({
+        id: n.id,
+        numero: n.numero,
+        tipoDocumento: n.tipoDocumento,
+        fornecedorNome: n.fornecedor.nome,
+        totalCents: n.totalCents,
+        somaItensCents: n.itens.reduce((a, i) => a + i.totalCents, 0),
+      })),
   });
-  return [...alertas, ...captura].sort((a, b) => ORDEM_TIPO[a.tipo] - ORDEM_TIPO[b.tipo]);
+  return ordenarAlertas([...alertas, ...captura]);
 }

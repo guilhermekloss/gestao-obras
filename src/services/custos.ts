@@ -54,15 +54,25 @@ export async function realizadoPorObra(): Promise<Map<string, number>> {
   return acumular(await notasParaAnalise(), (_, r) => r.obraId);
 }
 
-export async function realizadoPorEtapa(obraId: string): Promise<Map<string | null, number>> {
-  const notas = await prisma.notaFiscal.findMany({
+// Só as notas com rateio na obra, e só os rateios dela; uma leitura por requisição para etapa e mês.
+const notasDaObra = cache(async (obraId: string) =>
+  prisma.notaFiscal.findMany({
     where: { rateios: { some: { obraId } } },
     select: {
+      dataCompra: true,
       itens: { select: { totalCents: true } },
       rateios: { where: { obraId }, select: { obraId: true, etapaId: true, fracaoBp: true } },
     },
-  });
-  return acumular(notas, (_, r) => r.etapaId);
+  }),
+);
+
+export async function realizadoPorEtapa(obraId: string): Promise<Map<string | null, number>> {
+  return acumular(await notasDaObra(obraId), (_, r) => r.etapaId);
+}
+
+// "aaaa-mm" → centavos da obra no mês da compra, desde a primeira nota (mesma base de `realizadoPorMes`).
+export async function realizadoPorMesDaObra(obraId: string): Promise<Map<string, number>> {
+  return acumular(await notasDaObra(obraId), (nota) => chaveMes(nota.dataCompra));
 }
 
 // Rateio sem etapa cai na chave null e sai; os outros rateios da mesma nota não mudam.

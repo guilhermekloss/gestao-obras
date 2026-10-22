@@ -12,6 +12,11 @@ import {
   notaDivergente,
   rotuloDocumento,
   montarAlertas,
+  alertasTendencia,
+  ordenarAlertas,
+  resumirObrasParaAlerta,
+  type Alerta,
+  type ObraParaAlerta,
   type NotaParaAbc,
   type EtapaParaAlerta,
 } from "../analises";
@@ -219,6 +224,118 @@ describe("montarAlertas", () => {
       "ORCAMENTO_ATENCAO",
       "NOTA_DIVERGENTE",
     ]);
+  });
+});
+
+const obra = (obraId: string, orcamento: number, tendencia: number, fisicoBp: number): ObraParaAlerta => ({
+  obraId,
+  obraNome: `Lote ${obraId}`,
+  orcamentoCents: orcamento,
+  tendenciaCents: tendencia,
+  fisicoBp,
+});
+
+describe("alertasTendencia", () => {
+  it("avisa quando a tendência passa do orçado em mais de 5%, com físico de 10% ou mais", () => {
+    const alertas = alertasTendencia([obra("a", 100_000, 112_000, 3_000)]);
+    expect(alertas).toEqual([
+      {
+        id: "tendencia:a",
+        tipo: "ORCAMENTO_TENDENCIA",
+        severidade: "ATENCAO",
+        mensagem: `Lote a: no ritmo atual a obra deve custar ${formatarMoeda(112_000)}, 12% acima do orçado (${formatarMoeda(100_000)})`,
+        link: "/orcamento?obra=a",
+        obraId: "a",
+      },
+    ]);
+  });
+
+  it("5% exatos não avisam; um centavo acima avisa", () => {
+    expect(alertasTendencia([obra("a", 100_000, 105_000, 5_000)])).toEqual([]);
+    expect(alertasTendencia([obra("a", 100_000, 105_001, 5_000)])).toHaveLength(1);
+  });
+
+  it("físico abaixo de 10% é ruído; 10% exatos já contam", () => {
+    expect(alertasTendencia([obra("a", 100_000, 200_000, 999)])).toEqual([]);
+    expect(alertasTendencia([obra("a", 100_000, 200_000, 1_000)])).toHaveLength(1);
+  });
+
+  it("obra sem orçamento não avisa", () => {
+    expect(alertasTendencia([obra("a", 0, 50_000, 5_000)])).toEqual([]);
+  });
+
+  it("maior desvio primeiro", () => {
+    const alertas = alertasTendencia([
+      obra("a", 100_000, 110_000, 5_000),
+      obra("b", 100_000, 150_000, 5_000),
+      obra("c", 100_000, 120_000, 5_000),
+    ]);
+    expect(alertas.map((a) => a.obraId)).toEqual(["b", "c", "a"]);
+  });
+});
+
+describe("resumirObrasParaAlerta", () => {
+  it("projeta por etapa e soma o realizado sem etapa como linha à parte", () => {
+    const [o1, o2] = resumirObrasParaAlerta(
+      [
+        { id: "o1", nome: "Lote 01" },
+        { id: "o2", nome: "Lote 02" },
+      ],
+      [
+        { id: "e1", obraId: "o1", orcamentoCents: 100_000 },
+        { id: "e2", obraId: "o1", orcamentoCents: 100_000 },
+        { id: "e3", obraId: "o2", orcamentoCents: 50_000 },
+      ],
+      new Map([["e1", 60_000]]),
+      new Map([["o1", 70_000]]), // 10.000 sem etapa
+      new Map([["e1", 5_000]]),
+    );
+    // e1: 60.000 / 50% = 120.000; e2: sem físico = 100.000; sem etapa: 10.000
+    expect(o1).toEqual({ obraId: "o1", obraNome: "Lote 01", orcamentoCents: 200_000, tendenciaCents: 230_000, fisicoBp: 2_500 });
+    expect(o2).toEqual({ obraId: "o2", obraNome: "Lote 02", orcamentoCents: 50_000, tendenciaCents: 50_000, fisicoBp: 0 });
+  });
+});
+
+describe("ordem dos alertas", () => {
+  it("tendência vem depois da atenção de orçamento e antes da divergência", () => {
+    const alertas = montarAlertas({
+      hoje: new Date(2026, 9, 14),
+      etapas: [etapa("at", 10_000, 9_500), etapa("e", 10_000, 12_000)],
+      obras: [obra("o1", 100_000, 150_000, 5_000)],
+      parcelas: [
+        { notaId: "p", notaNumero: "1", fornecedorNome: "X", valorCents: 1, vencimento: new Date(2026, 0, 1) },
+      ],
+      notas: [{ id: "d", numero: "2", fornecedorNome: "Y", totalCents: 2, somaItensCents: 1 }],
+    });
+    expect(alertas.map((a) => a.tipo)).toEqual([
+      "ORCAMENTO_ESTOURO",
+      "PARCELA_VENCIDA",
+      "ORCAMENTO_ATENCAO",
+      "ORCAMENTO_TENDENCIA",
+      "NOTA_DIVERGENTE",
+    ]);
+  });
+
+  it("alertas de orçamento levam a obra; os de nota e parcela, não", () => {
+    const alertas = montarAlertas({
+      etapas: [etapa("e", 10_000, 12_000)],
+      parcelas: [],
+      notas: [{ id: "d", numero: "2", fornecedorNome: "Y", totalCents: 2, somaItensCents: 1 }],
+    });
+    expect(alertas.map((a) => a.obraId)).toEqual(["o1", undefined]);
+  });
+
+  it("ordenarAlertas mantém a ordem de chegada dentro do mesmo tipo, com atraso de etapa antes da tendência", () => {
+    const a = (id: string, tipo: Alerta["tipo"]): Alerta => ({ id, tipo, severidade: "ATENCAO", mensagem: id, link: "/" });
+    expect(
+      ordenarAlertas([
+        a("t1", "ORCAMENTO_TENDENCIA"),
+        a("nfe", "NFE_RECEBIDA"),
+        a("atraso", "ETAPA_ATRASADA"),
+        a("t2", "ORCAMENTO_TENDENCIA"),
+        a("at", "ORCAMENTO_ATENCAO"),
+      ]).map((x) => x.id),
+    ).toEqual(["at", "atraso", "t1", "t2", "nfe"]);
   });
 });
 
