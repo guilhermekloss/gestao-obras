@@ -63,7 +63,8 @@ export default async function OrcamentoPage({
         select: { id: true, nome: true, orcamentoCents: true, inicioPrevisto: true, fimPrevisto: true },
       }),
       realizadoPorEtapa(obraId),
-      avancoPorEtapa(obraId),
+      // físico até hoje: medição datada no futuro não entra no valor agregado nem na tendência
+      avancoPorEtapa(obraId, { ate: dataParaInput(new Date()) }),
       realizadoPorMesDaObra(obraId),
       // acesso à obra já conferido acima
       carregarLinhaBaseOficial(obraId),

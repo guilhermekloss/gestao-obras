@@ -557,7 +557,8 @@ export async function carregarAlertas(
     }),
     realizadoPorEtapaTodas(),
     realizadoPorObra(),
-    avancoPorEtapa(),
+    // físico de hoje: medição datada no futuro não conta (mesmo critério do Cronograma)
+    avancoPorEtapa(undefined, { ate: dataParaInput(hoje) }),
     // a mesma leitura de avancoPorEtapa() (cache por requisição): não é consulta a mais
     medicoesTodas(),
     prisma.parcela.findMany({

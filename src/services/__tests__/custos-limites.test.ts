@@ -43,7 +43,23 @@ describe("avancoPorEtapa", () => {
     expect(medicaoFindMany).toHaveBeenCalledWith({
       where: { etapa: { obraId: "o1" } },
       orderBy: [{ data: "asc" }, { id: "asc" }],
-      select: { etapaId: true, percentBp: true },
+      select: { etapaId: true, data: true, percentBp: true },
     });
+  });
+
+  it("com `ate`, medição datada depois desse dia não conta; no próprio dia conta", async () => {
+    medicaoFindMany.mockResolvedValue([
+      { etapaId: "e1", data: new Date(2026, 9, 10, 12), percentBp: 3_000 },
+      { etapaId: "e1", data: new Date(2026, 9, 20, 12), percentBp: 4_000 },
+      { etapaId: "e1", data: new Date(2026, 10, 5, 12), percentBp: 9_000 },
+      { etapaId: "e2", data: new Date(2026, 10, 1, 12), percentBp: 5_000 },
+    ]);
+    const mapa = await avancoPorEtapa("o1", { ate: "2026-10-20" });
+    expect([...mapa.entries()]).toEqual([["e1", 4_000]]);
+    // sem `ate` segue valendo a última de todas
+    expect([...(await avancoPorEtapa("o1")).entries()]).toEqual([
+      ["e1", 9_000],
+      ["e2", 5_000],
+    ]);
   });
 });

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { chaveMes } from "@/lib/format";
+import { chaveMes, dataParaInput } from "@/lib/format";
 import { custoRateado } from "./rateio";
 
 export { chaveMes };
@@ -104,12 +104,29 @@ export function ultimoAvancoPorEtapa(medicoes: { etapaId: string; percentBp: num
   return mapa;
 }
 
-export async function avancoPorEtapa(obraId?: string): Promise<Map<string, number>> {
-  if (!obraId) return ultimoAvancoPorEtapa(await medicoesTodas());
+// Igual, mas só com medições até o dia `ate` ("aaaa-mm-dd", dia local: a medição é gravada ao meio-dia local),
+// como no Cronograma: medição datada no futuro ainda não foi feita.
+export function ultimoAvancoAte(
+  medicoes: { etapaId: string; data: Date; percentBp: number }[],
+  ate: string,
+): Map<string, number> {
+  return ultimoAvancoPorEtapa(medicoes.filter((m) => dataParaInput(m.data) <= ate));
+}
+
+/**
+ * Último avanço de cada etapa. Com `ate` (dia "aaaa-mm-dd"), só medições até esse dia: é o que vale para
+ * avanço físico de hoje (desempenho de custo, alertas, resumo da obra). Sem `ate`, a última de todas.
+ */
+export async function avancoPorEtapa(obraId?: string, opcoes: { ate?: string } = {}): Promise<Map<string, number>> {
+  const { ate } = opcoes;
+  if (!obraId) {
+    const todas = await medicoesTodas();
+    return ate ? ultimoAvancoAte(todas, ate) : ultimoAvancoPorEtapa(todas);
+  }
   const medicoes = await prisma.medicao.findMany({
     where: { etapa: { obraId } },
     orderBy: [{ data: "asc" }, { id: "asc" }],
-    select: { etapaId: true, percentBp: true },
+    select: { etapaId: true, data: true, percentBp: true },
   });
-  return ultimoAvancoPorEtapa(medicoes);
+  return ate ? ultimoAvancoAte(medicoes, ate) : ultimoAvancoPorEtapa(medicoes);
 }

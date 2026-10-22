@@ -254,6 +254,11 @@ describe("carregarAlertas", () => {
     ]);
   });
 
+  it("o físico da tendência é o de hoje: pede o avanço só até o dia de hoje", async () => {
+    await carregarAlertas(hoje);
+    expect(avancoPorEtapa).toHaveBeenCalledWith(undefined, { ate: "2026-10-14" });
+  });
+
   it("tendência da obra conta o realizado sem etapa e o físico das etapas", async () => {
     // e1: orçado 1.000, físico 50%, realizado 1.500 → tendência 3.000; e2: orçado 1.000, sem físico → 1.000
     avancoPorEtapa.mockResolvedValue(new Map([["e1", 5_000]]));
