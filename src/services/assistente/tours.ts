@@ -87,6 +87,11 @@ export const TOURS: Tour[] = [
     rotas: ["/dashboard"],
     passos: [
       {
+        alvo: "#filtro-dashboard",
+        titulo: "Filtro por obra",
+        texto: "Escolha uma obra para ver só os números dela, ou \"Todas as obras\" para o geral.",
+      },
+      {
         alvo: "#pede-acao",
         titulo: "Pede ação hoje",
         texto: "O que vence em 7 dias e as notas com divergência. Comece por aqui.",
@@ -99,7 +104,34 @@ export const TOURS: Tour[] = [
       {
         alvo: "#graficos",
         titulo: "Gráficos",
-        texto: "Compare o gasto mensal e o orçamento. São para analisar, não para decidir o dia.",
+        texto: "Compare o gasto mensal, o orçado com o realizado e a curva S. São para analisar, não para decidir o dia.",
+      },
+    ],
+  },
+  {
+    id: "tela-orcamento",
+    papeis: ["ADMIN", "ESCRITORIO"],
+    rotas: ["/orcamento"],
+    passos: [
+      {
+        alvo: "#filtro-obra",
+        titulo: "Obra",
+        texto: "Escolha a obra. A tela mostra as etapas dela.",
+      },
+      {
+        alvo: "#tabela-orcamento",
+        titulo: "Previsto e realizado",
+        texto: "Digite o previsto de cada etapa e clique em \"Salvar orçamentos\". Ao lado ficam o realizado, o saldo, o consumo e o desempenho de custo.",
+      },
+      {
+        alvo: "#ajuda-desempenho",
+        titulo: "Desempenho de custo",
+        texto: "Valor agregado, IDC, tendência e variação dizem se a obra vai caber no orçado. O ícone explica cada conta.",
+      },
+      {
+        alvo: "#secao-desembolso",
+        titulo: "Desembolso",
+        texto: "O gasto mês a mês contra o planejado, pelas datas das etapas, com o acumulado em linha.",
       },
     ],
   },

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { formatarMoeda, formatarPercentBp, centsParaEditavel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { FaixaConsumo } from "@/services/analises";
+import type { Desempenho } from "@/services/desempenho-custo";
 import { salvarOrcamentos } from "./actions";
 import { ESTILO_FAIXA } from "./faixa";
 
@@ -17,12 +18,21 @@ export type LinhaOrcamento = {
   realizadoCents: number;
   consumoBp: number | null;
   faixa: FaixaConsumo;
+  desempenho: Desempenho;
 };
 
 export type TotalOrcamento = Omit<LinhaOrcamento, "etapaId" | "nome">;
 
+// Largo (contêiner ≥ 61rem, ~1100 px com a fonte de 18 px): uma linha por etapa, como tabela. Abaixo: um cartão por etapa, com rótulos.
+const COLUNAS =
+  "@min-[61rem]:grid-cols-[minmax(7rem,1fr)_7rem_repeat(2,6rem)_4rem_4rem_6rem_3.5rem_repeat(2,6rem)]";
+
 function centsParaStr(cents: number): string {
   return cents ? centsParaEditavel(cents) : "";
+}
+
+function formatarIdc(bp: number | null): string {
+  return bp === null ? "—" : (bp / 10_000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function OrcamentoForm({
@@ -47,67 +57,33 @@ export function OrcamentoForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-1">
-      <div className="hidden grid-cols-[1fr_140px_120px_120px_90px_140px] gap-2 px-2 pb-1 text-xs text-muted-foreground md:grid">
-        <span>Etapa</span>
-        <span className="text-right">Previsto (R$)</span>
-        <span className="text-right">Realizado</span>
-        <span className="text-right">Saldo</span>
-        <span className="text-right">Consumo</span>
-        <span></span>
-      </div>
-
-      {linhas.map((l) => {
-        const saldo = l.previstoCents - l.realizadoCents;
-        return (
-          <div
-            key={l.etapaId ?? "sem-etapa"}
-            className="grid grid-cols-2 items-center gap-2 rounded-md border p-2 md:grid-cols-[1fr_140px_120px_120px_90px_140px] md:border-0 md:p-0 md:px-2 md:py-1"
-          >
-            <span className="text-sm font-medium">{l.nome}</span>
-            {l.etapaId ? (
-              <Input
-                name={`etapa-${l.etapaId}`}
-                inputMode="decimal"
-                placeholder="0,00"
-                defaultValue={centsParaStr(l.previstoCents)}
-                className="text-right"
-              />
-            ) : (
-              <span className="text-right text-sm text-muted-foreground">—</span>
-            )}
-            <span className="text-right text-sm">{formatarMoeda(l.realizadoCents)}</span>
-            <span
-              className={cn(
-                "text-right text-sm",
-                l.etapaId && saldo < 0 && "font-medium text-destructive",
-              )}
-            >
-              {l.etapaId ? formatarMoeda(saldo) : "—"}
-            </span>
-            <Consumo consumoBp={l.consumoBp} faixa={l.faixa} />
-            <Barra consumoBp={l.consumoBp} faixa={l.faixa} />
-          </div>
-        );
-      })}
-
-      <div className="grid grid-cols-2 items-center gap-2 border-t px-2 pt-2 text-sm font-semibold md:grid-cols-[1fr_140px_120px_120px_90px_140px]">
-        <span>Total da obra</span>
-        <span className="text-right">{formatarMoeda(total.previstoCents)}</span>
-        <span className="text-right">{formatarMoeda(total.realizadoCents)}</span>
-        <span
-          className={cn(
-            "text-right",
-            total.previstoCents - total.realizadoCents < 0 && "text-destructive",
-          )}
+    <form id="tabela-orcamento" onSubmit={onSubmit} className="@container">
+      <div className="space-y-2 @min-[61rem]:space-y-1">
+        {/* cabeçalho só no desenho de tabela; cada célula já leva o próprio rótulo (sr-only nesse desenho) */}
+        <div
+          aria-hidden
+          className={cn("hidden gap-2 px-2 pb-1 text-xs text-muted-foreground @min-[61rem]:grid", COLUNAS)}
         >
-          {formatarMoeda(total.previstoCents - total.realizadoCents)}
-        </span>
-        <Consumo consumoBp={total.consumoBp} faixa={total.faixa} />
-        <Barra consumoBp={total.consumoBp} faixa={total.faixa} />
+          <span>Etapa</span>
+          <span className="text-right">Previsto (R$)</span>
+          <span className="text-right">Realizado</span>
+          <span className="text-right">Saldo</span>
+          <span className="text-right">Consumo</span>
+          <span className="text-right">Avanço físico</span>
+          <span className="text-right">Valor agregado</span>
+          <span className="text-right">IDC</span>
+          <span className="text-right">Tendência</span>
+          <span className="text-right">Variação</span>
+        </div>
+
+        {linhas.map((l) => (
+          <Linha key={l.etapaId ?? "sem-etapa"} linha={l} />
+        ))}
+
+        <Linha total linha={{ etapaId: null, nome: "Total da obra", ...total }} />
       </div>
 
-      <div className="pt-3">
+      <div className="pt-4">
         <Button type="submit" disabled={pendente}>
           {pendente ? "Salvando..." : "Salvar orçamentos"}
         </Button>
@@ -116,20 +92,100 @@ export function OrcamentoForm({
   );
 }
 
-function Consumo({ consumoBp, faixa }: { consumoBp: number | null; faixa: FaixaConsumo }) {
+function Linha({ linha: l, total = false }: { linha: LinhaOrcamento; total?: boolean }) {
+  const d = l.desempenho;
+  // "Sem etapa definida" não tem orçado nem avanço: só o realizado e a tendência (= realizado) valem
+  const semEtapa = !total && l.etapaId === null;
+  const saldo = l.previstoCents - l.realizadoCents;
+  const campoId = l.etapaId ? `previsto-${l.etapaId}` : undefined;
+
   return (
-    <span
-      className={cn("text-right text-sm", faixa !== "OK" && "font-medium", ESTILO_FAIXA[faixa].texto)}
-      title={ESTILO_FAIXA[faixa].rotulo}
+    <div
+      className={cn(
+        "grid gap-2",
+        total
+          ? "rounded-md border-2 p-3 font-semibold @min-[61rem]:rounded-none @min-[61rem]:border-0 @min-[61rem]:border-t @min-[61rem]:px-2 @min-[61rem]:pt-2 @min-[61rem]:pb-0"
+          : "rounded-md border p-3 @min-[61rem]:border-0 @min-[61rem]:p-0 @min-[61rem]:px-2 @min-[61rem]:py-1",
+        "@min-[61rem]:items-center",
+        COLUNAS,
+      )}
     >
-      {consumoBp !== null ? formatarPercentBp(consumoBp) : "—"}
-    </span>
+      <div className="min-w-0 space-y-1">
+        <p className={cn("text-sm", !total && "font-medium")}>{l.nome}</p>
+        <Barra consumoBp={l.consumoBp} faixa={l.faixa} />
+      </div>
+
+      {/* no cartão, as células viram pares "rótulo: valor"; na tabela, `contents` as põe direto no grid */}
+      <div className="grid gap-x-6 gap-y-1.5 @min-[28rem]:grid-cols-2 @min-[44rem]:grid-cols-3 @min-[61rem]:contents">
+        {l.etapaId ? (
+          <div className="flex items-center justify-between gap-3 @min-[61rem]:block">
+            <label htmlFor={campoId} className="text-sm text-muted-foreground @min-[61rem]:sr-only">
+              Previsto (R$)
+            </label>
+            <Input
+              id={campoId}
+              name={`etapa-${l.etapaId}`}
+              inputMode="decimal"
+              placeholder="0,00"
+              defaultValue={centsParaStr(l.previstoCents)}
+              className="w-36 text-right num @min-[61rem]:w-full"
+            />
+          </div>
+        ) : (
+          <Celula rotulo="Previsto">{total ? formatarMoeda(l.previstoCents) : "—"}</Celula>
+        )}
+        <Celula rotulo="Realizado">{formatarMoeda(l.realizadoCents)}</Celula>
+        <Celula rotulo="Saldo" className={cn(!semEtapa && saldo < 0 && "font-medium text-destructive")}>
+          {semEtapa ? "—" : formatarMoeda(saldo)}
+        </Celula>
+        <Celula
+          rotulo="Consumo"
+          className={cn(l.faixa !== "OK" && "font-medium", ESTILO_FAIXA[l.faixa].texto)}
+          titulo={ESTILO_FAIXA[l.faixa].rotulo}
+        >
+          {l.consumoBp !== null ? formatarPercentBp(l.consumoBp) : "—"}
+        </Celula>
+        <Celula rotulo="Avanço físico">{semEtapa ? "—" : formatarPercentBp(d.fisicoBp)}</Celula>
+        <Celula rotulo="Valor agregado">{semEtapa ? "—" : formatarMoeda(d.valorAgregadoCents)}</Celula>
+        <Celula
+          rotulo="IDC"
+          className={cn(d.idcBp !== null && d.idcBp < 10_000 && cn("font-medium", ESTILO_FAIXA.ATENCAO.texto))}
+        >
+          {semEtapa ? "—" : formatarIdc(d.idcBp)}
+        </Celula>
+        <Celula rotulo="Tendência">{formatarMoeda(d.tendenciaCents)}</Celula>
+        <Celula rotulo="Variação" className={cn(!semEtapa && d.variacaoCents < 0 && "font-medium text-destructive")}>
+          {semEtapa ? "—" : formatarMoeda(d.variacaoCents)}
+        </Celula>
+      </div>
+    </div>
+  );
+}
+
+function Celula({
+  rotulo,
+  titulo,
+  className,
+  children,
+}: {
+  rotulo: string;
+  titulo?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-sm @min-[61rem]:block @min-[61rem]:text-right">
+      <span className="font-normal text-muted-foreground @min-[61rem]:sr-only">{rotulo}</span>
+      <span className={cn("num whitespace-nowrap", className)} title={titulo}>
+        {children}
+      </span>
+    </div>
   );
 }
 
 function Barra({ consumoBp, faixa }: { consumoBp: number | null; faixa: FaixaConsumo }) {
   return (
-    <div className="col-span-2 h-2 overflow-hidden rounded-full bg-muted md:col-span-1 md:self-center">
+    <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
       {consumoBp !== null && (
         <div
           className={cn("h-full rounded-full", ESTILO_FAIXA[faixa].barra)}
