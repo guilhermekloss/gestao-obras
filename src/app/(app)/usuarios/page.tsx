@@ -384,7 +384,7 @@ async function AbaBloqueios() {
               {b.usuario.nome}
             </Link>
           ) : (
-            <span className="font-medium break-all">{b.chave}</span>
+            <span className="font-medium break-all">{b.tipoChave === "dispositivo" ? "Aparelho conhecido" : b.chave}</span>
           )}
           <span className="block text-xs text-muted-foreground break-all">
             {b.tipoChave === "email"
@@ -393,7 +393,9 @@ async function AbaBloqueios() {
                 : "e-mail sem cadastro"
               : b.tipoChave === "usuario"
                 ? (b.usuario?.email ?? "usuário removido")
-                : "endereço IP"}
+                : b.tipoChave === "dispositivo"
+                  ? `aparelho conhecido${b.usuario ? ` de ${b.usuario.email}` : ""}`
+                  : "endereço IP"}
           </span>
         </>
       ),

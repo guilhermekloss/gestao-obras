@@ -43,8 +43,11 @@ test.afterAll(async () => {
   await prisma.atividade.deleteMany({ where: { usuarioId: { in: ids } } });
   await prisma.arquivo.deleteMany({ where: { enviadoPorId: { in: ids } } });
   await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
+  const aparelhos = (
+    await prisma.tentativaLogin.findMany({ where: { email: emails, dispositivo: { not: null } }, select: { dispositivo: true } })
+  ).map((t) => t.dispositivo!);
   await prisma.tentativaLogin.deleteMany({ where: { email: emails } });
-  await prisma.bloqueio.deleteMany({ where: { OR: [{ chave: emails }, { chave: { in: [...ids, ...IPS] } }] } });
+  await prisma.bloqueio.deleteMany({ where: { OR: [{ chave: emails }, { chave: { in: [...ids, ...IPS, ...aparelhos] } }] } });
   await prisma.infracao.deleteMany({ where: { chave: { in: [...ids, ...IPS] } } });
 });
 
@@ -93,6 +96,46 @@ test("admin vê o bloqueio e libera o acesso antes do prazo", async ({ browser }
   const bloqueios = await prisma.bloqueio.findMany({ where: { chave: email } });
   expect(bloqueios).toHaveLength(1);
   expect(bloqueios[0].liberadoEm).not.toBeNull();
+});
+
+test("senha errada de outro aparelho não tranca o dono, que entra do aparelho de sempre e é avisado", async ({ browser }) => {
+  const email = await criarUsuario("ESCRITORIO");
+  const dono = await novaPagina(browser);
+  await entrar(dono, email);
+  await dono.waitForURL("**/dashboard");
+  await dono.getByRole("button", { name: "Sair" }).click();
+  await dono.waitForURL("**/login");
+
+  const atacante = await novaPagina(browser);
+  for (let i = 0; i < 5; i++) await entrar(atacante, email, "senha-errada-123");
+  await entrar(atacante, email);
+  await expect(atacante).toHaveURL(/erro=bloqueado/);
+
+  await entrar(dono, email);
+  await dono.waitForURL("**/dashboard");
+  const aviso = dono.getByRole("alert").filter({ hasText: "Sua conta foi bloqueada por senha errada" });
+  await expect(aviso).toBeVisible();
+  await aviso.getByRole("button", { name: "Fui eu" }).click();
+  await expect(aviso).toHaveCount(0);
+  await dono.reload();
+  await expect(dono.getByText("Sua conta foi bloqueada por senha errada")).toHaveCount(0);
+});
+
+test("aparelho conhecido tem limite próprio de senhas erradas", async ({ browser }) => {
+  const email = await criarUsuario("ESCRITORIO");
+  const dono = await novaPagina(browser);
+  await entrar(dono, email);
+  await dono.waitForURL("**/dashboard");
+  await dono.getByRole("button", { name: "Sair" }).click();
+  await dono.waitForURL("**/login");
+  for (let i = 0; i < 5; i++) await entrar(dono, email, "senha-errada-123");
+  await entrar(dono, email);
+  await expect(dono).toHaveURL(/erro=bloqueado/);
+  expect(await prisma.bloqueio.count({ where: { regra: "login-dispositivo" } })).toBeGreaterThan(0);
+  // o e-mail em si não foi trancado: outro aparelho ainda entra
+  const outro = await novaPagina(browser);
+  await entrar(outro, email);
+  await outro.waitForURL("**/dashboard");
 });
 
 test("links de convite inexistentes bloqueiam o IP", async ({ browser }) => {

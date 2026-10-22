@@ -43,7 +43,7 @@ Cada linha é uma regra (filtro + limite + ação). As de login já existem; as 
 ## 3. Riscos específicos desta plataforma
 
 - **IP compartilhado**: o escritório sai por um IP e o pessoal de campo usa 4G, onde as operadoras brasileiras colocam muita gente atrás do mesmo IP (CGNAT). Banir IP com limite baixo derruba gente honesta. Por isso: limites por IP folgados, banimento por IP longo só para sinais inequívocos (`varredura`, `recidive`) e `ignoreip` para o IP fixo do escritório.
-- **Bloqueio como arma**: o bloqueio por e-mail deixa um atacante trancar a conta de alguém só errando a senha cinco vezes. O Fail2ban bane o atacante; aqui o bloqueio cai na vítima. Saída recomendada pela OWASP: *cookie de dispositivo conhecido* — depois de um login certo, o navegador recebe um cookie assinado e, enquanto ele valer, as falhas de outros lugares não bloqueiam esse navegador (o limite próprio dele continua).
+- **Bloqueio como arma**: o bloqueio por e-mail deixa um atacante trancar a conta de alguém só errando a senha cinco vezes. O Fail2ban bane o atacante; aqui o bloqueio cai na vítima. Saída recomendada pela OWASP: *cookie de dispositivo conhecido* — depois de um login certo, o navegador recebe um cookie assinado e, enquanto ele valer, as falhas de outros lugares não bloqueiam esse navegador (o limite próprio dele continua). **Feito (fase 4)**: `services/dispositivo.ts` e `lib/dispositivo.ts`. O cookie `dispositivo-<hash>` vale 90 dias, é assinado com chave derivada do `AUTH_SECRET` (trocar o segredo invalida todos) e só leva um hash curto do e-mail. Do aparelho conhecido, 5 erros bloqueiam só aquele aparelho (`login-dispositivo`); de aparelho desconhecido, os erros contam no e-mail como antes.
 - **IP forjado**: o IP vem de `ipDoCliente()` com `PROXY_SALTOS`, que já ignora o que o cliente põe à frente do `X-Forwarded-For`. Ao colocar o Load Balancer, mudar para `proxy_saltos = 2`, senão todos aparecem com o IP do LB e o primeiro banimento derruba o sistema inteiro.
 - **Custo por requisição**: o `proxy.ts` confere se o IP está fora do site (varredura, recidiva, manual) com cache de 30 s por instância; um bloqueio criado em outra instância, ou uma liberação, leva até 30 s para valer em todas. Se o banco falhar, o proxy deixa passar (registra o erro) em vez de derrubar o site.
 - **Corpo das requisições**: o proxy do Next guarda o corpo da requisição na memória. Por isso o `/api` continua fora dele, menos o `/api/auth` (login direto do Auth.js, corpo pequeno): o upload segue recusando pelo tamanho antes de ler o corpo.
@@ -112,7 +112,7 @@ Do mais leve ao mais forte, como as `action` do Fail2ban:
 2. **Frear** — HTTP 429 com `Retry-After`, ou atraso crescente na resposta do login.
 3. **Bloquear** — 403 genérico nas rotas sensíveis enquanto o `Bloqueio` valer.
 4. **Encerrar sessão** — incrementar `sessaoVersao` do usuário (mecanismo que já existe) quando a regra é por usuário (`arquivos`).
-5. **Avisar** — e-mail ao usuário ("sua conta foi bloqueada por tentativas; se não foi você, troque a senha") e ao admin nas reincidências. O app ainda não envia e-mail: exige um provedor (SMTP ou API) e o segredo dele no Secret Manager; até lá, o aviso fica na tela **Minha conta** e no alerta do Monitoring.
+5. **Avisar** — feito no app: depois de um bloqueio do e-mail, a pessoa vê no próximo acesso a faixa "Sua conta foi bloqueada por senha errada em …", com **Trocar senha** e **Fui eu** (trocar a senha também marca como visto). O e-mail continua pendente: o app não tem provedor de envio (SMTP ou API) nem o segredo dele no Secret Manager. A equipe técnica segue avisada pelos alertas do Monitoring.
 6. **Bloquear na borda** — com Cloud Armor, exportar os IPs de `recidive` e `varredura` para uma regra de negação (job agendado ou regra por limite de taxa do próprio Cloud Armor).
 
 ### 4.4 Tela de administração ("fail2ban-client")
@@ -139,7 +139,7 @@ Feito: aba **Bloqueios** com `liberarBloqueio` e `bloquearIp` (1 hora, 24 horas 
 | 1 ✅ | Tela de bloqueios com **Liberar agora** para o login + `ignoreip` + `bantime.increment` no login | Resolve o suporte do dia a dia e endurece o ponto mais atacado |
 | 2 ✅ | Tabela `Infracao`, motor de regras e jails `convite`, `upload`, `sefaz`, limites do assistente e da leitura de notas no banco (troca o limitador em memória) | Generaliza o modelo e fecha o risco aceito do assistente por instância |
 | 3 ✅ | `recidiva`, jail `varredura` no `proxy.ts` com cache, encerrar sessão na jail `arquivos`, **Bloquear IP** manual | Pede cuidado com IP compartilhado; vem depois de ter a tela para desfazer erro |
-| 4 | Cookie de dispositivo conhecido no login e e-mail ao usuário bloqueado | Tira o bloqueio de conta das mãos do atacante |
+| 4 ✅ | Cookie de aparelho conhecido no login e aviso ao usuário bloqueado (no app; e-mail fica para quando houver provedor) | Tira o bloqueio de conta das mãos do atacante |
 | 5 | Load Balancer + Cloud Armor (`proxy_saltos = 2`), exportando `recidive` para a borda | Custo mensal; já previsto em `seguranca.md` |
 
 Cada fase com testes unitários das funções puras (incluindo os arquivos `-limites.test.ts` para as bordas: exatamente N falhas, falha no instante do fim da janela, IP na borda do CIDR) e um cenário em `e2e/seguranca.spec.ts`.

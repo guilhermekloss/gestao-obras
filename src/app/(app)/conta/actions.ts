@@ -1,9 +1,11 @@
 "use server";
 
 import { compare, hash } from "bcryptjs";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { bloqueioDoLogin, exigirPapel, ipDaRequisicao, registrarFalhaLogin, signOut } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
+import { dispositivoDaRequisicao } from "@/lib/dispositivo";
 import { eventoSeguranca } from "@/lib/log-seguranca";
 import { chaveEmail } from "@/services/protecao-login";
 import { CUSTO_BCRYPT, problemaSenha } from "@/services/senha";
@@ -23,12 +25,13 @@ export async function alterarMinhaSenha(_anterior: EstadoSenha, formData: FormDa
   });
   const email = chaveEmail(usuario.email);
   const ip = await ipDaRequisicao();
+  const dispositivo = await dispositivoDaRequisicao(email);
 
-  if (await bloqueioDoLogin(email, ip)) {
+  if (await bloqueioDoLogin(email, ip, dispositivo)) {
     return { erro: "Muitas tentativas sem sucesso. Aguarde alguns minutos e tente de novo.", campo: "atual" };
   }
   if (!senhaAtual || senhaAtual.length > 1024 || !(await compare(senhaAtual, usuario.senhaHash))) {
-    await registrarFalhaLogin(email, ip);
+    await registrarFalhaLogin(email, ip, dispositivo);
     eventoSeguranca("login_falhou", { email, ip, origem: "troca_de_senha" });
     return { erro: "Senha atual incorreta", campo: "atual" };
   }
@@ -40,7 +43,8 @@ export async function alterarMinhaSenha(_anterior: EstadoSenha, formData: FormDa
 
   await prisma.usuario.update({
     where: { id: usuario.id },
-    data: { senhaHash: await hash(nova, CUSTO_BCRYPT), sessaoVersao: { increment: 1 } },
+    // trocar a senha responde ao aviso de bloqueio
+    data: { senhaHash: await hash(nova, CUSTO_BCRYPT), sessaoVersao: { increment: 1 }, bloqueioAvisadoEm: new Date() },
   });
   await registrarAtividade(usuario.id, "conta.senha", { entidade: "usuario", entidadeId: usuario.id });
   eventoSeguranca("senha_alterada", { usuarioId: usuario.id, ip });
@@ -54,4 +58,10 @@ export async function encerrarMinhasSessoes(): Promise<void> {
   await registrarAtividade(atual.id, "conta.encerrar_sessoes", { entidade: "usuario", entidadeId: atual.id });
   eventoSeguranca("sessao_revogada", { usuarioId: atual.id, porAdmin: null });
   await signOut({ redirectTo: "/login" });
+}
+
+export async function marcarAvisoDeBloqueioVisto(): Promise<void> {
+  const atual = await exigirPapel();
+  await prisma.usuario.update({ where: { id: atual.id }, data: { bloqueioAvisadoEm: new Date() } });
+  revalidatePath("/", "layout");
 }

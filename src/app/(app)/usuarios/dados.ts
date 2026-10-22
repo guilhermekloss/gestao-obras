@@ -9,7 +9,7 @@ import {
   type CategoriaAtividade,
 } from "@/services/atividade";
 import { statusConvite } from "@/services/convite";
-import { REGRA_LOGIN, situacaoDoBloqueio } from "@/services/protecao-login";
+import { REGRA_LOGIN, REGRA_LOGIN_DISPOSITIVO, situacaoDoBloqueio } from "@/services/protecao-login";
 import { REGRAS, regraAtiva } from "@/services/protecao-ativa";
 
 // eventos de conta aparecem no histórico, mas não contam como produção
@@ -109,11 +109,31 @@ export async function carregarBloqueios(agora: Date = new Date()) {
     take: 100,
     include: { liberadoPor: { select: { id: true, nome: true } } },
   });
-  // a chave é o e-mail (login) ou o id (regras por usuário); IP fica sem pessoa
-  const porUsuario = (b: (typeof bloqueios)[number]) =>
-    b.regra === REGRA_LOGIN.email ? "email" : regraAtiva(b.regra) && REGRAS[b.regra].chave === "usuario" ? "id" : null;
-  const emails = bloqueios.filter((b) => porUsuario(b) === "email").map((b) => b.chave);
-  const ids = bloqueios.filter((b) => porUsuario(b) === "id").map((b) => b.chave);
+  // a chave é o e-mail (login), o id do aparelho conhecido, o id do usuário (regras por usuário) ou o IP (sem pessoa)
+  const tipoDaChave = (b: (typeof bloqueios)[number]) =>
+    b.regra === REGRA_LOGIN.email
+      ? ("email" as const)
+      : b.regra === REGRA_LOGIN_DISPOSITIVO
+        ? ("dispositivo" as const)
+        : regraAtiva(b.regra) && REGRAS[b.regra].chave === "usuario"
+          ? ("usuario" as const)
+          : ("ip" as const);
+  const aparelhos = bloqueios.filter((b) => tipoDaChave(b) === "dispositivo").map((b) => b.chave);
+  const emailDoAparelho = new Map(
+    aparelhos.length
+      ? (
+          await prisma.tentativaLogin.findMany({
+            where: { dispositivo: { in: aparelhos } },
+            distinct: ["dispositivo"],
+            select: { dispositivo: true, email: true },
+          })
+        ).map((t) => [t.dispositivo!, t.email])
+      : [],
+  );
+  const emailDe = (b: (typeof bloqueios)[number]) =>
+    tipoDaChave(b) === "email" ? b.chave : tipoDaChave(b) === "dispositivo" ? emailDoAparelho.get(b.chave) : undefined;
+  const emails = bloqueios.map(emailDe).filter((e): e is string => !!e);
+  const ids = bloqueios.filter((b) => tipoDaChave(b) === "usuario").map((b) => b.chave);
   const usuarios =
     emails.length || ids.length
       ? await prisma.usuario.findMany({
@@ -127,12 +147,13 @@ export async function carregarBloqueios(agora: Date = new Date()) {
   const porId = new Map(usuarios.map((u) => [u.id, u]));
   return bloqueios
     .map((b) => {
-      const tipo = porUsuario(b);
+      const tipoChave = tipoDaChave(b);
+      const email = emailDe(b);
       return {
         ...b,
         situacao: situacaoDoBloqueio(b, agora),
-        tipoChave: tipo === "email" ? ("email" as const) : tipo === "id" ? ("usuario" as const) : ("ip" as const),
-        usuario: tipo === "email" ? (porEmail.get(b.chave) ?? null) : tipo === "id" ? (porId.get(b.chave) ?? null) : null,
+        tipoChave,
+        usuario: tipoChave === "usuario" ? (porId.get(b.chave) ?? null) : email ? (porEmail.get(email) ?? null) : null,
       };
     })
     .sort((a, b) => Number(b.situacao === "ativo") - Number(a.situacao === "ativo"));

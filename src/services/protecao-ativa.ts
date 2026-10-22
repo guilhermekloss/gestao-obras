@@ -1,4 +1,4 @@
-import { REGRA_LOGIN } from "./protecao-login";
+import { REGRA_LOGIN, REGRA_LOGIN_DISPOSITIVO } from "./protecao-login";
 
 // "Jails" além do login (que tem regra própria em protecao-login.ts: login certo zera as falhas).
 // falha = sinal de abuso (link inválido, arquivo falso); uso = limite de custo (IA, OCR), conta toda chamada.
@@ -157,6 +157,7 @@ export const RETENCAO_INFRACOES_DIAS = 7;
 export const ROTULO_REGRA: Record<string, string> = {
   [REGRA_LOGIN.email]: "Login (e-mail)",
   [REGRA_LOGIN.ip]: "Login (IP)",
+  [REGRA_LOGIN_DISPOSITIVO]: "Login (aparelho conhecido)",
   ...Object.fromEntries(Object.entries(REGRAS).map(([regra, d]) => [regra, d.rotulo])),
 };
 

@@ -12,7 +12,7 @@ import { ROLE_LABELS } from "@/services/acesso";
 import { CUSTO_BCRYPT, problemaSenha } from "@/services/senha";
 import { eventoSeguranca } from "@/lib/log-seguranca";
 import { DURACOES_MANUAIS_MS, REGRAS, ROTULO_REGRA, regraAtiva } from "@/services/protecao-ativa";
-import { ipValido } from "@/services/protecao-login";
+import { REGRA_LOGIN_DISPOSITIVO, ipValido } from "@/services/protecao-login";
 import { ipDaRequisicao } from "@/lib/auth";
 import { esquecerIpDoCache, ipVigiado } from "@/lib/protecao";
 import {
@@ -213,7 +213,7 @@ export const liberarBloqueio = acaoDeEscrita(
     eventoSeguranca("bloqueio_liberado", { regra: bloqueio.regra, chave: bloqueio.chave, porAdmin: atual.id });
     const porUsuario = regraAtiva(bloqueio.regra) && REGRAS[bloqueio.regra].chave === "usuario";
     const pessoa = porUsuario ? await prisma.usuario.findUnique({ where: { id: bloqueio.chave }, select: { nome: true } }) : null;
-    const quem = pessoa?.nome ?? bloqueio.chave;
+    const quem = pessoa?.nome ?? (bloqueio.regra === REGRA_LOGIN_DISPOSITIVO ? "um aparelho conhecido" : bloqueio.chave);
     anotarAtividade({
       descricao: `Liberou o bloqueio de ${quem} (${ROTULO_REGRA[bloqueio.regra] ?? bloqueio.regra})`,
       entidade: "bloqueio",

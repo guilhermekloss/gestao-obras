@@ -3,6 +3,8 @@ import { eventoSeguranca } from "@/lib/log-seguranca";
 import {
   JANELA_REINCIDENCIA_MS,
   RETENCAO_TENTATIVAS_DIAS,
+  REGRA_LOGIN,
+  chaveEmail,
   faixasDeIp,
   ipConfiavel,
   ipDoCliente,
@@ -138,4 +140,13 @@ export async function limparRegistrosDeProtecao(agora: Date = new Date()) {
     prisma.bloqueio.deleteMany({ where: dias(RETENCAO_TENTATIVAS_DIAS) }),
     prisma.infracao.deleteMany({ where: dias(RETENCAO_INFRACOES_DIAS) }),
   ]);
+}
+
+// Bloqueio do e-mail (senha errada de aparelho desconhecido) que a pessoa ainda não viu: vira aviso no app.
+export async function bloqueioNaoAvisado(email: string, desde: Date) {
+  return prisma.bloqueio.findFirst({
+    where: { regra: REGRA_LOGIN.email, chave: chaveEmail(email), criadoEm: { gt: desde } },
+    orderBy: { criadoEm: "desc" },
+    select: { criadoEm: true },
+  });
 }
