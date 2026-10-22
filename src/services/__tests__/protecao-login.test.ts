@@ -10,6 +10,7 @@ import {
   ipDoCliente,
   ipValido,
   limiteAtingido,
+  saltosDaRequisicao,
   situacaoDoBloqueio,
 } from "../protecao-login";
 
@@ -147,5 +148,25 @@ describe("ipValido", () => {
   it("aceita IPv4 e IPv6 e recusa faixa, nome e lixo", () => {
     expect(["203.0.113.7", "2804:14c::1", "::1"].every(ipValido)).toBe(true);
     expect(["203.0.113.0/24", "exemplo.com", "1.2.3", "256.1.1.1", ""].some(ipValido)).toBe(false);
+  });
+});
+
+describe("saltosDaRequisicao", () => {
+  it("sem Load Balancer configurado, usa o padrão (PROXY_SALTOS)", () => {
+    expect(saltosDaRequisicao(null, "", 1)).toBe(1);
+    expect(saltosDaRequisicao("x", "", 2)).toBe(2);
+  });
+
+  it("com Load Balancer, 2 saltos só com o cabeçalho secreto certo; direto na run.app, 1", () => {
+    expect(saltosDaRequisicao("segredo-da-borda", "segredo-da-borda", 1)).toBe(2);
+    expect(saltosDaRequisicao(null, "segredo-da-borda", 2)).toBe(1);
+    expect(saltosDaRequisicao("segredo-da-bordX", "segredo-da-borda", 2)).toBe(1);
+    expect(saltosDaRequisicao("curto", "segredo-da-borda", 2)).toBe(1);
+  });
+
+  it("IP forjado no X-Forwarded-For de quem chama a run.app direto não passa", () => {
+    const xff = "6.6.6.6, 200.1.2.3";
+    expect(ipDoCliente(xff, saltosDaRequisicao(null, "s", 1))).toBe("200.1.2.3");
+    expect(ipDoCliente("6.6.6.6, 200.1.2.3, 34.1.1.1", saltosDaRequisicao("s", "s", 1))).toBe("200.1.2.3");
   });
 });

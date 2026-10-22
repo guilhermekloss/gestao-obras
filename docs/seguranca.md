@@ -83,7 +83,7 @@ Mapa de como a plataforma se protege, do usuário à nuvem: o que existe, onde f
 **Roteiro de incidente**
 
 1. *Conta suspeita* (acesso não reconhecido, senha vazada): Usuários → pessoa → **Encerrar sessões** e redefinir a senha (ou desativar). Confira o log de atividade da pessoa e os acessos em Logging (`jsonPayload.email`).
-2. *Ataque ao login* (alerta de força bruta): veja os IPs em Logging ou em **Usuários → Bloqueios**. O bloqueio por e-mail/IP já contém o ataque e cresce na reincidência; se alguém legítimo ficou preso, use **Liberar agora**; se persistir, use **Bloquear IP** (até 7 dias) ou coloque o Load Balancer + Cloud Armor (abaixo) e bloqueie a origem na borda.
+2. *Ataque ao login* (alerta de força bruta): veja os IPs em Logging ou em **Usuários → Bloqueios**. O bloqueio por e-mail/IP já contém o ataque e cresce na reincidência; se alguém legítimo ficou preso, use **Liberar agora**; se persistir, use **Bloquear IP** (até 7 dias) ou, com o Load Balancer ligado, ponha o IP em `ips_bloqueados_borda` para barrar no Cloud Armor.
 3. *Segredo exposto*: no Cloud Shell, em `infra/terraform` (depois de um `./infra/bootstrap.sh SEU_PROJECT_ID`, que faz o `init`), rode `terraform apply -replace=random_password.auth_secret` para o `AUTH_SECRET` ou `-replace=random_password.db` para a senha do banco — o Terraform gera o valor novo e grava a versão nova no Secret Manager. O Cloud Run lê a versão `latest` ao subir uma revisão: force uma nova com `gcloud run services update gestao-obras --region southamerica-east1 --update-labels=rotacao=$(date +%s)`. Trocar o `AUTH_SECRET` derruba todas as sessões.
 4. *Mudança de IAM inesperada*: Logging → `logName:"cloudaudit.googleapis.com%2Factivity"`; reverta rodando o `bootstrap.sh` (o Terraform restaura as permissões descritas no código).
 5. *Dados apagados/corrompidos*: restaure o banco num clone (PITR) e as versões antigas do bucket (90 dias) — ver [`deploy-gcp.md`](deploy-gcp.md#backups-e-restauração).
@@ -94,7 +94,7 @@ Mapa de como a plataforma se protege, do usuário à nuvem: o que existe, onde f
 | Item | Por quê não agora | Como resolver |
 |---|---|---|
 | Verificação em duas etapas (TOTP) no app | Mudança de fluxo de login para todos; o bloqueio por tentativas + sessões revogáveis cobrem o grosso do risco | Implementar TOTP opcional, depois obrigatório para ADMIN |
-| WAF / Cloud Armor e domínio próprio | Precisa de Load Balancer (~US$ 18/mês) | LB HTTPS global + Cloud Armor (regras OWASP e limite por IP); depois `proxy_saltos = 2` e `app_url` |
+| WAF / Cloud Armor e domínio próprio | Pronto no Terraform, mas desligado: custa ~US$ 25/mês | `load_balancer = true` e `app_url` com o domínio; apontar o DNS para a saída `borda_ip`; depois de conferir os falsos positivos, `borda_waf_observacao = false`. A URL run.app continua aberta (o deploy usa) e não passa pelo Cloud Armor, mas o app segue aplicando os próprios bloqueios nela |
 | Usuário do banco separado para o app (só DML) | O app usa o dono do schema (o mesmo das migrations) | Criar papel `app_rw` sem DDL e usar outro `DATABASE_URL` no serviço |
 | Varredura de código (CodeQL) e de segredos no GitHub | Em repositório privado depende do GitHub Advanced Security | Ativar em Settings → Code security, se o plano permitir; ou tornar o repo público |
 | Dependabot alerts / security updates | Configuração do repositório, não do código | Settings → Code security → ativar *Dependabot alerts* e *security updates* (o `dependabot.yml` ignora majors só nas atualizações de versão) |

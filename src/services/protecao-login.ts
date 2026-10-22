@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 export const JANELA_MS = 15 * 60 * 1000;
 export const MAX_FALHAS_EMAIL = 5;
 // folgado: o escritório inteiro sai por um IP só
@@ -107,6 +109,15 @@ export function ipConfiavel(ip: string | null, faixas: Faixa[]): boolean {
   if (!n) return false;
   const bits = n.v6 ? 128 : 32;
   return faixas.some((f) => f.v6 === n.v6 && n.n >> BigInt(bits - f.prefixo) === f.rede);
+}
+
+// Com o Load Balancer na frente, o IP real fica um salto antes. Mas a URL run.app continua aberta: quem chama direto
+// poderia forjar esse salto. Por isso os 2 saltos só valem quando o LB injetou o cabeçalho secreto (BORDA_SEGREDO).
+export function saltosDaRequisicao(segredoRecebido: string | null, segredoDaBorda: string, saltosPadrao: number): number {
+  if (!segredoDaBorda) return saltosPadrao;
+  const a = Buffer.from(segredoRecebido ?? "");
+  const b = Buffer.from(segredoDaBorda);
+  return a.length === b.length && timingSafeEqual(a, b) ? 2 : 1;
 }
 
 // O Google acrescenta o IP real ao fim do X-Forwarded-For; o que vem antes pode ser forjado.

@@ -118,7 +118,7 @@ variable "app_url" {
 }
 
 variable "proxy_saltos" {
-  description = "Proxies confiáveis à frente do app no X-Forwarded-For: 1 = acesso direto ao Cloud Run; 2 = Load Balancer (Cloud Armor) na frente."
+  description = "Proxies confiáveis à frente do app no X-Forwarded-For. Deixe 1: com load_balancer = true o app confia no salto do LB sozinho, só nas requisições que trazem o cabeçalho secreto dele (a URL run.app segue aberta e não pode forjar o IP)."
   type        = number
   default     = 1
 }
@@ -127,6 +127,36 @@ variable "ips_confiaveis" {
   description = "IPs ou faixas CIDR que nunca são bloqueados por IP no login (ex.: \"200.1.2.3, 2804:14c::/32\" do escritório). O limite por e-mail continua valendo. Vazio = nenhum."
   type        = string
   default     = ""
+}
+
+variable "load_balancer" {
+  description = "Load Balancer HTTPS global com Cloud Armor (WAF e limite por IP na borda) e domínio próprio em app_url. ~US$ 25/mês. Depois do apply, aponte o DNS do domínio para o IP da saída borda_ip."
+  type        = bool
+  default     = false
+}
+
+variable "borda_limite_por_minuto" {
+  description = "Cloud Armor: requisições por minuto de um mesmo IP antes de barrar por 10 min. Folgado: o escritório e o 4G dividem IP."
+  type        = number
+  default     = 1200
+}
+
+variable "borda_limite_login_por_minuto" {
+  description = "Cloud Armor: envios de login por minuto de um mesmo IP antes de barrar por 15 min."
+  type        = number
+  default     = 30
+}
+
+variable "borda_waf_observacao" {
+  description = "true = as regras OWASP do Cloud Armor só registram (preview). Passe para false depois de conferir os falsos positivos no Logging."
+  type        = bool
+  default     = true
+}
+
+variable "ips_bloqueados_borda" {
+  description = "IPs ou faixas CIDR barrados no Cloud Armor, antes de chegar ao app (ex.: os de reincidência que não param). Para o dia a dia, use Bloquear IP na tela Usuários."
+  type        = list(string)
+  default     = []
 }
 
 variable "varredura_imagens" {
