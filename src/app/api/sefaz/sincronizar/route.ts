@@ -2,6 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
 import { eventoSeguranca } from "@/lib/log-seguranca";
+import { bloqueioAtivo, ipVigiado, registrarInfracao } from "@/lib/protecao";
+import { ipDaRequisicao } from "@/lib/auth";
 import { sincronizar } from "@/services/sefaz/sincronizar";
 
 // Chamado pelo Cloud Scheduler (opcional), de hora em hora, com token OIDC da service account do agendador.
@@ -41,8 +43,14 @@ async function autorizado(req: Request): Promise<boolean> {
 }
 
 export async function POST(req: Request) {
+  // IP barrado nem chega a verificar o token
+  const ip = ipVigiado(await ipDaRequisicao());
+  if (ip && (await bloqueioAtivo(["sefaz"], [ip]))) {
+    return NextResponse.json({ erro: "Muitas tentativas" }, { status: 429 });
+  }
   if (!(await autorizado(req))) {
-    eventoSeguranca("sefaz_gatilho_recusado", {});
+    eventoSeguranca("sefaz_gatilho_recusado", { ip });
+    if (ip) await registrarInfracao("sefaz", ip);
     return NextResponse.json({ erro: "Não autorizado" }, { status: 401 });
   }
   const r = await sincronizar({ origem: "AGENDADA" });

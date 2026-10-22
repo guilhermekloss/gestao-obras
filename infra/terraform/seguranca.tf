@@ -29,7 +29,7 @@ resource "google_logging_metric" "eventos_seguranca" {
     labels {
       key         = "evento"
       value_type  = "STRING"
-      description = "login_falhou, login_bloqueado, bloqueio_aplicado, bloqueio_liberado, sessao_revogada, senha_alterada, acesso_negado_arquivo, upload_recusado"
+      description = "login_falhou, login_bloqueado, bloqueio_aplicado, bloqueio_liberado, convite_invalido, sessao_revogada, senha_alterada, acesso_negado_arquivo, upload_recusado"
     }
   }
   label_extractors = {

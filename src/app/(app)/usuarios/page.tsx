@@ -19,7 +19,8 @@ import { AcoesConvite, NovoConviteDialog } from "./convite-dialogs";
 import { FeedAtividades } from "./feed-atividades";
 import { EstadoVazio } from "@/components/estado-vazio";
 import { MailPlus, ShieldCheck } from "lucide-react";
-import { MAX_FALHAS_EMAIL, REGRA_LOGIN, type SituacaoBloqueio } from "@/services/protecao-login";
+import { MAX_FALHAS_EMAIL, type SituacaoBloqueio } from "@/services/protecao-login";
+import { ROTULO_REGRA } from "@/services/protecao-ativa";
 import { LiberarBloqueio } from "./acoes-bloqueio";
 import {
   ATIVIDADES_POR_PAGINA,
@@ -366,8 +367,8 @@ async function AbaBloqueios() {
   if (bloqueios.length === 0) {
     return (
       <EstadoVazio icone={ShieldCheck} titulo="Nenhum bloqueio nos últimos 7 dias">
-        Quem erra a senha {MAX_FALHAS_EMAIL} vezes seguidas, ou um IP com muitas falhas, fica bloqueado por um tempo. Os bloqueios aparecem aqui e
-        podem ser liberados antes do prazo.
+        Quem erra a senha {MAX_FALHAS_EMAIL} vezes seguidas, um IP que testa links de convite, quem envia arquivos falsos ou passa do
+        limite de uso da IA fica bloqueado por um tempo. Os bloqueios aparecem aqui e podem ser liberados antes do prazo.
       </EstadoVazio>
     );
   }
@@ -386,7 +387,13 @@ async function AbaBloqueios() {
             <span className="font-medium break-all">{b.chave}</span>
           )}
           <span className="block text-xs text-muted-foreground break-all">
-            {b.regra === REGRA_LOGIN.email ? (b.usuario ? b.chave : "e-mail sem cadastro") : "endereço IP"}
+            {b.tipoChave === "email"
+              ? b.usuario
+                ? b.chave
+                : "e-mail sem cadastro"
+              : b.tipoChave === "usuario"
+                ? (b.usuario?.email ?? "usuário removido")
+                : "endereço IP"}
           </span>
         </>
       ),
@@ -397,6 +404,7 @@ async function AbaBloqueios() {
       classe: "text-sm",
       celula: (b) => (
         <>
+          <span className="block text-xs font-medium">{ROTULO_REGRA[b.regra] ?? b.regra}</span>
           {b.motivo}
           <span className="block text-xs text-muted-foreground">em {dataHora.format(b.criadoEm)}</span>
         </>
@@ -432,9 +440,10 @@ async function AbaBloqueios() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Bloqueios ativos e os dos últimos 7 dias. Quem reincide fica bloqueado por mais tempo: o e-mail até 1 hora, o IP até 24 horas.
+        Bloqueios ativos e os dos últimos 7 dias. Quem reincide fica bloqueado por mais tempo: no login, o e-mail até 1 hora e o IP até
+        24 horas. Limites de uso da IA e da leitura de notas duram 10 minutos.
       </p>
-      <ListaDeDados legenda="Bloqueios por tentativas de login" linhas={bloqueios} chave={(b) => b.id} colunas={colunas} />
+      <ListaDeDados legenda="Bloqueios" linhas={bloqueios} chave={(b) => b.id} colunas={colunas} />
     </div>
   );
 }

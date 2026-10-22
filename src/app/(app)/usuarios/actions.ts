@@ -11,6 +11,7 @@ import { gerarToken, hashToken } from "@/lib/token";
 import { ROLE_LABELS } from "@/services/acesso";
 import { CUSTO_BCRYPT, problemaSenha } from "@/services/senha";
 import { eventoSeguranca } from "@/lib/log-seguranca";
+import { REGRAS, ROTULO_REGRA, regraAtiva } from "@/services/protecao-ativa";
 import {
   VALIDADE_PADRAO_DIAS,
   calcularExpiracao,
@@ -206,7 +207,14 @@ export const liberarBloqueio = acaoDeEscrita(
     if (count === 0) return { ok: false, erro: "Este bloqueio já terminou ou foi liberado." };
     const bloqueio = await prisma.bloqueio.findUniqueOrThrow({ where: { id }, select: { regra: true, chave: true } });
     eventoSeguranca("bloqueio_liberado", { regra: bloqueio.regra, chave: bloqueio.chave, porAdmin: atual.id });
-    anotarAtividade({ descricao: `Liberou o acesso bloqueado de ${bloqueio.chave}`, entidade: "bloqueio", entidadeId: id });
+    const porUsuario = regraAtiva(bloqueio.regra) && REGRAS[bloqueio.regra].chave === "usuario";
+    const pessoa = porUsuario ? await prisma.usuario.findUnique({ where: { id: bloqueio.chave }, select: { nome: true } }) : null;
+    const quem = pessoa?.nome ?? bloqueio.chave;
+    anotarAtividade({
+      descricao: `Liberou o bloqueio de ${quem} (${ROTULO_REGRA[bloqueio.regra] ?? bloqueio.regra})`,
+      entidade: "bloqueio",
+      entidadeId: id,
+    });
     return { ok: true };
   },
 );

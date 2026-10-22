@@ -151,27 +151,3 @@ export async function perguntar({ pergunta, historico, role, rota, guias }: Entr
   if (!r.success) throw new Error("O assistente devolveu uma resposta inválida. Tente de novo.");
   return { resposta: r.data.resposta.trim(), telas: filtrarTelas(r.data.telas, role) };
 }
-
-/**
- * Limite de perguntas por usuário em janela deslizante, em memória.
- * Risco aceito: no Cloud Run com várias instâncias (e a cada reinício) o limite vale por instância,
- * então o teto real é max × instâncias. Serve para conter abuso e custo, não como controle rígido.
- */
-export function criarLimitador(max = 20, janelaMs = 10 * 60_000, agora: () => number = Date.now) {
-  const porUsuario = new Map<string, number[]>();
-  return function verificar(usuarioId: string): void {
-    const t = agora();
-    const recentes = (porUsuario.get(usuarioId) ?? []).filter((x) => t - x < janelaMs);
-    if (recentes.length >= max) {
-      porUsuario.set(usuarioId, recentes);
-      throw new Error("Você fez muitas perguntas seguidas. Aguarde alguns minutos.");
-    }
-    recentes.push(t);
-    porUsuario.set(usuarioId, recentes);
-    if (porUsuario.size > 5000) {
-      for (const [id, marcas] of porUsuario) if (marcas.every((x) => t - x >= janelaMs)) porUsuario.delete(id);
-    }
-  };
-}
-
-export const limiteDePerguntas = criarLimitador();

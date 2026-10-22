@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
 import { acaoDeEscrita, mensagemDeErro, type ActionResult } from "@/lib/acao";
 import { analiseIaDisponivel } from "@/services/gemini";
-import { limiteDePerguntas, perguntar } from "@/services/assistente/ia";
+import { consumirLimite } from "@/lib/protecao";
+import { perguntar } from "@/services/assistente/ia";
 import type { MensagemChat, TelaSugerida } from "@/services/assistente";
 
 export type RespostaAssistente = ActionResult & { resposta?: string; telas?: TelaSugerida[] };
@@ -47,7 +48,7 @@ export async function perguntarAssistente(
     return { ok: false, erro: "Pergunta inválida." };
   }
   try {
-    limiteDePerguntas(usuario.id);
+    await consumirLimite("assistente", usuario.id);
     // Nunca registre o texto da pergunta: só o tamanho e a tela.
     console.info(JSON.stringify({ evento: "assistente_pergunta", usuarioId: usuario.id, tamanho: pergunta.length, rota }));
     const { resposta, telas } = await perguntar({ pergunta, historico, role: usuario.role, rota });

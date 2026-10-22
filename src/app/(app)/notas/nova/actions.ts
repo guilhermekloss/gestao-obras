@@ -3,6 +3,7 @@
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { exigirPapel } from "@/lib/auth";
+import { consumirLimite } from "@/lib/protecao";
 import { storage } from "@/lib/storage";
 import { acaoDeEscrita, mensagemDeErro, type ActionResult } from "@/lib/acao";
 import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
@@ -108,17 +109,31 @@ async function lerEConferir(
   }
 }
 
+// OCR e IA pesam (CPU e custo por chamada): limite de uso por pessoa, no banco para valer em todas as instâncias.
+async function limiteDeLeitura(usuarioId: string): Promise<string | null> {
+  try {
+    await consumirLimite("leitura", usuarioId);
+    return null;
+  } catch (e) {
+    return mensagemDeErro(e);
+  }
+}
+
 export async function lerDocumento(anexoUrl: string): Promise<LerDocumentoResult> {
-  await exigirPapel(...PAPEIS);
+  const usuario = await exigirPapel(...PAPEIS);
   if (!leituraAutomaticaDisponivel()) {
     return { ok: false, erro: "A leitura automática não está configurada neste servidor." };
   }
+  const limite = await limiteDeLeitura(usuario.id);
+  if (limite) return { ok: false, erro: limite };
   return lerEConferir(anexoUrl, lerDocumentoNativo, "Erro ao ler o documento");
 }
 
 export async function analisarDocumentoComIa(anexoUrl: string): Promise<LerDocumentoResult> {
-  await exigirPapel(...PAPEIS);
+  const usuario = await exigirPapel(...PAPEIS);
   if (!analiseIaDisponivel()) return { ok: false, erro: "A análise com IA não está configurada neste servidor." };
+  const limite = await limiteDeLeitura(usuario.id);
+  if (limite) return { ok: false, erro: limite };
   const r = await lerEConferir(anexoUrl, analisarComGemini, "Erro na análise com IA");
   console.info(JSON.stringify({ evento: "analise_ia_documento", ok: r.ok }));
   return r;

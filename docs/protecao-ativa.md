@@ -9,8 +9,8 @@ Mapa das capacidades de um Fail2ban — ler os registros, reconhecer padrões de
 | Fail2ban | O que faz | Equivalente na plataforma | Situação |
 |---|---|---|---|
 | `logpath` / `backend` | Fonte dos eventos | `TentativaLogin` (banco) e `eventoSeguranca()` em JSON no Cloud Logging (`lib/log-seguranca.ts`) | Parcial: só o login grava no banco; os outros eventos só vão para o log, que o app não consulta |
-| `filter` / `failregex` | Reconhece uma falha numa linha de log | Tipos de `EventoSeguranca` (`login_falhou`, `acesso_negado_arquivo`, `upload_recusado`, `sefaz_gatilho_recusado`...) | Parcial: os eventos existem, mas só o login vira decisão |
-| `jail` | Liga um filtro a uma regra e a uma ação | Regra do login em `services/protecao-login.ts` | Só uma "jail" (login, por e-mail e por IP) |
+| `filter` / `failregex` | Reconhece uma falha numa linha de log | Ponto do código que chama `registrarInfracao` (link de convite inexistente, arquivo de formato falso, gatilho da Sefaz sem token) | Existe para login, convite, upload e Sefaz; `acesso_negado_arquivo` ainda só vai para o log |
+| `jail` | Liga um filtro a uma regra e a uma ação | Login em `services/protecao-login.ts`; demais em `REGRAS` de `services/protecao-ativa.ts` | Login, convite, upload, Sefaz, assistente e leitura de notas |
 | `maxretry` / `findtime` | N falhas dentro da janela | 5 por e-mail e 30 por IP em 15 min | Existe para o login |
 | `bantime` | Duração do banimento | Tabela `Bloqueio` com o prazo (`ate`); o primeiro dura 15 min | Existe |
 | `bantime.increment` | Banimento cresce a cada reincidência | `duracaoDoBloqueio`: IP 15 min → 1 h → 6 h → 24 h; e-mail 15 → 30 → 60 min (reincidência em 24 h) | Existe no login |
@@ -18,8 +18,8 @@ Mapa das capacidades de um Fail2ban — ler os registros, reconhecer padrões de
 | `ignoreip` | Lista de IPs que nunca são banidos | `IPS_CONFIAVEIS` (IP ou CIDR, IPv4/IPv6), só para a regra por IP | Existe |
 | `action` (iptables, nftables) | Bloqueia a origem | Login recusado com `LoginBloqueado` | Só no login; nenhuma outra rota bloqueia por IP |
 | `action` (sendmail) | Avisa por e-mail | Alertas do Cloud Monitoring (`infra/terraform/seguranca.tf`) | Existe para a equipe técnica; o usuário afetado e o admin do app não são avisados |
-| `dbfile` | Banimentos sobrevivem a reinício | Bloqueio calculado do banco: vale com várias instâncias | Existe para o login; o limite do assistente é em memória, por instância |
-| `dbpurgeage` | Limpa histórico antigo | Tentativas apagadas após 90 dias | Existe |
+| `dbfile` | Banimentos sobrevivem a reinício | Tabelas `Infracao` e `Bloqueio`: valem com várias instâncias | Existe para todas as regras (o limitador em memória do assistente saiu) |
+| `dbpurgeage` | Limpa histórico antigo | `limparRegistrosDeProtecao`: infrações após 7 dias, tentativas e bloqueios após 90 | Existe |
 | `fail2ban-client status/banip/unbanip` | Ver, banir e desbanir à mão | **Usuários → Bloqueios**: lista e **Liberar agora** | Existe (sem banir à mão) |
 | `fail2ban-regex` | Testa filtros contra um log | Testes unitários das funções puras (`protecao-login.test.ts`, `-limites.test.ts`) | Existe; manter o padrão nas regras novas |
 
@@ -32,12 +32,12 @@ Cada linha é uma regra (filtro + limite + ação). As de login já existem; as 
 | `login-email` | senha errada / conta inexistente / inativa | e-mail | 5 em 15 min | recusa login até liberar | Existe |
 | `login-ip` | qualquer falha de login | IP | 30 em 15 min | recusa login até liberar | Existe |
 | `troca-senha` | senha atual errada em `/conta` | e-mail | soma no `login-email` | idem | Existe |
-| `convite` | token inexistente, vencido ou já usado em `/convite/[token]` | IP | 10 em 15 min | 429 nas páginas de convite | Falta (o token tem 256 bits, então não é adivinhável; a regra corta varredura e ruído) |
+| `convite` | token inexistente em `/convite/[token]` (vencido ou já usado não conta: é link velho, não varredura) | IP | 10 em 15 min | página e cadastro recusam, 15 min → 24 h na reincidência | Existe (o token tem 256 bits, então não é adivinhável; a regra corta varredura e ruído) |
 | `varredura` | 404 em caminhos de robô (`/.env`, `/wp-login.php`, `/.git/`, `/phpmyadmin`, `*.php`) | IP | 3 em 10 min | 403 em todo o app por 1 h | Falta |
 | `arquivos` | `acesso_negado_arquivo` | usuário | 20 em 10 min | encerra a sessão, avisa o admin | Só alerta hoje (limite 10 no Monitoring) |
-| `upload` | `upload_recusado` (tipo falso, tamanho) | usuário | 10 em 10 min | recusa novos uploads por 30 min | Só log hoje |
-| `assistente` / `leitura-ia` | perguntas ao assistente e leituras de nota pelo Gemini | usuário | 20 em 10 min (assistente), definir para leitura | recusa com mensagem | Assistente em memória por instância; leitura sem limite. Pesa no custo, não só na segurança |
-| `sefaz` | `sefaz_gatilho_recusado` | IP | 5 em 1 h | 403 na rota | Só log hoje |
+| `upload` | `upload_recusado` (conteúdo não é JPG/PNG/WEBP/PDF) | usuário | 10 em 10 min | 429 com `Retry-After`, 30 min → 6 h | Existe |
+| `assistente` / `leitura` | perguntas ao assistente; leitura de nota (OCR nativo e Gemini) | usuário | 20 em 10 min (assistente), 30 em 10 min (leitura) | recusa com mensagem por 10 min, sem crescer | Existe, no banco. Pesa no custo, não só na segurança |
+| `sefaz` | `sefaz_gatilho_recusado` | IP | 5 em 1 h | 429 antes de verificar o token, 1 h → 24 h | Existe |
 | `recidive` | banimentos de qualquer jail | IP e e-mail | 3 banimentos em 24 h | banimento de 24 h, e-mail ao admin | Falta |
 
 ## 3. Riscos específicos desta plataforma
@@ -52,7 +52,7 @@ Cada linha é uma regra (filtro + limite + ação). As de login já existem; as 
 
 ### 4.1 Modelo de dados
 
-Duas tabelas no lugar de uma por jail (a `Bloqueio` entrou na fase 1, com `liberadoPorId` ligado ao usuário; a `Infracao` vem na fase 2):
+Duas tabelas no lugar de uma por jail (a `Bloqueio` entrou na fase 1, a `Infracao` na fase 2). Esboço; o modelo final está em `prisma/schema.prisma` (sem `detalhe` na `Infracao`: o que precisa de contexto vai para o evento de segurança, e `Bloqueio` tem `liberadoPorId` ligado ao usuário):
 
 ```prisma
 /// Falha que conta para uma regra de bloqueio (o "log" que a regra lê).
@@ -88,18 +88,20 @@ model Bloqueio {
 
 ### 4.2 Motor de regras (`services/protecao-ativa.ts`)
 
-Funções puras, no mesmo estilo de `situacaoLogin`, testáveis sem banco:
+Funções puras, testáveis sem banco (implementadas):
 
-- `REGRAS`: tabela com `{ maxFalhas, janelaMs, banimentoMs, chave: "ip" | "email" | "usuario" }` por jail.
-- `avaliar(regra, falhas, agora)` → `{ bloquear: false } | { bloquear: true, ate }`.
-- `duracaoProgressiva(base, bloqueiosAnteriores)` → `bantime.increment`: 15 min, 1 h, 6 h, 24 h (teto).
-- `reincidente(bloqueios, agora)` → `recidive`: 3 bloqueios da mesma chave em 24 h viram 24 h.
-- `ignorado(ip, listaCidr)` → `ignoreip` a partir de `IPS_CONFIAVEIS` (CIDR separados por vírgula). Vale só para regras por IP: o limite por e-mail continua.
+- `REGRAS`: por regra, `{ chave: "ip" | "usuario", tipo: "falha" | "uso", max, janelaMs, duracoesMs, motivo, mensagem }`.
+- `limiteDaRegraAtingido(regra, ocorrencias, agora, desde)`: N ocorrências na janela, contando só as posteriores ao último bloqueio da mesma regra e chave (o que já rendeu bloqueio ou foi liberado não conta de novo).
+- `duracaoDaRegra(regra, anteriores)` e, no login, `duracaoDoBloqueio`: `bantime.increment` com teto.
+- `faixasDeIp` / `ipConfiavel` (em `protecao-login.ts`): `ignoreip` a partir de `IPS_CONFIAVEIS`.
+- Falta (fase 3): `reincidente(bloqueios, agora)` → `recidive`, 3 bloqueios da mesma chave em 24 h, por qualquer regra, viram 24 h.
 
-E uma camada fina com banco (`lib/protecao.ts`):
+Camada com banco (`lib/protecao.ts`):
 
-- `registrarInfracao(regra, chave, detalhe)` grava a `Infracao`, avalia e, se for o caso, cria o `Bloqueio` e emite `eventoSeguranca("bloqueio_aplicado", ...)`.
-- `estaBloqueado(chaves[])` consulta `Bloqueio` com `ate > agora` e `liberadoEm` nulo.
+- `registrarInfracao(regra, chave)` grava a `Infracao`, avalia e, se for o caso, cria o `Bloqueio` com o prazo da reincidência e emite `bloqueio_aplicado`.
+- `bloqueioAtivo(regras, chaves)` consulta `Bloqueio` com `ate > agora` e `liberadoEm` nulo, só nas regras pedidas (um IP barrado no convite continua podendo fazer login).
+- `consumirLimite(regra, chave)` para limites de uso: recusa se bloqueado, senão conta o uso.
+- `ipVigiado(ip)`: devolve o IP só se ele não for confiável; sem IP (desenvolvimento local), as regras por IP não se aplicam.
 
 ### 4.3 Ações em níveis
 
@@ -125,7 +127,7 @@ Feito na fase 1 para o login (aba **Bloqueios**, ação `liberarBloqueio`); falt
 
 ### 4.5 Observabilidade
 
-- Novos eventos em `EventoSeguranca`: `bloqueio_aplicado`, `bloqueio_liberado`, `varredura_detectada`, `convite_invalido`, `limite_excedido`. Atualizar a descrição do rótulo `evento` em `seguranca.tf`.
+- Novos eventos em `EventoSeguranca`: `bloqueio_aplicado`, `bloqueio_liberado` e `convite_invalido` (feitos); `varredura_detectada` vem na fase 3. Atualizar a descrição do rótulo `evento` em `seguranca.tf`.
 - Novo alerta: qualquer `bloqueio_aplicado` com `regra="recidive"`; mais de 5 `varredura_detectada` em 10 min.
 - Em **Minha conta**, mostrar "sua conta foi bloqueada em DD/MM às HH:MM a partir do IP X" junto do histórico de acessos que já existe.
 
@@ -134,7 +136,7 @@ Feito na fase 1 para o login (aba **Bloqueios**, ação `liberarBloqueio`); falt
 | Fase | Entrega | Por quê primeiro |
 |---|---|---|
 | 1 ✅ | Tela de bloqueios com **Liberar agora** para o login + `ignoreip` + `bantime.increment` no login | Resolve o suporte do dia a dia e endurece o ponto mais atacado |
-| 2 | Tabela `Infracao` (a `Bloqueio` já existe), motor de regras e jails `convite`, `upload`, `sefaz`, limite da IA no banco (troca o limitador em memória) | Generaliza o modelo e fecha o risco aceito do assistente por instância |
+| 2 ✅ | Tabela `Infracao`, motor de regras e jails `convite`, `upload`, `sefaz`, limites do assistente e da leitura de notas no banco (troca o limitador em memória) | Generaliza o modelo e fecha o risco aceito do assistente por instância |
 | 3 | `recidive`, jail `varredura` no `proxy.ts` com cache, encerrar sessão na jail `arquivos` | Pede cuidado com IP compartilhado; vem depois de ter a tela para desfazer erro |
 | 4 | Cookie de dispositivo conhecido no login e e-mail ao usuário bloqueado | Tira o bloqueio de conta das mãos do atacante |
 | 5 | Load Balancer + Cloud Armor (`proxy_saltos = 2`), exportando `recidive` para a borda | Custo mensal; já previsto em `seguranca.md` |

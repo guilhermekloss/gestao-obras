@@ -427,13 +427,27 @@ model TentativaLogin {
   @@index([criadoEm])
 }
 
+/// Ocorrência que conta para uma regra de bloqueio (o "log" que a jail lê): falha (link inválido, arquivo falso)
+/// ou uso com limite (IA, OCR). Guardada por poucos dias: só as janelas de contagem precisam dela.
+model Infracao {
+  id       String   @id @default(cuid())
+  /// regra de services/protecao-ativa.ts
+  regra    String
+  /// IP ou id do usuário, conforme a regra
+  chave    String
+  criadoEm DateTime @default(now())
+
+  @@index([regra, chave, criadoEm])
+  @@index([criadoEm])
+}
+
 /// Bloqueio aplicado por excesso de falhas (a "jail" do Fail2ban). Fica no banco para valer em todas as instâncias,
 /// para o bloqueio crescer na reincidência e para o admin ver e liberar antes do prazo.
 model Bloqueio {
   id            String    @id @default(cuid())
-  /// "login-email" ou "login-ip"
+  /// "login-email", "login-ip" ou uma regra de services/protecao-ativa.ts
   regra         String
-  /// e-mail normalizado ou IP, conforme a regra
+  /// e-mail normalizado, IP ou id do usuário, conforme a regra
   chave         String
   ate           DateTime
   motivo        String

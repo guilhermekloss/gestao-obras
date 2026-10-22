@@ -8,6 +8,7 @@ type EventoSeguranca =
   | "senha_alterada"
   | "acesso_negado_arquivo"
   | "upload_recusado"
+  | "convite_invalido"
   | "sefaz_gatilho_recusado";
 
 export function eventoSeguranca(evento: EventoSeguranca, dados: Record<string, string | number | boolean | null> = {}) {
