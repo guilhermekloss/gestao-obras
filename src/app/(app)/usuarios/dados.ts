@@ -9,6 +9,7 @@ import {
   type CategoriaAtividade,
 } from "@/services/atividade";
 import { statusConvite } from "@/services/convite";
+import { REGRA_LOGIN, situacaoDoBloqueio } from "@/services/protecao-login";
 
 // eventos de conta aparecem no histórico, mas não contam como produção
 const SEM_EVENTOS_DE_CONTA = { NOT: { tipo: { startsWith: "conta." } } } satisfies Prisma.AtividadeWhereInput;
@@ -97,6 +98,35 @@ export async function carregarConvites(agora: Date = new Date()) {
     usuario: c.usuario,
     status: statusConvite(c, agora),
   }));
+}
+
+// Ativos primeiro; o histórico mostra os últimos 7 dias para ver se é ataque ou alguém esquecendo a senha.
+export async function carregarBloqueios(agora: Date = new Date()) {
+  const bloqueios = await prisma.bloqueio.findMany({
+    where: { OR: [{ ate: { gt: agora }, liberadoEm: null }, { criadoEm: { gte: subDays(agora, 7) } }] },
+    orderBy: { criadoEm: "desc" },
+    take: 100,
+    include: { liberadoPor: { select: { id: true, nome: true } } },
+  });
+  const emails = bloqueios.filter((b) => b.regra === REGRA_LOGIN.email).map((b) => b.chave);
+  const usuarios = emails.length
+    ? await prisma.usuario.findMany({
+        where: { OR: emails.map((email) => ({ email: { equals: email, mode: "insensitive" as const } })) },
+        select: { id: true, nome: true, email: true },
+      })
+    : [];
+  const porEmail = new Map(usuarios.map((u) => [u.email.toLowerCase(), u]));
+  return bloqueios
+    .map((b) => ({
+      ...b,
+      situacao: situacaoDoBloqueio(b, agora),
+      usuario: b.regra === REGRA_LOGIN.email ? (porEmail.get(b.chave) ?? null) : null,
+    }))
+    .sort((a, b) => Number(b.situacao === "ativo") - Number(a.situacao === "ativo"));
+}
+
+export async function contarBloqueiosAtivos(agora: Date = new Date()) {
+  return prisma.bloqueio.count({ where: { ate: { gt: agora }, liberadoEm: null } });
 }
 
 type FiltroAtividades = {

@@ -38,6 +38,7 @@ test.afterAll(async () => {
   await prisma.arquivo.deleteMany({ where: { enviadoPorId: { in: ids } } });
   await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
   await prisma.tentativaLogin.deleteMany({ where: { email: emails } });
+  await prisma.bloqueio.deleteMany({ where: { chave: emails } });
 });
 
 test("páginas saem com CSP de nonce e cabeçalhos de segurança", async ({ page }) => {
@@ -60,6 +61,31 @@ test("bloqueia o e-mail após 5 senhas erradas, mesmo com a senha certa", async 
   await entrar(page, email);
   await expect(page.getByText(/Muitas tentativas sem sucesso/)).toBeVisible();
   await expect(page).toHaveURL(/erro=bloqueado/);
+});
+
+test("admin vê o bloqueio e libera o acesso antes do prazo", async ({ browser }) => {
+  const email = await criarUsuario("ESCRITORIO");
+  const pessoa = await novaPagina(browser);
+  for (let i = 0; i < 5; i++) await entrar(pessoa, email, "senha-errada-123");
+  await entrar(pessoa, email);
+  await expect(pessoa).toHaveURL(/erro=bloqueado/);
+
+  const admin = await novaPagina(browser);
+  await entrar(admin, await criarUsuario("ADMIN"));
+  await admin.waitForURL("**/dashboard");
+  await admin.goto("/usuarios?aba=bloqueios");
+  const linha = admin.getByRole("row").filter({ hasText: email });
+  await expect(linha.getByText("Bloqueado", { exact: true })).toBeVisible();
+  admin.once("dialog", (d) => d.accept());
+  await linha.getByRole("button", { name: /Liberar agora/ }).click();
+  await expect(linha.getByText("Liberado", { exact: true })).toBeVisible();
+
+  await entrar(pessoa, email);
+  await pessoa.waitForURL("**/dashboard");
+
+  const bloqueios = await prisma.bloqueio.findMany({ where: { chave: email } });
+  expect(bloqueios).toHaveLength(1);
+  expect(bloqueios[0].liberadoEm).not.toBeNull();
 });
 
 test("upload valida o conteúdo e CAMPO não abre anexo de lançamento", async ({ browser }) => {

@@ -195,6 +195,22 @@ export const encerrarSessoesUsuario = acaoDeEscrita(
   },
 );
 
+// Libera antes do prazo; as falhas que levaram ao bloqueio deixam de contar (o corte é o próprio bloqueio).
+export const liberarBloqueio = acaoDeEscrita(
+  { papeis: ["ADMIN"], revalidar: ["/usuarios"], atividade: "acesso.liberar_bloqueio" },
+  async (atual, id: string): Promise<ActionResult> => {
+    const { count } = await prisma.bloqueio.updateMany({
+      where: { id, liberadoEm: null, ate: { gt: new Date() } },
+      data: { liberadoEm: new Date(), liberadoPorId: atual.id },
+    });
+    if (count === 0) return { ok: false, erro: "Este bloqueio já terminou ou foi liberado." };
+    const bloqueio = await prisma.bloqueio.findUniqueOrThrow({ where: { id }, select: { regra: true, chave: true } });
+    eventoSeguranca("bloqueio_liberado", { regra: bloqueio.regra, chave: bloqueio.chave, porAdmin: atual.id });
+    anotarAtividade({ descricao: `Liberou o acesso bloqueado de ${bloqueio.chave}`, entidade: "bloqueio", entidadeId: id });
+    return { ok: true };
+  },
+);
+
 async function urlBase(): Promise<string> {
   const configurada = process.env.APP_URL ?? process.env.AUTH_URL;
   if (configurada) return configurada.replace(/\/+$/, "");

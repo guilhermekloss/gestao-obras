@@ -123,6 +123,12 @@ variable "proxy_saltos" {
   default     = 1
 }
 
+variable "ips_confiaveis" {
+  description = "IPs ou faixas CIDR que nunca são bloqueados por IP no login (ex.: \"200.1.2.3, 2804:14c::/32\" do escritório). O limite por e-mail continua valendo. Vazio = nenhum."
+  type        = string
+  default     = ""
+}
+
 variable "varredura_imagens" {
   description = "Varredura automática de vulnerabilidades (pacotes do sistema e do Node) em cada imagem enviada ao Artifact Registry. Cobrada por imagem (~US$ 0,26)."
   type        = bool

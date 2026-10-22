@@ -18,10 +18,14 @@ import { NovoUsuarioDialog, EditarUsuarioDialog } from "./usuario-dialogs";
 import { AcoesConvite, NovoConviteDialog } from "./convite-dialogs";
 import { FeedAtividades } from "./feed-atividades";
 import { EstadoVazio } from "@/components/estado-vazio";
-import { MailPlus } from "lucide-react";
+import { MailPlus, ShieldCheck } from "lucide-react";
+import { MAX_FALHAS_EMAIL, REGRA_LOGIN, type SituacaoBloqueio } from "@/services/protecao-login";
+import { LiberarBloqueio } from "./acoes-bloqueio";
 import {
   ATIVIDADES_POR_PAGINA,
+  carregarBloqueios,
   carregarConvites,
+  contarBloqueiosAtivos,
   carregarListaUsuarios,
   listarAtividades,
   paraEdicao,
@@ -34,6 +38,7 @@ const ABAS = [
   { key: "pessoas", label: "Pessoas" },
   { key: "convites", label: "Convites" },
   { key: "atividade", label: "Atividade" },
+  { key: "bloqueios", label: "Bloqueios" },
 ] as const;
 
 type Busca = { aba?: string; usuario?: string; obra?: string; categoria?: string; pagina?: string };
@@ -43,9 +48,10 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
   const busca = await searchParams;
   const aba = ABAS.find((a) => a.key === busca.aba) ?? ABAS[0];
 
-  const [{ usuarios, convitesPendentes }, obras] = await Promise.all([
+  const [{ usuarios, convitesPendentes }, obras, bloqueiosAtivos] = await Promise.all([
     carregarListaUsuarios(),
     listarObrasParaFiltro(),
+    contarBloqueiosAtivos(),
   ]);
 
   const agora = new Date();
@@ -96,6 +102,10 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
               <Badge variant="secondary" className="ml-1.5">
                 {convitesPendentes}
               </Badge>
+            ) : a.key === "bloqueios" && bloqueiosAtivos > 0 ? (
+              <Badge variant="destructive" className="ml-1.5">
+                {bloqueiosAtivos}
+              </Badge>
             ) : undefined,
         }))}
       />
@@ -103,6 +113,7 @@ export default async function UsuariosPage({ searchParams }: { searchParams: Pro
       {aba.key === "pessoas" && <AbaPessoas usuarios={usuarios} obras={obras} agora={agora} />}
       {aba.key === "convites" && <AbaConvites obras={obras} />}
       {aba.key === "atividade" && <AbaAtividade busca={busca} usuarios={usuarios} obras={obras} />}
+      {aba.key === "bloqueios" && <AbaBloqueios />}
     </div>
   );
 }
@@ -335,6 +346,96 @@ async function AbaConvites({ obras }: { obras: { id: string; nome: string }[] })
       chave={(c) => c.id}
       colunas={colunas}
     />
+  );
+}
+
+const dataHora = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
+
+const ESTADO_BLOQUEIO: Record<SituacaoBloqueio, { estado: Estado; rotulo: string }> = {
+  ativo: { estado: "atrasado", rotulo: "Bloqueado" },
+  expirado: { estado: "neutro", rotulo: "Terminou" },
+  liberado: { estado: "pago", rotulo: "Liberado" },
+};
+
+async function AbaBloqueios() {
+  const bloqueios = await carregarBloqueios();
+  if (bloqueios.length === 0) {
+    return (
+      <EstadoVazio icone={ShieldCheck} titulo="Nenhum bloqueio nos últimos 7 dias">
+        Quem erra a senha {MAX_FALHAS_EMAIL} vezes seguidas, ou um IP com muitas falhas, fica bloqueado por um tempo. Os bloqueios aparecem aqui e
+        podem ser liberados antes do prazo.
+      </EstadoVazio>
+    );
+  }
+  const colunas: ColunaDados<(typeof bloqueios)[number]>[] = [
+    {
+      id: "origem",
+      titulo: "Bloqueado",
+      papel: "titulo",
+      celula: (b) => (
+        <>
+          {b.usuario ? (
+            <Link href={`/usuarios/${b.usuario.id}`} className={`${LINK_DA_LINHA} font-medium`}>
+              {b.usuario.nome}
+            </Link>
+          ) : (
+            <span className="font-medium break-all">{b.chave}</span>
+          )}
+          <span className="block text-xs text-muted-foreground break-all">
+            {b.regra === REGRA_LOGIN.email ? (b.usuario ? b.chave : "e-mail sem cadastro") : "endereço IP"}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: "motivo",
+      titulo: "Motivo",
+      classe: "text-sm",
+      celula: (b) => (
+        <>
+          {b.motivo}
+          <span className="block text-xs text-muted-foreground">em {dataHora.format(b.criadoEm)}</span>
+        </>
+      ),
+    },
+    {
+      id: "situacao",
+      titulo: "Situação",
+      papel: "estado",
+      classe: "text-sm",
+      celula: (b) => (
+        <>
+          <StatusBadge estado={ESTADO_BLOQUEIO[b.situacao].estado}>{ESTADO_BLOQUEIO[b.situacao].rotulo}</StatusBadge>
+          <span className="block text-xs text-muted-foreground">
+            {b.situacao === "liberado" && b.liberadoEm
+              ? `por ${b.liberadoPor?.nome ?? "—"} em ${dataHora.format(b.liberadoEm)}`
+              : b.situacao === "ativo"
+                ? `até ${dataHora.format(b.ate)}`
+                : `em ${dataHora.format(b.ate)}`}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: "acoes",
+      titulo: "Ações",
+      papel: "acao",
+      tituloOculto: true,
+      celula: (b) => (b.situacao === "ativo" ? <LiberarBloqueio id={b.id} origem={b.usuario?.nome ?? b.chave} /> : null),
+    },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Bloqueios ativos e os dos últimos 7 dias. Quem reincide fica bloqueado por mais tempo: o e-mail até 1 hora, o IP até 24 horas.
+      </p>
+      <ListaDeDados legenda="Bloqueios por tentativas de login" linhas={bloqueios} chave={(b) => b.id} colunas={colunas} />
+    </div>
   );
 }
 

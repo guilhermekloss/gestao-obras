@@ -2,6 +2,8 @@
 type EventoSeguranca =
   | "login_falhou"
   | "login_bloqueado"
+  | "bloqueio_aplicado"
+  | "bloqueio_liberado"
   | "sessao_revogada"
   | "senha_alterada"
   | "acesso_negado_arquivo"

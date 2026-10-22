@@ -21,6 +21,9 @@ email_alertas = ""
 # Domínio próprio (vazio = URL do Cloud Run)
 # app_url = "https://obras.suaempresa.com.br"
 
+# IP fixo do escritório: nunca bloqueado por IP no login (o limite por e-mail continua)
+# ips_confiaveis = "200.1.2.3"
+
 # Varredura de vulnerabilidades das imagens (cobrada por imagem)
 # varredura_imagens = true
 

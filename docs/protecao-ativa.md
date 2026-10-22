@@ -12,15 +12,15 @@ Mapa das capacidades de um Fail2ban — ler os registros, reconhecer padrões de
 | `filter` / `failregex` | Reconhece uma falha numa linha de log | Tipos de `EventoSeguranca` (`login_falhou`, `acesso_negado_arquivo`, `upload_recusado`, `sefaz_gatilho_recusado`...) | Parcial: os eventos existem, mas só o login vira decisão |
 | `jail` | Liga um filtro a uma regra e a uma ação | Regra do login em `services/protecao-login.ts` | Só uma "jail" (login, por e-mail e por IP) |
 | `maxretry` / `findtime` | N falhas dentro da janela | 5 por e-mail e 30 por IP em 15 min | Existe para o login |
-| `bantime` | Duração do banimento | Janela deslizante: libera 15 min depois da falha mais antiga das N | Existe, mas fixo |
-| `bantime.increment` | Banimento cresce a cada reincidência | — | Falta |
+| `bantime` | Duração do banimento | Tabela `Bloqueio` com o prazo (`ate`); o primeiro dura 15 min | Existe |
+| `bantime.increment` | Banimento cresce a cada reincidência | `duracaoDoBloqueio`: IP 15 min → 1 h → 6 h → 24 h; e-mail 15 → 30 → 60 min (reincidência em 24 h) | Existe no login |
 | `recidive` | Jail que bane por muito tempo quem foi banido várias vezes (por qualquer jail) | — | Falta |
-| `ignoreip` | Lista de IPs que nunca são banidos | — (o limite de IP foi folgado para 30 porque o escritório sai por um IP só) | Falta |
+| `ignoreip` | Lista de IPs que nunca são banidos | `IPS_CONFIAVEIS` (IP ou CIDR, IPv4/IPv6), só para a regra por IP | Existe |
 | `action` (iptables, nftables) | Bloqueia a origem | Login recusado com `LoginBloqueado` | Só no login; nenhuma outra rota bloqueia por IP |
 | `action` (sendmail) | Avisa por e-mail | Alertas do Cloud Monitoring (`infra/terraform/seguranca.tf`) | Existe para a equipe técnica; o usuário afetado e o admin do app não são avisados |
 | `dbfile` | Banimentos sobrevivem a reinício | Bloqueio calculado do banco: vale com várias instâncias | Existe para o login; o limite do assistente é em memória, por instância |
 | `dbpurgeage` | Limpa histórico antigo | Tentativas apagadas após 90 dias | Existe |
-| `fail2ban-client status/banip/unbanip` | Ver, banir e desbanir à mão | — | Falta: o admin não vê quem está bloqueado nem libera antes do prazo |
+| `fail2ban-client status/banip/unbanip` | Ver, banir e desbanir à mão | **Usuários → Bloqueios**: lista e **Liberar agora** | Existe (sem banir à mão) |
 | `fail2ban-regex` | Testa filtros contra um log | Testes unitários das funções puras (`protecao-login.test.ts`, `-limites.test.ts`) | Existe; manter o padrão nas regras novas |
 
 ## 2. Superfícies que pedem uma "jail"
@@ -52,7 +52,7 @@ Cada linha é uma regra (filtro + limite + ação). As de login já existem; as 
 
 ### 4.1 Modelo de dados
 
-Duas tabelas no lugar de uma por jail:
+Duas tabelas no lugar de uma por jail (a `Bloqueio` entrou na fase 1, com `liberadoPorId` ligado ao usuário; a `Infracao` vem na fase 2):
 
 ```prisma
 /// Falha que conta para uma regra de bloqueio (o "log" que a regra lê).
@@ -121,7 +121,7 @@ Nova aba em **Usuários** ou página **Segurança** (só ADMIN):
 - Últimas infrações por regra, para ver se é ataque ou alguém esquecendo a senha.
 - Toda ação vai para o log de atividade (`registrarAtividade`, ex.: `seguranca.liberar`).
 
-Resolve um buraco concreto de hoje: quem errou a senha cinco vezes espera 15 minutos, porque o admin não tem como liberar.
+Feito na fase 1 para o login (aba **Bloqueios**, ação `liberarBloqueio`); falta o **Bloquear IP** manual.
 
 ### 4.5 Observabilidade
 
@@ -133,8 +133,8 @@ Resolve um buraco concreto de hoje: quem errou a senha cinco vezes espera 15 min
 
 | Fase | Entrega | Por quê primeiro |
 |---|---|---|
-| 1 | Tela de bloqueios com **Liberar agora** para o login + `ignoreip` + `bantime.increment` no login | Usa a tabela que já existe; resolve o suporte do dia a dia e endurece o ponto mais atacado |
-| 2 | Tabelas `Infracao`/`Bloqueio`, motor de regras e jails `convite`, `upload`, `sefaz`, limite da IA no banco (troca o limitador em memória) | Generaliza o modelo e fecha o risco aceito do assistente por instância |
+| 1 ✅ | Tela de bloqueios com **Liberar agora** para o login + `ignoreip` + `bantime.increment` no login | Resolve o suporte do dia a dia e endurece o ponto mais atacado |
+| 2 | Tabela `Infracao` (a `Bloqueio` já existe), motor de regras e jails `convite`, `upload`, `sefaz`, limite da IA no banco (troca o limitador em memória) | Generaliza o modelo e fecha o risco aceito do assistente por instância |
 | 3 | `recidive`, jail `varredura` no `proxy.ts` com cache, encerrar sessão na jail `arquivos` | Pede cuidado com IP compartilhado; vem depois de ter a tela para desfazer erro |
 | 4 | Cookie de dispositivo conhecido no login e e-mail ao usuário bloqueado | Tira o bloqueio de conta das mãos do atacante |
 | 5 | Load Balancer + Cloud Armor (`proxy_saltos = 2`), exportando `recidive` para a borda | Custo mensal; já previsto em `seguranca.md` |

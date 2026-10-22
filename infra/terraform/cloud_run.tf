@@ -69,6 +69,11 @@ resource "google_cloud_run_v2_service" "app" {
         value = tostring(var.proxy_saltos)
       }
       env {
+        # ignoreip: IP fixo do escritório não é bloqueado por IP (o limite por e-mail continua)
+        name  = "IPS_CONFIAVEIS"
+        value = var.ips_confiaveis
+      }
+      env {
         name  = "TZ"
         value = "UTC"
       }

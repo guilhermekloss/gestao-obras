@@ -45,6 +45,7 @@ export const TIPOS_ATIVIDADE = {
   "convite.renovar": { rotulo: "Gerou um novo link de convite", categoria: "acesso" },
   "convite.revogar": { rotulo: "Cancelou um convite", categoria: "acesso" },
   "convite.aceito": { rotulo: "Fez o cadastro pelo convite", categoria: "acesso" },
+  "acesso.liberar_bloqueio": { rotulo: "Liberou um acesso bloqueado por tentativas", categoria: "acesso" },
   "conta.login": { rotulo: "Entrou no sistema", categoria: "acesso" },
   "conta.senha": { rotulo: "Trocou a própria senha", categoria: "acesso" },
   "conta.encerrar_sessoes": { rotulo: "Encerrou as sessões em todos os dispositivos", categoria: "acesso" },
@@ -72,7 +73,7 @@ export function tiposDaCategoria(categoria: CategoriaAtividade): TipoAtividade[]
 
 export type DetalheAtividade = {
   descricao?: string;
-  entidade?: "nota" | "rdo" | "obra" | "fornecedor" | "material" | "usuario" | "convite" | "medicao";
+  entidade?: "nota" | "rdo" | "obra" | "fornecedor" | "material" | "usuario" | "convite" | "medicao" | "bloqueio";
   entidadeId?: string;
   obraIds?: string[];
   valorCents?: number;
@@ -101,6 +102,8 @@ export function linkAtividade(a: {
       return id ? `/usuarios/${id}` : null;
     case "convite":
       return "/usuarios?aba=convites";
+    case "bloqueio":
+      return "/usuarios?aba=bloqueios";
     case "medicao":
       return a.obraIds[0] ? `/cronograma?obra=${a.obraIds[0]}&aba=avanco` : null;
     default:

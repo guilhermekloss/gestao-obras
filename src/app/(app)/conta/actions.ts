@@ -2,7 +2,7 @@
 
 import { compare, hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { exigirPapel, ipDaRequisicao, signOut, situacaoDoLogin } from "@/lib/auth";
+import { bloqueioDoLogin, exigirPapel, ipDaRequisicao, registrarFalhaLogin, signOut } from "@/lib/auth";
 import { registrarAtividade } from "@/lib/atividade";
 import { eventoSeguranca } from "@/lib/log-seguranca";
 import { chaveEmail } from "@/services/protecao-login";
@@ -24,11 +24,11 @@ export async function alterarMinhaSenha(_anterior: EstadoSenha, formData: FormDa
   const email = chaveEmail(usuario.email);
   const ip = await ipDaRequisicao();
 
-  if ((await situacaoDoLogin(email, ip)).bloqueado) {
-    return { erro: "Muitas tentativas sem sucesso. Aguarde 15 minutos e tente de novo.", campo: "atual" };
+  if (await bloqueioDoLogin(email, ip)) {
+    return { erro: "Muitas tentativas sem sucesso. Aguarde alguns minutos e tente de novo.", campo: "atual" };
   }
   if (!senhaAtual || senhaAtual.length > 1024 || !(await compare(senhaAtual, usuario.senhaHash))) {
-    await prisma.tentativaLogin.create({ data: { email, ip, sucesso: false } });
+    await registrarFalhaLogin(email, ip);
     eventoSeguranca("login_falhou", { email, ip, origem: "troca_de_senha" });
     return { erro: "Senha atual incorreta", campo: "atual" };
   }

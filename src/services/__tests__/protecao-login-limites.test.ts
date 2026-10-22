@@ -1,63 +1,59 @@
 import { describe, expect, it } from "vitest";
-import { JANELA_MS, MAX_FALHAS_EMAIL, MAX_FALHAS_IP, ipDoCliente, situacaoLogin } from "../protecao-login";
+import { MAX_FALHAS_EMAIL, MAX_FALHAS_IP, ipDoCliente, limiteAtingido } from "../protecao-login";
 
 const agora = new Date("2026-10-15T12:00:00Z");
 const minAtras = (m: number) => new Date(agora.getTime() - m * 60_000);
 const falha = (m: number) => ({ sucesso: false, criadoEm: minAtras(m) });
 const sucesso = (m: number) => ({ sucesso: true, criadoEm: minAtras(m) });
 
-describe("situacaoLogin (e-mail): bordas da janela e do último sucesso", () => {
+describe("limiteAtingido (e-mail): bordas da janela e do último sucesso", () => {
   it("falha exatamente na borda da janela de 15 min já não conta", () => {
-    expect(situacaoLogin([falha(1), falha(2), falha(3), falha(4), falha(15)], [], agora).bloqueado).toBe(false);
+    expect(limiteAtingido([falha(1), falha(2), falha(3), falha(4), falha(15)], [], agora)).toBeNull();
   });
 
   it("falhas depois de um login certo voltam a contar", () => {
-    const r = situacaoLogin([sucesso(10), falha(5), falha(4), falha(3), falha(2), falha(1)], [], agora);
-    expect(r).toEqual({ bloqueado: true, motivo: "email", liberaEm: new Date(minAtras(5).getTime() + JANELA_MS) });
+    const r = limiteAtingido([sucesso(10), falha(5), falha(4), falha(3), falha(2), falha(1)], [], agora);
+    expect(r).toBe("email");
   });
 
   it("falhas anteriores ao login certo não contam, mesmo sendo muitas", () => {
     const antigas = [14, 13, 12, 11, 10, 9].map(falha);
-    expect(situacaoLogin([...antigas, sucesso(5)], [], agora).bloqueado).toBe(false);
+    expect(limiteAtingido([...antigas, sucesso(5)], [], agora)).toBeNull();
   });
 
   it("falha no mesmo instante do login certo não conta", () => {
-    const r = situacaoLogin([sucesso(5), falha(5), falha(4), falha(3), falha(2), falha(1)], [], agora);
-    expect(r.bloqueado).toBe(false);
+    const r = limiteAtingido([sucesso(5), falha(5), falha(4), falha(3), falha(2), falha(1)], [], agora);
+    expect(r).toBeNull();
   });
 
-  it(`a liberação é a (${MAX_FALHAS_EMAIL}ª) falha mais recente + janela, mesmo com tentativas fora de ordem`, () => {
-    const r = situacaoLogin([falha(1), falha(9), falha(3), falha(7), falha(5), falha(2)], [], agora);
-    expect(r).toEqual({ bloqueado: true, motivo: "email", liberaEm: new Date(minAtras(7).getTime() + JANELA_MS) });
+  it(`conta as ${MAX_FALHAS_EMAIL} falhas mesmo com tentativas fora de ordem`, () => {
+    const r = limiteAtingido([falha(1), falha(9), falha(3), falha(7), falha(5), falha(2)], [], agora);
+    expect(r).toBe("email");
   });
 });
 
-describe("situacaoLogin (IP)", () => {
+describe("limiteAtingido (IP)", () => {
   const segundosAtras = (s: number) => new Date(agora.getTime() - s * 1000);
 
   it("falha exatamente na borda da janela não conta para o IP", () => {
     const falhas = [...Array.from({ length: MAX_FALHAS_IP - 1 }, (_, i) => segundosAtras(i + 1)), minAtras(15)];
-    expect(situacaoLogin([], falhas, agora).bloqueado).toBe(false);
+    expect(limiteAtingido([], falhas, agora)).toBeNull();
   });
 
   it("falhas fora da janela não somam com as recentes", () => {
     const falhas = [...Array.from({ length: MAX_FALHAS_IP - 1 }, (_, i) => segundosAtras(i + 1)), minAtras(16)];
-    expect(situacaoLogin([], falhas, agora).bloqueado).toBe(false);
+    expect(limiteAtingido([], falhas, agora)).toBeNull();
   });
 
-  it("libera quando a falha que fecha a conta sai da janela, mesmo com a lista fora de ordem", () => {
+  it("bloqueia o IP com a lista fora de ordem", () => {
     const falhas = Array.from({ length: MAX_FALHAS_IP + 1 }, (_, i) => segundosAtras((i + 1) * 20));
-    expect(situacaoLogin([], falhas, agora)).toEqual({
-      bloqueado: true,
-      motivo: "ip",
-      liberaEm: new Date(segundosAtras(MAX_FALHAS_IP * 20).getTime() + JANELA_MS),
-    });
+    expect(limiteAtingido([], falhas, agora)).toBe("ip");
   });
 
   it("o bloqueio por e-mail tem prioridade sobre o de IP", () => {
     const ips = Array.from({ length: MAX_FALHAS_IP }, (_, i) => segundosAtras(i + 1));
     const emails = [1, 2, 3, 4, 5].map(falha);
-    expect(situacaoLogin(emails, ips, agora)).toMatchObject({ bloqueado: true, motivo: "email" });
+    expect(limiteAtingido(emails, ips, agora)).toBe("email");
   });
 });
 
