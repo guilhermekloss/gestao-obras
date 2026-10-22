@@ -119,7 +119,7 @@ export function TabelaDoGrafico({
   linhas: string[][];
 }) {
   return (
-    <details className="group mt-3 border-t pt-1">
+    <details className="group mt-3 border-t pt-1 print:hidden">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-sm text-sm text-primary underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden">
         <ChevronRight
           aria-hidden

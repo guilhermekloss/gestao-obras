@@ -14,7 +14,7 @@ describe("categoriaDoTipo / tiposDaCategoria", () => {
       "rdo.excluir",
       "medicao.criar",
       "medicao.excluir",
-      "cronograma.medicao.editar",
+      "medicao.editar",
     ]);
     expect(tiposDaCategoria("cadastro")).toContain("obra.criar");
     expect(tiposDaCategoria("cadastro")).not.toContain("nota.criar");

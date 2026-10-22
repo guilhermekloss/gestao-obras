@@ -35,7 +35,7 @@ export const TIPOS_ATIVIDADE = {
   "rdo.excluir": { rotulo: "Excluiu um RDO", categoria: "campo" },
   "medicao.criar": { rotulo: "Lançou avanço físico", categoria: "campo" },
   "medicao.excluir": { rotulo: "Excluiu um avanço físico", categoria: "campo" },
-  "cronograma.medicao.editar": { rotulo: "Corrigiu um avanço físico", categoria: "campo" },
+  "medicao.editar": { rotulo: "Corrigiu um avanço físico", categoria: "campo" },
   "empresa.editar": { rotulo: "Alterou os dados da empresa", categoria: "cadastro" },
   "empresa.certificado": { rotulo: "Alterou o certificado digital da empresa", categoria: "acesso" },
   "empresa.captura": { rotulo: "Ligou ou desligou a captura de NF-e", categoria: "acesso" },
