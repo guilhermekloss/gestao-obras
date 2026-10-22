@@ -193,8 +193,28 @@ export const TOURS: Tour[] = [
         texto: "Selecione a obra e clique em \"Ver\". O cronograma e o avanço são de uma obra por vez.",
       },
       {
+        alvo: "#indicadores-cronograma",
+        titulo: "Previsto, realizado e IDP",
+        texto: "O resumo da obra até hoje. O IDP é o realizado dividido pelo previsto: 1,00 está no ritmo; abaixo disso, a obra anda mais devagar que o planejado.",
+      },
+      {
         titulo: "Planejamento e Avanço",
-        texto: "Em Planejamento você vê o Gantt e a Curva S. Em Avanço você informa quanto de cada etapa já foi feito.",
+        texto: "Em Planejamento você vê o Gantt e a Curva S. Em Avanço você informa quanto de cada etapa já foi feito e vê o previsto, o realizado e o desvio de cada uma.",
+      },
+      {
+        alvo: "#gantt-cronograma",
+        titulo: "Gantt",
+        texto: "Cada barra é uma etapa, na cor do status: Em dia, Atenção (5 a 10 pontos atrás do previsto) ou Atrasada. Com linha de base, a barra fina embaixo mostra as datas dela e \"Var. fim\" diz quantos dias o fim mudou.",
+      },
+      {
+        alvo: "#salvar-linha-base",
+        titulo: "Linha de base",
+        texto: "Com o planejamento fechado, salve a linha de base: ela guarda as datas de hoje para medir o quanto o cronograma mudou depois.",
+      },
+      {
+        alvo: "#exportar-cronograma",
+        titulo: "Exportar e imprimir",
+        texto: "\"Exportar CSV\" baixa o cronograma para abrir no Excel. Ao lado, \"Imprimir / salvar PDF\" imprime a tela em paisagem.",
       },
     ],
   },

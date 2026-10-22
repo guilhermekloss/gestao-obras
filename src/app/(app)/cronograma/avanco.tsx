@@ -2,15 +2,16 @@ import type { Role } from "@prisma/client";
 import type { ObraAutorizada } from "@/lib/auth";
 import { podeEditarCadastros } from "@/services/acesso";
 import { prisma } from "@/lib/prisma";
-import { formatarData, formatarPercentBp } from "@/lib/format";
+import { dataParaInput, formatarData, formatarDesvioBp, formatarPercentBp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/confirm-button";
-import { NovaMedicaoDialog } from "./medicao-dialog";
+import { EditarMedicaoDialog, NovaMedicaoDialog } from "./medicao-dialog";
 import { excluirMedicao } from "./actions";
 import { ReguaCota } from "@/components/regua-cota";
 import { SituacaoBadge } from "./situacao";
 import type { Cronograma } from "./dados";
 import { Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export async function SecaoAvanco({
   obra,
@@ -26,11 +27,16 @@ export async function SecaoAvanco({
     where: { etapa: { obraId } },
     orderBy: [{ data: "desc" }, { id: "desc" }],
     take: 30,
-    include: {
+    select: {
+      id: true,
+      data: true,
+      percentBp: true,
+      obs: true,
       etapa: { select: { nome: true } },
       autor: { select: { nome: true } },
     },
   });
+  const podeCorrigir = podeEditarCadastros(role);
 
   return (
     <div className="space-y-4">
@@ -47,13 +53,29 @@ export async function SecaoAvanco({
                 </div>
                 <NovaMedicaoDialog etapaId={e.id} etapaNome={e.nome} atualPercent={e.realizadoBp / 100} />
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <div className="flex items-center gap-3">
                   <ReguaCota percent={e.realizadoBp / 100} rotulo={`Avanço de ${e.nome}`} />
                   <span className="w-14 text-right text-lg num">
                     {formatarPercentBp(e.realizadoBp)}
                   </span>
                 </div>
+                <dl className="grid grid-cols-3 gap-2 border-t pt-2 text-xs">
+                  <div>
+                    <dt className="text-muted-foreground">Previsto hoje</dt>
+                    <dd className="num text-sm">{e.inicioPrevisto && e.fimPrevisto ? formatarPercentBp(e.previstoHojeBp) : "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Realizado</dt>
+                    <dd className="num text-sm">{formatarPercentBp(e.realizadoBp)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Desvio</dt>
+                    <dd className={cn("num text-sm", e.desvioBp < 0 && "font-semibold")}>
+                      {e.inicioPrevisto && e.fimPrevisto ? formatarDesvioBp(e.desvioBp) : "—"}
+                    </dd>
+                  </div>
+                </dl>
               </CardContent>
             </Card>
           ))}
@@ -80,16 +102,22 @@ export async function SecaoAvanco({
                       {m.obs ? ` · ${m.obs}` : ""}
                     </span>
                   </div>
-                  {podeEditarCadastros(role) && (
-                    <ConfirmButton
-                      action={excluirMedicao.bind(null, m.id)}
-                      mensagem="Excluir este lançamento de avanço?"
-                      rotulo="Excluir este lançamento de avanço"
-                      variant="ghost"
-                      size="icon"
-                    >
-                      <Trash2 className="size-4 text-muted-foreground" />
-                    </ConfirmButton>
+                  {podeCorrigir && (
+                    <div className="flex shrink-0 items-center">
+                      <EditarMedicaoDialog
+                        etapaNome={m.etapa.nome}
+                        medicao={{ id: m.id, data: dataParaInput(m.data), percentBp: m.percentBp, obs: m.obs }}
+                      />
+                      <ConfirmButton
+                        action={excluirMedicao.bind(null, m.id)}
+                        mensagem="Excluir este lançamento de avanço?"
+                        rotulo="Excluir este lançamento de avanço"
+                        variant="ghost"
+                        size="icon"
+                      >
+                        <Trash2 className="size-4 text-muted-foreground" />
+                      </ConfirmButton>
+                    </div>
                   )}
                 </li>
               ))}

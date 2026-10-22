@@ -20,7 +20,7 @@ import {
 } from "@/services/rdo";
 import { excluirRdo } from "../actions";
 import { CondicaoBadge } from "../condicao-badge";
-import { BotaoImprimir } from "./botao-imprimir";
+import { BotaoImprimir } from "@/components/botao-imprimir";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 
 // seletores amplos são seguros: esta página não usa <nav>/<header> no conteúdo.

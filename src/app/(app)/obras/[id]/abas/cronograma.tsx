@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { formatarPercentBp } from "@/lib/format";
+import { formatarDataCurta, formatarIdp, formatarPercentBp } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { carregarCronograma, paraGrafico } from "@/app/(app)/cronograma/dados";
 import { Gantt } from "@/app/(app)/cronograma/gantt";
 import { CurvaSChart } from "@/app/(app)/cronograma/curva-s-chart";
@@ -20,6 +20,11 @@ export async function AbaCronograma({ obra, role }: AbaObraProps) {
           <strong className="text-foreground">{formatarPercentBp(cronograma.previstoHojeBp)}</strong>
           {" · "}Realizado:{" "}
           <strong className="text-foreground">{formatarPercentBp(cronograma.realizadoHojeBp)}</strong>
+          {" · "}
+          <abbr title="Índice de desempenho de prazo: realizado ÷ previsto. Abaixo de 1,00, a obra anda mais devagar que o planejado.">
+            IDP
+          </abbr>
+          : <strong className="text-foreground num">{formatarIdp(cronograma.idp)}</strong>
         </span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" render={<Link href={`/cronograma?obra=${obraId}&aba=avanco`} />}>
@@ -46,6 +51,11 @@ export async function AbaCronograma({ obra, role }: AbaObraProps) {
           <Card>
             <CardHeader>
               <CardTitle>Curva S</CardTitle>
+              {cronograma.linhaBase && (
+                <CardDescription>
+                  Previsto pela linha de base de {formatarDataCurta(cronograma.linhaBase.criadaEm)}.
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               {cronograma.curva.length === 0 ? (

@@ -121,6 +121,7 @@ model Usuario {
   convitesCriados   Convite[]     @relation("ConviteCriadoPor")
   conviteAceito     Convite?      @relation("ConviteAceito")
   arquivos          Arquivo[]
+  linhasBase        LinhaBase[]
 }
 
 model UsuarioObra {
@@ -174,35 +175,68 @@ model Atividade {
 }
 
 model Obra {
-  id       String        @id @default(cuid())
-  nome     String
-  codigo   String        @unique
-  cno      String?
-  endereco String?
-  status   StatusObra    @default(ANDAMENTO)
-  inicioEm DateTime?
-  etapas   Etapa[]
-  rateios  RateioNota[]
-  diarios  DiarioObra[]
-  usuarios UsuarioObra[]
+  id         String        @id @default(cuid())
+  nome       String
+  codigo     String        @unique
+  cno        String?
+  endereco   String?
+  status     StatusObra    @default(ANDAMENTO)
+  inicioEm   DateTime?
+  etapas     Etapa[]
+  rateios    RateioNota[]
+  diarios    DiarioObra[]
+  usuarios   UsuarioObra[]
+  linhasBase LinhaBase[]
 
   /// `cno` só em dígitos (12): a nota que cita o CNO é ligada à obra por ele. Não é único: um CNO pode cobrir várias obras.
   @@index([cno])
 }
 
 model Etapa {
-  id             String       @id @default(cuid())
+  id             String           @id @default(cuid())
   obraId         String
-  obra           Obra         @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  obra           Obra             @relation(fields: [obraId], references: [id], onDelete: Cascade)
   nome           String
   ordem          Int
-  orcamentoCents Int          @default(0)
-  inicioPrevisto DateTime?    @db.Date
-  fimPrevisto    DateTime?    @db.Date
+  orcamentoCents Int              @default(0)
+  inicioPrevisto DateTime?        @db.Date
+  fimPrevisto    DateTime?        @db.Date
   medicoes       Medicao[]
   rateios        RateioNota[]
+  linhasBase     LinhaBaseEtapa[]
 
   @@index([obraId, ordem])
+}
+
+/// Foto das datas e do orçamento das etapas num momento: o cronograma mede a variação contra a oficial (uma por obra).
+model LinhaBase {
+  id       String           @id @default(cuid())
+  obraId   String
+  obra     Obra             @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  nome     String
+  oficial  Boolean          @default(false)
+  criadaEm DateTime         @default(now())
+  autorId  String?
+  autor    Usuario?         @relation(fields: [autorId], references: [id], onDelete: SetNull)
+  etapas   LinhaBaseEtapa[]
+
+  @@index([obraId, oficial])
+}
+
+/// `etapaId` vira nulo se a etapa for excluída: a etapa continua na foto, com o nome da época.
+model LinhaBaseEtapa {
+  id             String    @id @default(cuid())
+  linhaBaseId    String
+  linhaBase      LinhaBase @relation(fields: [linhaBaseId], references: [id], onDelete: Cascade)
+  etapaId        String?
+  etapa          Etapa?    @relation(fields: [etapaId], references: [id], onDelete: SetNull)
+  nome           String
+  inicio         DateTime? @db.Date
+  fim            DateTime? @db.Date
+  orcamentoCents Int
+
+  @@index([linhaBaseId])
+  @@index([etapaId])
 }
 
 model Fornecedor {

@@ -109,7 +109,7 @@ describe("tours", () => {
     "/dashboard": ["src/app/(app)/dashboard/page.tsx"],
     "/notas/nova": ["src/app/(app)/notas/nota-form.tsx", "src/app/(app)/notas/nova/page.tsx"],
     "/contas": ["src/app/(app)/contas/page.tsx", "src/app/(app)/contas/contas-client.tsx"],
-    "/cronograma": ["src/app/(app)/cronograma/page.tsx"],
+    "/cronograma": ["src/app/(app)/cronograma/page.tsx", "src/app/(app)/cronograma/linha-base-dialog.tsx"],
     "/orcamento": ["src/app/(app)/orcamento/page.tsx", "src/app/(app)/orcamento/orcamento-form.tsx"],
     "/diario/novo": ["src/app/(app)/diario/novo/rdo-form.tsx", "src/app/(app)/diario/novo/page.tsx"],
     "/empresa": [

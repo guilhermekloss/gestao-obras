@@ -21,17 +21,21 @@ export type PontoCurvaS = {
   realizadoBp: number | null;
 };
 
-export type SituacaoEtapa = "NAO_INICIADA" | "EM_DIA" | "ATRASADA" | "CONCLUIDA" | "SEM_DATAS";
+export type SituacaoEtapa = "NAO_INICIADA" | "EM_DIA" | "ATENCAO" | "ATRASADA" | "CONCLUIDA" | "SEM_DATAS";
 
 export const ROTULO_SITUACAO: Record<SituacaoEtapa, string> = {
   NAO_INICIADA: "Não iniciada",
   EM_DIA: "Em dia",
+  ATENCAO: "Atenção",
   ATRASADA: "Atrasada",
   CONCLUIDA: "Concluída",
   SEM_DATAS: "Sem datas",
 };
 
-const MARGEM_ATRASO_BP = 1000;
+/** Atraso (previsto − realizado) acima disto deixa a etapa Atrasada: 10 p.p. */
+export const MARGEM_ATRASO_BP = 1000;
+/** Atraso acima disto (e até MARGEM_ATRASO_BP) deixa a etapa em Atenção: 5 p.p. */
+export const MARGEM_ATENCAO_BP = 500;
 
 const MS_DIA = 86_400_000;
 const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
@@ -158,19 +162,27 @@ export function faixaDaCurvaS(
   return { de, ate };
 }
 
+// Com `base` (linha de base), o previsto vem dela e a faixa cobre também as datas dela;
+// o realizado continua pesado pelas etapas atuais.
 export function curvaS(
   etapas: EtapaPlano[],
   medicoes: MedicaoPonto[],
   hoje: Dia,
-  faixa: { de: Mes; ate: Mes } | null = faixaDaCurvaS(etapas, medicoes, hoje),
+  faixa?: { de: Mes; ate: Mes } | null,
+  base?: EtapaPlano[] | null,
 ): PontoCurvaS[] {
-  if (!faixa) return [];
+  const meses =
+    faixa !== undefined
+      ? faixa
+      : unirFaixas([faixaDaCurvaS(etapas, medicoes, hoje), base ? faixaDaCurvaS(base, medicoes, hoje) : null]);
+  if (!meses) return [];
+  const plano = base ?? etapas;
   const mesHoje = mesDoDia(hoje);
-  return mesesEntre(faixa.de, faixa.ate).map((mes) => {
+  return mesesEntre(meses.de, meses.ate).map((mes) => {
     const fimDoMes = ultimoDiaDoMes(mes);
     return {
       mes,
-      previstoBp: previstoNaData(etapas, fimDoMes),
+      previstoBp: previstoNaData(plano, fimDoMes),
       realizadoBp:
         mes > mesHoje ? null : realizadoNaData(etapas, medicoes, mes === mesHoje ? hoje : fimDoMes),
     };
@@ -208,18 +220,42 @@ export function unirFaixas(faixas: ({ de: Mes; ate: Mes } | null)[]): { de: Mes;
 }
 
 // ATRASADA: fim previsto passou sem 100%, ou o previsto até hoje supera o realizado em mais que margemBp (10 p.p.).
+// ATENCAO: atraso acima de margemAtencaoBp (5 p.p.) e até margemBp. Exatamente 5 p.p. ainda é Em dia; 10 p.p., Atenção.
 export function situacaoEtapa(
   etapa: Pick<EtapaPlano, "inicioPrevisto" | "fimPrevisto">,
   realizadoBp: number,
   hoje: Dia,
   margemBp = MARGEM_ATRASO_BP,
+  margemAtencaoBp = MARGEM_ATENCAO_BP,
 ): SituacaoEtapa {
   if (realizadoBp >= BP_TOTAL) return "CONCLUIDA";
   if (!temDatas(etapa)) return "SEM_DATAS";
   if (hoje > etapa.fimPrevisto) return "ATRASADA";
-  if (previstoEtapaNaData(etapa, hoje) - realizadoBp > margemBp) return "ATRASADA";
+  const atraso = previstoEtapaNaData(etapa, hoje) - realizadoBp;
+  if (atraso > margemBp) return "ATRASADA";
+  if (atraso > margemAtencaoBp) return "ATENCAO";
   if (realizadoBp === 0) return "NAO_INICIADA";
   return "EM_DIA";
+}
+
+/** Desvio do realizado em relação ao previsto, em pontos-base: negativo = atrás do previsto. */
+export function desvioBp(previstoBp: number, realizadoBp: number): number {
+  return realizadoBp - previstoBp;
+}
+
+/**
+ * Índice de desempenho de prazo (IDP): realizado ÷ previsto, em base 10000 (10000 = 1,00).
+ * Abaixo de 10000 a obra anda mais devagar que o planejado. `null` quando nada estava previsto ainda.
+ */
+export function idp(realizadoBp: number, previstoBp: number): number | null {
+  if (previstoBp <= 0) return null;
+  return Math.round((realizadoBp / previstoBp) * BP_TOTAL);
+}
+
+/** Dias entre a data da linha de base e a atual: positivo = atrasou (foi para depois), negativo = adiantou. */
+export function variacaoDias(atual: Dia | null, base: Dia | null): number | null {
+  if (!atual || !base) return null;
+  return numeroDoDia(atual) - numeroDoDia(base);
 }
 
 export type EscalaGantt = {
@@ -232,11 +268,13 @@ export type EscalaGantt = {
 
 const MESES_EXTENSAO_HOJE = 12;
 
+// `base`: datas da linha de base, para a barra dela caber no eixo.
 export function escalaGantt(
   etapas: Pick<EtapaPlano, "inicioPrevisto" | "fimPrevisto">[],
   hoje: Dia,
+  base: Pick<EtapaPlano, "inicioPrevisto" | "fimPrevisto">[] = [],
 ): EscalaGantt | null {
-  const comDatas = etapas.filter(temDatas);
+  const comDatas = [...etapas, ...base].filter(temDatas);
   if (comDatas.length === 0) return null;
 
   const mesIni = mesDoDia(comDatas.map((e) => e.inicioPrevisto).reduce((a, b) => (a < b ? a : b)));
