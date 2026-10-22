@@ -28,8 +28,8 @@ de uso. **Não é** um chat sobre os números das obras.
   notas, parcelas ou valores.
 - **Telas sugeridas** na resposta são filtradas pelo menu do papel — o CAMPO nunca recebe link para
   `/contas`, `/notas` etc.
-- **Limite por usuário**, em memória (reinicia com o processo; suficiente para frear abuso, não é cota
-  contábil).
+- **Limite por usuário**: 20 perguntas em 10 minutos, guardado no banco (`consumirLimite("assistente")`), então vale
+  com várias instâncias. Passou do limite, fica 10 minutos sem perguntar; o admin pode liberar em **Usuários → Bloqueios**.
 - **Log sem o texto da pergunta** — registra só que houve uso, o papel e o resultado.
 
 ### Texto por papel

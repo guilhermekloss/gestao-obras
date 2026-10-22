@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { usuarioAtual } from "@/lib/auth";
 import { eventoSeguranca } from "@/lib/log-seguranca";
+import { bloqueioAtivo, registrarInfracao } from "@/lib/protecao";
+import { REGRAS } from "@/services/protecao-ativa";
 import { MAX_BYTES_ARQUIVO } from "@/services/arquivos";
 import { guardarArquivo } from "@/services/arquivos-db";
 
@@ -11,6 +13,11 @@ export async function POST(req: Request) {
   const usuario = await usuarioAtual();
   if (!usuario) {
     return NextResponse.json({ erro: "Não autenticado" }, { status: 401 });
+  }
+  const bloqueio = await bloqueioAtivo(["upload"], [usuario.id]);
+  if (bloqueio) {
+    const segundos = Math.ceil((bloqueio.ate.getTime() - Date.now()) / 1000);
+    return NextResponse.json({ erro: REGRAS.upload.mensagem }, { status: 429, headers: { "Retry-After": String(segundos) } });
   }
 
   // recusa antes de ler o corpo, senão um envio enorme iria todo para a memória
@@ -34,6 +41,7 @@ export async function POST(req: Request) {
   const guardado = await guardarArquivo(Buffer.from(await file.arrayBuffer()), usuario.id);
   if (!guardado.ok) {
     eventoSeguranca("upload_recusado", { usuarioId: usuario.id, tamanho: file.size, tipoDeclarado: file.type.slice(0, 80) });
+    await registrarInfracao("upload", usuario.id);
     return NextResponse.json({ erro: "Formato não suportado — envie JPG, PNG, WEBP ou PDF" }, { status: 415 });
   }
 

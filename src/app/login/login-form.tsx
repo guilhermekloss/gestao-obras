@@ -47,7 +47,7 @@ export function LoginForm({ action, aviso }: { action: (formData: FormData) => P
     >
       {aviso === "bloqueado" && (
         <AvisoDeAcesso tom="atencao" alerta titulo="Muitas tentativas sem sucesso.">
-          Por segurança, aguarde 15 minutos e tente de novo.
+          Por segurança, aguarde alguns minutos e tente de novo. Se precisar entrar já, peça ao administrador para liberar o acesso.
         </AvisoDeAcesso>
       )}
       {aviso === "invalido" && (

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/token";
-import { usuarioAtual } from "@/lib/auth";
+import { ipDaRequisicao, usuarioAtual } from "@/lib/auth";
+import { eventoSeguranca } from "@/lib/log-seguranca";
+import { bloqueioAtivo, ipVigiado, registrarInfracao } from "@/lib/protecao";
+import { REGRAS } from "@/services/protecao-ativa";
 import { descreverAcessoObras, ROLE_DESCRICOES, ROLE_LABELS } from "@/services/acesso";
 import { statusConvite, tokenComFormatoValido } from "@/services/convite";
 import { formatarData } from "@/lib/format";
@@ -23,8 +26,28 @@ const MOTIVO: Record<string, string> = {
   REVOGADO: "Este convite foi cancelado.",
 };
 
+function ConviteIndisponivel({ titulo }: { titulo: string }) {
+  return (
+    <FolhaDeAcesso>
+      <TituloCota>Convite indisponível</TituloCota>
+      <div className="mt-6 grid gap-5 rounded-lg border border-foreground/60 bg-card p-5 sm:p-6">
+        <AvisoDeAcesso tom="atencao" titulo={titulo}>
+          Peça um novo link a quem convidou você.
+        </AvisoDeAcesso>
+        <Button variant="outline" size="lg" className="h-12 w-full text-base" render={<Link href="/login" />}>
+          Entrar com minha conta
+        </Button>
+      </div>
+    </FolhaDeAcesso>
+  );
+}
+
 export default async function ConvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  // varredura de tokens: link inexistente conta por IP; bloqueado não consulta nem o convite certo
+  const ip = ipVigiado(await ipDaRequisicao());
+  if (ip && (await bloqueioAtivo(["convite"], [ip]))) return <ConviteIndisponivel titulo={REGRAS.convite.mensagem} />;
+
   const convite = tokenComFormatoValido(token)
     ? await prisma.convite.findUnique({
         where: { tokenHash: hashToken(token) },
@@ -33,20 +56,12 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
     : null;
   const status = convite ? statusConvite(convite) : null;
 
+  if (!convite) {
+    eventoSeguranca("convite_invalido", { ip });
+    if (ip) await registrarInfracao("convite", ip);
+  }
   if (!convite || status !== "PENDENTE") {
-    return (
-      <FolhaDeAcesso>
-        <TituloCota>Convite indisponível</TituloCota>
-        <div className="mt-6 grid gap-5 rounded-lg border border-foreground/60 bg-card p-5 sm:p-6">
-          <AvisoDeAcesso tom="atencao" titulo={status ? MOTIVO[status] : "Link de convite inválido."}>
-            Peça um novo link a quem convidou você.
-          </AvisoDeAcesso>
-          <Button variant="outline" size="lg" className="h-12 w-full text-base" render={<Link href="/login" />}>
-            Entrar com minha conta
-          </Button>
-        </div>
-      </FolhaDeAcesso>
-    );
+    return <ConviteIndisponivel titulo={status ? MOTIVO[status] : "Link de convite inválido."} />;
   }
 
   const [obras, logado] = await Promise.all([

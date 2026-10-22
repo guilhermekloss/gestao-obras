@@ -4,27 +4,103 @@ export const MAX_FALHAS_EMAIL = 5;
 export const MAX_FALHAS_IP = 30;
 export const RETENCAO_TENTATIVAS_DIAS = 90;
 
+// Banimento cresce a cada reincidência em 24 h (bantime.increment do Fail2ban). O e-mail cresce pouco:
+// quem erra a senha do e-mail é muitas vezes o atacante tentando trancar a conta da vítima, não a vítima.
+export const DURACOES_BLOQUEIO_MS: Record<MotivoBloqueio, readonly number[]> = {
+  email: [15, 30, 60].map((m) => m * 60_000),
+  ip: [15, 60, 6 * 60, 24 * 60].map((m) => m * 60_000),
+};
+export const JANELA_REINCIDENCIA_MS = 24 * 60 * 60 * 1000;
+
 type Tentativa = { sucesso: boolean; criadoEm: Date };
 
-type SituacaoLogin = { bloqueado: false } | { bloqueado: true; liberaEm: Date; motivo: "email" | "ip" };
+export type MotivoBloqueio = "email" | "ip";
 
-// Bloqueia também e-mail inexistente (não revela quais contas existem); login certo zera as falhas do e-mail.
-export function situacaoLogin(doEmail: Tentativa[], falhasDoIp: Date[], agora: Date = new Date()): SituacaoLogin {
+export const REGRA_LOGIN: Record<MotivoBloqueio, string> = { email: "login-email", ip: "login-ip" };
+
+// Falhas que bastam para bloquear agora. Bloqueia também e-mail inexistente (não revela quais contas existem);
+// login certo zera as falhas do e-mail. `desde`: último bloqueio de cada chave — falhas que já renderam
+// um bloqueio (ou que o admin liberou) não contam de novo.
+export function limiteAtingido(
+  doEmail: Tentativa[],
+  falhasDoIp: Date[],
+  agora: Date = new Date(),
+  desde: { email?: Date | null; ip?: Date | null } = {},
+): MotivoBloqueio | null {
   const inicio = agora.getTime() - JANELA_MS;
-  const recentes = doEmail.filter((t) => t.criadoEm.getTime() > inicio).sort((a, b) => a.criadoEm.getTime() - b.criadoEm.getTime());
-  const ultimoSucesso = recentes.findLast((t) => t.sucesso);
-  const falhas = recentes.filter((t) => !t.sucesso && (!ultimoSucesso || t.criadoEm > ultimoSucesso.criadoEm));
-  if (falhas.length >= MAX_FALHAS_EMAIL) {
-    const liberaEm = new Date(falhas[falhas.length - MAX_FALHAS_EMAIL].criadoEm.getTime() + JANELA_MS);
-    return { bloqueado: true, liberaEm, motivo: "email" };
-  }
+  const corteEmail = Math.max(inicio, desde.email?.getTime() ?? -Infinity);
+  const recentes = doEmail.filter((t) => t.criadoEm.getTime() > corteEmail);
+  const ultimoSucesso = Math.max(-Infinity, ...recentes.filter((t) => t.sucesso).map((t) => t.criadoEm.getTime()));
+  if (recentes.filter((t) => !t.sucesso && t.criadoEm.getTime() > ultimoSucesso).length >= MAX_FALHAS_EMAIL) return "email";
 
-  const falhasIp = falhasDoIp.filter((d) => d.getTime() > inicio).sort((a, b) => a.getTime() - b.getTime());
-  if (falhasIp.length >= MAX_FALHAS_IP) {
-    const liberaEm = new Date(falhasIp[falhasIp.length - MAX_FALHAS_IP].getTime() + JANELA_MS);
-    return { bloqueado: true, liberaEm, motivo: "ip" };
+  const corteIp = Math.max(inicio, desde.ip?.getTime() ?? -Infinity);
+  if (falhasDoIp.filter((d) => d.getTime() > corteIp).length >= MAX_FALHAS_IP) return "ip";
+  return null;
+}
+
+export type SituacaoBloqueio = "ativo" | "expirado" | "liberado";
+
+export function situacaoDoBloqueio(b: { ate: Date; liberadoEm: Date | null }, agora: Date = new Date()): SituacaoBloqueio {
+  if (b.liberadoEm) return "liberado";
+  return b.ate > agora ? "ativo" : "expirado";
+}
+
+// `anteriores` = bloqueios da mesma chave nas últimas 24 h que não foram liberados pelo admin.
+export function duracaoDoBloqueio(motivo: MotivoBloqueio, anteriores: number): number {
+  const duracoes = DURACOES_BLOQUEIO_MS[motivo];
+  return duracoes[Math.min(Math.max(0, anteriores), duracoes.length - 1)];
+}
+
+type Faixa = { v6: boolean; rede: bigint; prefixo: number };
+
+function ipParaNumero(ip: string): { v6: boolean; n: bigint } | null {
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+    const partes = ip.split(".").map(Number);
+    if (partes.some((p) => p > 255)) return null;
+    return { v6: false, n: partes.reduce((acc, p) => (acc << BigInt(8)) | BigInt(p), BigInt(0)) };
   }
-  return { bloqueado: false };
+  if (!ip.includes(":") || !/^[0-9a-f:.]+$/i.test(ip)) return null;
+  // IPv4 no fim (::ffff:1.2.3.4) vira dois grupos hexadecimais
+  const v4 = ip.match(/(\d{1,3}(\.\d{1,3}){3})$/);
+  let texto = ip;
+  if (v4) {
+    const n = ipParaNumero(v4[1]);
+    if (!n) return null;
+    texto = ip.slice(0, -v4[1].length) + `${(n.n >> BigInt(16)).toString(16)}:${(n.n & BigInt(0xffff)).toString(16)}`;
+  }
+  const lados = texto.split("::");
+  if (lados.length > 2) return null;
+  const grupos = (lado: string) => (lado ? lado.split(":") : []);
+  const esquerda = grupos(lados[0]);
+  const direita = lados.length === 2 ? grupos(lados[1]) : [];
+  const faltam = 8 - esquerda.length - direita.length;
+  if (lados.length === 2 ? faltam < 1 : faltam !== 0) return null;
+  const todos = [...esquerda, ...Array<string>(lados.length === 2 ? faltam : 0).fill("0"), ...direita];
+  if (todos.some((g) => !/^[0-9a-f]{1,4}$/i.test(g))) return null;
+  return { v6: true, n: todos.reduce((acc, g) => (acc << BigInt(16)) | BigInt(parseInt(g, 16)), BigInt(0)) };
+}
+
+// IPS_CONFIAVEIS (ignoreip do Fail2ban): "200.1.2.3, 200.1.2.0/24, 2804:14c::/32". Entrada inválida é ignorada.
+export function faixasDeIp(texto: string): Faixa[] {
+  return texto
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .flatMap((item) => {
+      const [endereco, prefixoTexto, ...resto] = item.split("/");
+      const ip = ipParaNumero(endereco);
+      const bits = ip?.v6 ? 128 : 32;
+      const prefixo = prefixoTexto === undefined ? bits : /^\d{1,3}$/.test(prefixoTexto) ? Number(prefixoTexto) : NaN;
+      if (!ip || resto.length > 0 || !(prefixo >= 0 && prefixo <= bits)) return [];
+      return [{ v6: ip.v6, rede: ip.n >> BigInt(bits - prefixo), prefixo }];
+    });
+}
+
+// IP confiável não é bloqueado por IP; o limite por e-mail continua valendo para ele.
+export function ipConfiavel(ip: string | null, faixas: Faixa[]): boolean {
+  const n = ip ? ipParaNumero(ip) : null;
+  if (!n) return false;
+  const bits = n.v6 ? 128 : 32;
+  return faixas.some((f) => f.v6 === n.v6 && n.n >> BigInt(bits - f.prefixo) === f.rede);
 }
 
 // O Google acrescenta o IP real ao fim do X-Forwarded-For; o que vem antes pode ser forjado.

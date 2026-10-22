@@ -42,6 +42,7 @@ test.afterAll(async () => {
   await prisma.atividade.deleteMany({ where: { usuarioId: { in: ids } } });
   await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
   await prisma.tentativaLogin.deleteMany({ where: { email: { contains: sufixo } } });
+  await prisma.bloqueio.deleteMany({ where: { chave: { contains: sufixo } } });
   await prisma.$disconnect();
 });
 

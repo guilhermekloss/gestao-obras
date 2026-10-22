@@ -22,9 +22,11 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: vi.fn() }));
 const exigirPapel = vi.fn();
 vi.mock("@/lib/auth", () => ({ exigirPapel: (...a: unknown[]) => exigirPapel(...a) }));
+const consumirLimite = vi.fn();
+vi.mock("@/lib/protecao", () => ({ consumirLimite: (...a: unknown[]) => consumirLimite(...a) }));
 
 const { ApiError } = await import("@google/genai");
-const { criarLimitador, filtrarTelas, historicoParaGemini, montarInstrucoes, perguntar } = await import("../ia");
+const { filtrarTelas, historicoParaGemini, montarInstrucoes, perguntar } = await import("../ia");
 const { perguntarAssistente } = await import("../../../app/(app)/assistente/actions");
 
 const base = { paraQueServe: "", passoAPasso: [], regras: [] };
@@ -195,35 +197,6 @@ describe("perguntar", () => {
   });
 });
 
-describe("criarLimitador", () => {
-  it("bloqueia ao passar do máximo e libera com janela deslizante", () => {
-    let t = 0;
-    const verificar = criarLimitador(3, 1000, () => t);
-    verificar("a");
-    t = 400;
-    verificar("a");
-    t = 800;
-    verificar("a");
-    t = 900;
-    expect(() => verificar("a")).toThrow("Você fez muitas perguntas seguidas. Aguarde alguns minutos.");
-    t = 1001; // a primeira saiu da janela
-    expect(() => verificar("a")).not.toThrow();
-    expect(() => verificar("a")).toThrow("muitas perguntas");
-  });
-
-  it("conta cada usuário separadamente", () => {
-    const verificar = criarLimitador(1, 1000, () => 0);
-    verificar("a");
-    expect(() => verificar("b")).not.toThrow();
-    expect(() => verificar("a")).toThrow();
-  });
-
-  it("o erro é Error simples", () => {
-    const verificar = criarLimitador(0, 1000, () => 0);
-    expect(() => verificar("a")).toThrowError(expect.objectContaining({ constructor: Error }));
-  });
-});
-
 describe("perguntarAssistente", () => {
   it("não registra o texto da pergunta e devolve a resposta", async () => {
     exigirPapel.mockResolvedValue({ id: "u-log", role: "ESCRITORIO" });
@@ -264,11 +237,17 @@ describe("perguntarAssistente", () => {
     expect((await perguntarAssistente("   ", [], "/")).erro).toBe("Digite sua pergunta.");
   });
 
-  it("aplica o limite por usuário", async () => {
+  it("aplica o limite por usuário antes de chamar a IA", async () => {
     exigirPapel.mockResolvedValue({ id: "u-limite", role: "ADMIN" });
     vi.spyOn(console, "info").mockImplementation(() => {});
     generateContent.mockResolvedValue(resposta({ resposta: "Ok", telas: [] }));
-    for (let i = 0; i < 20; i++) expect((await perguntarAssistente("oi", [], "/")).ok).toBe(true);
+    consumirLimite.mockResolvedValueOnce(undefined);
+    expect((await perguntarAssistente("oi", [], "/")).ok).toBe(true);
+    expect(consumirLimite).toHaveBeenLastCalledWith("assistente", "u-limite");
+
+    generateContent.mockClear();
+    consumirLimite.mockRejectedValueOnce(new Error("Você fez muitas perguntas seguidas. Aguarde alguns minutos."));
     expect((await perguntarAssistente("oi", [], "/")).erro).toContain("muitas perguntas seguidas");
+    expect(generateContent).not.toHaveBeenCalled();
   });
 });

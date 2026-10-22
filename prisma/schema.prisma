@@ -122,6 +122,7 @@ model Usuario {
   conviteAceito     Convite?      @relation("ConviteAceito")
   arquivos          Arquivo[]
   linhasBase        LinhaBase[]
+  bloqueiosLiberados Bloqueio[]  @relation("BloqueioLiberadoPor")
 }
 
 model UsuarioObra {
@@ -424,6 +425,41 @@ model TentativaLogin {
   @@index([email, criadoEm])
   @@index([ip, criadoEm])
   @@index([criadoEm])
+}
+
+/// Ocorrência que conta para uma regra de bloqueio (o "log" que a jail lê): falha (link inválido, arquivo falso)
+/// ou uso com limite (IA, OCR). Guardada por poucos dias: só as janelas de contagem precisam dela.
+model Infracao {
+  id       String   @id @default(cuid())
+  /// regra de services/protecao-ativa.ts
+  regra    String
+  /// IP ou id do usuário, conforme a regra
+  chave    String
+  criadoEm DateTime @default(now())
+
+  @@index([regra, chave, criadoEm])
+  @@index([criadoEm])
+}
+
+/// Bloqueio aplicado por excesso de falhas (a "jail" do Fail2ban). Fica no banco para valer em todas as instâncias,
+/// para o bloqueio crescer na reincidência e para o admin ver e liberar antes do prazo.
+model Bloqueio {
+  id            String    @id @default(cuid())
+  /// "login-email", "login-ip" ou uma regra de services/protecao-ativa.ts
+  regra         String
+  /// e-mail normalizado, IP ou id do usuário, conforme a regra
+  chave         String
+  ate           DateTime
+  motivo        String
+  liberadoEm    DateTime?
+  liberadoPorId String?
+  liberadoPor   Usuario?  @relation("BloqueioLiberadoPor", fields: [liberadoPorId], references: [id], onDelete: SetNull)
+  criadoEm      DateTime  @default(now())
+
+  @@index([chave, criadoEm])
+  @@index([ate])
+  @@index([criadoEm])
+  @@index([liberadoPorId])
 }
 
 /// Posição na fila de distribuição da Sefaz (NFeDistribuicaoDFe), uma por CNPJ consultado.

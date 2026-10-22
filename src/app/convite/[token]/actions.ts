@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { signIn } from "@/lib/auth";
+import { ipDaRequisicao, signIn } from "@/lib/auth";
+import { eventoSeguranca } from "@/lib/log-seguranca";
+import { bloqueioAtivo, ipVigiado, registrarInfracao } from "@/lib/protecao";
+import { REGRAS } from "@/services/protecao-ativa";
 import { registrarAtividade } from "@/lib/atividade";
 import { hashToken } from "@/lib/token";
 import { CUSTO_BCRYPT } from "@/services/senha";
@@ -25,10 +28,17 @@ export async function aceitarConvite(
   formData: FormData,
 ): Promise<EstadoCadastro> {
   const digitado = { nome: String(formData.get("nome") ?? ""), email: String(formData.get("email") ?? "") };
-  if (!tokenComFormatoValido(token)) return { erro: "Link de convite inválido." };
+  const ip = ipVigiado(await ipDaRequisicao());
+  if (ip && (await bloqueioAtivo(["convite"], [ip]))) return { erro: REGRAS.convite.mensagem };
 
-  const convite = await prisma.convite.findUnique({ where: { tokenHash: hashToken(token) } });
-  if (!convite) return { erro: "Link de convite inválido." };
+  const convite = tokenComFormatoValido(token)
+    ? await prisma.convite.findUnique({ where: { tokenHash: hashToken(token) } })
+    : null;
+  if (!convite) {
+    eventoSeguranca("convite_invalido", { ip });
+    if (ip) await registrarInfracao("convite", ip);
+    return { erro: "Link de convite inválido." };
+  }
 
   const parsed = cadastroConviteSchema.safeParse({
     nome: formData.get("nome"),

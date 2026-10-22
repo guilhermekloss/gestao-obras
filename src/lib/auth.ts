@@ -8,11 +8,15 @@ import type { Obra, Role } from "@prisma/client";
 import { podeVerObra, restricaoDeObras, ultimoAcessoDesatualizado, type RestricaoObras } from "@/services/acesso";
 import {
   JANELA_MS,
-  RETENCAO_TENTATIVAS_DIAS,
+  MAX_FALHAS_EMAIL,
+  MAX_FALHAS_IP,
+  REGRA_LOGIN,
   chaveEmail,
+  duracaoDoBloqueio,
   ipDoCliente,
-  situacaoLogin,
+  limiteAtingido,
 } from "@/services/protecao-login";
+import { bloqueioAtivo, bloqueiosRecentes, ipVigiado, limparRegistrosDeProtecao, ultimoBloqueio } from "@/lib/protecao";
 import { CUSTO_BCRYPT } from "@/services/senha";
 import { registrarAtividade } from "@/lib/atividade";
 import { eventoSeguranca } from "@/lib/log-seguranca";
@@ -47,21 +51,51 @@ export async function ipDaRequisicao(): Promise<string | null> {
   return ipDoCliente((await headers()).get("x-forwarded-for"), SALTOS_PROXY);
 }
 
-export async function situacaoDoLogin(email: string, ip: string | null) {
-  const desde = new Date(Date.now() - JANELA_MS);
-  const [doEmail, doIp] = await Promise.all([
-    prisma.tentativaLogin.findMany({
-      where: { email, criadoEm: { gt: desde } },
-      select: { sucesso: true, criadoEm: true },
-    }),
-    ip
-      ? prisma.tentativaLogin.findMany({
-          where: { ip, sucesso: false, criadoEm: { gt: desde } },
-          select: { criadoEm: true },
-        })
+const REGRAS_DE_LOGIN = Object.values(REGRA_LOGIN);
+
+// O limite por e-mail vale sempre; o por IP, só para IP fora de IPS_CONFIAVEIS.
+export async function bloqueioDoLogin(email: string, ip: string | null) {
+  return bloqueioAtivo(REGRAS_DE_LOGIN, [email, ...(ipVigiado(ip) ? [ip!] : [])]);
+}
+
+// Grava a falha e, se ela fecha o limite, cria o bloqueio — mais longo para quem reincide em 24 h.
+export async function registrarFalhaLogin(email: string, ip: string | null) {
+  await prisma.tentativaLogin.create({ data: { email, ip, sucesso: false } });
+
+  const agora = new Date();
+  const ipDaRegra = ipVigiado(ip);
+  const desde = new Date(agora.getTime() - JANELA_MS);
+  const [doEmail, doIp, bloqueioEmail, bloqueioIp] = await Promise.all([
+    prisma.tentativaLogin.findMany({ where: { email, criadoEm: { gt: desde } }, select: { sucesso: true, criadoEm: true } }),
+    ipDaRegra
+      ? prisma.tentativaLogin.findMany({ where: { ip: ipDaRegra, sucesso: false, criadoEm: { gt: desde } }, select: { criadoEm: true } })
       : [],
+    ultimoBloqueio(REGRA_LOGIN.email, email),
+    ipDaRegra ? ultimoBloqueio(REGRA_LOGIN.ip, ipDaRegra) : null,
   ]);
-  return situacaoLogin(doEmail, doIp.map((t) => t.criadoEm));
+  const motivo = limiteAtingido(
+    doEmail,
+    doIp.map((t) => t.criadoEm),
+    agora,
+    { email: bloqueioEmail?.criadoEm, ip: bloqueioIp?.criadoEm },
+  );
+  if (!motivo) return;
+
+  const chave = motivo === "email" ? email : ipDaRegra!;
+  const anteriores = await bloqueiosRecentes(REGRA_LOGIN[motivo], chave, agora);
+  const ate = new Date(agora.getTime() + duracaoDoBloqueio(motivo, anteriores));
+  await prisma.bloqueio.create({
+    data: {
+      regra: REGRA_LOGIN[motivo],
+      chave,
+      ate,
+      motivo:
+        motivo === "email"
+          ? `${MAX_FALHAS_EMAIL} senhas erradas seguidas em 15 min`
+          : `${MAX_FALHAS_IP} falhas de login do mesmo IP em 15 min`,
+    },
+  });
+  eventoSeguranca("bloqueio_aplicado", { regra: REGRA_LOGIN[motivo], email, ip, ate: ate.toISOString(), reincidencia: anteriores });
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -78,9 +112,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !senha || senha.length > 1024) return null;
         const ip = ipDoCliente(request?.headers?.get("x-forwarded-for") ?? null, SALTOS_PROXY);
 
-        const situacao = await situacaoDoLogin(email, ip);
-        if (situacao.bloqueado) {
-          eventoSeguranca("login_bloqueado", { email, ip, motivo: situacao.motivo, liberaEm: situacao.liberaEm.toISOString() });
+        const bloqueio = await bloqueioDoLogin(email, ip);
+        if (bloqueio) {
+          eventoSeguranca("login_bloqueado", { email, ip, regra: bloqueio.regra, liberaEm: bloqueio.ate.toISOString() });
           throw new LoginBloqueado();
         }
 
@@ -91,20 +125,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const senhaCerta = await compare(senha, usuario?.senhaHash ?? HASH_FALSO);
         const ok = !!usuario && usuario.ativo && senhaCerta;
 
-        await prisma.tentativaLogin.create({ data: { email, ip, sucesso: ok } });
         if (!ok) {
+          await registrarFalhaLogin(email, ip);
           eventoSeguranca("login_falhou", { email, ip, contaExiste: !!usuario, contaAtiva: usuario?.ativo ?? false });
           return null;
         }
+        await prisma.tentativaLogin.create({ data: { email, ip, sucesso: true } });
 
         const senhaHash = getRounds(usuario.senhaHash) < CUSTO_BCRYPT ? await hash(senha, CUSTO_BCRYPT) : undefined;
         await prisma.usuario.update({
           where: { id: usuario.id },
           data: { ultimoAcessoEm: new Date(), ...(senhaHash ? { senhaHash } : {}) },
         });
-        await prisma.tentativaLogin
-          .deleteMany({ where: { criadoEm: { lt: new Date(Date.now() - RETENCAO_TENTATIVAS_DIAS * 86_400_000) } } })
-          .catch((erro) => console.error("Falha ao limpar tentativas de login", erro));
+        await limparRegistrosDeProtecao().catch((erro) => console.error("Falha ao limpar tentativas de login", erro));
         await registrarAtividade(usuario.id, "conta.login", { entidade: "usuario", entidadeId: usuario.id });
 
         return {

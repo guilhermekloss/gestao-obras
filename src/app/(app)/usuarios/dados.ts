@@ -9,6 +9,8 @@ import {
   type CategoriaAtividade,
 } from "@/services/atividade";
 import { statusConvite } from "@/services/convite";
+import { REGRA_LOGIN, situacaoDoBloqueio } from "@/services/protecao-login";
+import { REGRAS, regraAtiva } from "@/services/protecao-ativa";
 
 // eventos de conta aparecem no histórico, mas não contam como produção
 const SEM_EVENTOS_DE_CONTA = { NOT: { tipo: { startsWith: "conta." } } } satisfies Prisma.AtividadeWhereInput;
@@ -97,6 +99,47 @@ export async function carregarConvites(agora: Date = new Date()) {
     usuario: c.usuario,
     status: statusConvite(c, agora),
   }));
+}
+
+// Ativos primeiro; o histórico mostra os últimos 7 dias para ver se é ataque ou alguém esquecendo a senha.
+export async function carregarBloqueios(agora: Date = new Date()) {
+  const bloqueios = await prisma.bloqueio.findMany({
+    where: { OR: [{ ate: { gt: agora }, liberadoEm: null }, { criadoEm: { gte: subDays(agora, 7) } }] },
+    orderBy: { criadoEm: "desc" },
+    take: 100,
+    include: { liberadoPor: { select: { id: true, nome: true } } },
+  });
+  // a chave é o e-mail (login) ou o id (regras por usuário); IP fica sem pessoa
+  const porUsuario = (b: (typeof bloqueios)[number]) =>
+    b.regra === REGRA_LOGIN.email ? "email" : regraAtiva(b.regra) && REGRAS[b.regra].chave === "usuario" ? "id" : null;
+  const emails = bloqueios.filter((b) => porUsuario(b) === "email").map((b) => b.chave);
+  const ids = bloqueios.filter((b) => porUsuario(b) === "id").map((b) => b.chave);
+  const usuarios =
+    emails.length || ids.length
+      ? await prisma.usuario.findMany({
+          where: {
+            OR: [{ id: { in: ids } }, ...emails.map((email) => ({ email: { equals: email, mode: "insensitive" as const } }))],
+          },
+          select: { id: true, nome: true, email: true },
+        })
+      : [];
+  const porEmail = new Map(usuarios.map((u) => [u.email.toLowerCase(), u]));
+  const porId = new Map(usuarios.map((u) => [u.id, u]));
+  return bloqueios
+    .map((b) => {
+      const tipo = porUsuario(b);
+      return {
+        ...b,
+        situacao: situacaoDoBloqueio(b, agora),
+        tipoChave: tipo === "email" ? ("email" as const) : tipo === "id" ? ("usuario" as const) : ("ip" as const),
+        usuario: tipo === "email" ? (porEmail.get(b.chave) ?? null) : tipo === "id" ? (porId.get(b.chave) ?? null) : null,
+      };
+    })
+    .sort((a, b) => Number(b.situacao === "ativo") - Number(a.situacao === "ativo"));
+}
+
+export async function contarBloqueiosAtivos(agora: Date = new Date()) {
+  return prisma.bloqueio.count({ where: { ate: { gt: agora }, liberadoEm: null } });
 }
 
 type FiltroAtividades = {

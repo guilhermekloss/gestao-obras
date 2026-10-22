@@ -6,7 +6,7 @@ Mapa de como a plataforma se protege, do usuário à nuvem: o que existe, onde f
 
 | Camada | Proteções | Onde |
 |---|---|---|
-| Usuários e contas | Senha forte (mín. 10, lista de senhas comuns, sem e-mail/nome), bcrypt custo 12, bloqueio após 5 erros, sessão de 8 h ociosa / 7 dias no máximo, revogação de sessão, página Minha conta com histórico de acessos | `services/senha.ts`, `services/protecao-login.ts`, `lib/auth.ts`, `/conta` |
+| Usuários e contas | Senha forte (mín. 10, lista de senhas comuns, sem e-mail/nome), bcrypt custo 12, bloqueio após 5 erros (mais longo na reincidência, liberável pelo admin), sessão de 8 h ociosa / 7 dias no máximo, revogação de sessão, página Minha conta com histórico de acessos | `services/senha.ts`, `services/protecao-login.ts`, `lib/auth.ts`, `/conta` |
 | Autorização | Papel conferido no servidor em toda action e página; acesso por obra (CAMPO); dados lidos do banco a cada requisição | `lib/auth.ts`, `lib/acao.ts`, `services/acesso.ts` |
 | Aplicação web | CSP com nonce, HSTS, anti-clickjacking, COOP/CORP, validação de entrada com limites, erros internos não vão para a tela, redirecionamento só interno | `proxy.ts`, `lib/csp.ts`, `next.config.ts`, `schemas/` |
 | Arquivos | Tipo conferido pelo conteúdo (não pelo nome), limite de 8 MB antes de ler o corpo, bucket privado, download com checagem de papel e obra | `api/upload`, `api/fotos`, `services/arquivos.ts` |
@@ -19,7 +19,11 @@ Mapa de como a plataforma se protege, do usuário à nuvem: o que existe, onde f
 
 - **Senhas** (`services/senha.ts`): mínimo de 10 caracteres e máximo de 72 bytes (o bcrypt ignora o resto). Bloqueia as senhas mais comuns e senhas que repetem o e-mail ou o nome; não exige símbolos (NIST 800-63B). Vale para senhas novas — as atuais continuam até a próxima troca.
 - **Hash**: bcrypt custo 12. Hashes antigos (custo 10) são refeitos no próximo login.
-- **Força bruta** (`services/protecao-login.ts`): 5 senhas erradas seguidas em 15 minutos bloqueiam o e-mail; 30 falhas em 15 minutos bloqueiam o IP. Vale para e-mails que não existem também, e o login compara a senha mesmo sem conta: nem a mensagem nem o tempo de resposta revelam quais e-mails estão cadastrados. Senha atual errada na troca de senha conta no mesmo limite. O bloqueio fica no banco (`TentativaLogin`), então vale com várias instâncias do Cloud Run.
+- **Força bruta** (`services/protecao-login.ts`, `lib/auth.ts`; modelo em [`protecao-ativa.md`](protecao-ativa.md)): 5 senhas erradas seguidas em 15 minutos bloqueiam o e-mail; 30 falhas em 15 minutos bloqueiam o IP. Vale para e-mails que não existem também, e o login compara a senha mesmo sem conta: nem a mensagem nem o tempo de resposta revelam quais e-mails estão cadastrados. Senha atual errada na troca de senha conta no mesmo limite. O bloqueio fica no banco (`Bloqueio`, alimentado por `TentativaLogin`), então vale com várias instâncias do Cloud Run.
+- **Reincidência**: o primeiro bloqueio dura 15 minutos; quem volta a ser bloqueado em 24 h fica mais tempo — o IP 15 min → 1 h → 6 h → 24 h; o e-mail só até 1 h, porque quem tranca o e-mail costuma ser o atacante, não o dono da conta.
+- **IPs confiáveis** (`IPS_CONFIAVEIS`, variável `ips_confiaveis` do Terraform): IPs ou faixas CIDR que nunca são bloqueados por IP, como o do escritório. O limite por e-mail continua valendo para eles.
+- **Outras regras** (`services/protecao-ativa.ts`, `lib/protecao.ts`): 10 links de convite inexistentes em 15 min bloqueiam o IP; 10 arquivos de formato falso em 10 min bloqueiam o envio da pessoa; 5 chamadas sem autorização ao gatilho da Sefaz em 1 h bloqueiam o IP; o assistente (20 perguntas) e a leitura automática de notas (30 leituras) têm limite por pessoa em 10 min. Os prazos também crescem na reincidência, menos os limites de uso.
+- **Liberação**: em **Usuários → Bloqueios** o admin vê os bloqueios ativos e os dos últimos 7 dias (quem, motivo, até quando) e usa **Liberar agora**. As falhas anteriores deixam de contar; a liberação fica no log de atividade e gera o evento `bloqueio_liberado`.
 - **Sessão** (`lib/auth.config.ts`): cookie `HttpOnly`/`Secure`/`SameSite=Lax` com JWT cifrado. Expira após 8 horas sem uso e no máximo 7 dias após o login.
 - **Revogação**: cada usuário tem `sessaoVersao`. Trocar a senha (pelo próprio usuário ou pelo admin), desativar a conta ou usar **Encerrar sessões** incrementa a versão e derruba todas as sessões abertas na próxima requisição.
 - **Minha conta** (`/conta`): troca de senha (exige a atual), **Sair de todos os aparelhos** e os últimos acessos com IP e resultado — o usuário vê se alguém tentou entrar na conta dele.
@@ -69,14 +73,14 @@ Mapa de como a plataforma se protege, do usuário à nuvem: o que existe, onde f
 **Sinais disponíveis**
 
 - Log de atividade do app (tela Usuários): quem fez o quê, inclusive logins, trocas de senha e encerramento de sessões.
-- Eventos de segurança no Cloud Logging (`jsonPayload.categoria="seguranca"`): `login_falhou`, `login_bloqueado`, `sessao_revogada`, `senha_alterada`, `acesso_negado_arquivo`, `upload_recusado`.
+- Eventos de segurança no Cloud Logging (`jsonPayload.categoria="seguranca"`): `login_falhou`, `login_bloqueado`, `bloqueio_aplicado`, `bloqueio_liberado`, `convite_invalido`, `sessao_revogada`, `senha_alterada`, `acesso_negado_arquivo`, `upload_recusado`.
 - Alertas por e-mail (com `email_alertas`): mais de 30 falhas de login em 10 min, mais de 3 bloqueios em 10 min, mais de 10 acessos negados a arquivos em 10 min, qualquer mudança de IAM ou chave de service account — além de erros 5xx e, com `verificacao_disponibilidade = true`, app fora do ar.
 - Banco: conexões/desconexões e queries lentas no log; leitura de segredos no log de auditoria.
 
 **Roteiro de incidente**
 
 1. *Conta suspeita* (acesso não reconhecido, senha vazada): Usuários → pessoa → **Encerrar sessões** e redefinir a senha (ou desativar). Confira o log de atividade da pessoa e os acessos em Logging (`jsonPayload.email`).
-2. *Ataque ao login* (alerta de força bruta): veja os IPs em Logging. O bloqueio por e-mail/IP já contém o ataque; se persistir, coloque o Load Balancer + Cloud Armor (abaixo) e bloqueie a origem.
+2. *Ataque ao login* (alerta de força bruta): veja os IPs em Logging ou em **Usuários → Bloqueios**. O bloqueio por e-mail/IP já contém o ataque e cresce na reincidência; se alguém legítimo ficou preso, use **Liberar agora**; se persistir, coloque o Load Balancer + Cloud Armor (abaixo) e bloqueie a origem.
 3. *Segredo exposto*: no Cloud Shell, em `infra/terraform` (depois de um `./infra/bootstrap.sh SEU_PROJECT_ID`, que faz o `init`), rode `terraform apply -replace=random_password.auth_secret` para o `AUTH_SECRET` ou `-replace=random_password.db` para a senha do banco — o Terraform gera o valor novo e grava a versão nova no Secret Manager. O Cloud Run lê a versão `latest` ao subir uma revisão: force uma nova com `gcloud run services update gestao-obras --region southamerica-east1 --update-labels=rotacao=$(date +%s)`. Trocar o `AUTH_SECRET` derruba todas as sessões.
 4. *Mudança de IAM inesperada*: Logging → `logName:"cloudaudit.googleapis.com%2Factivity"`; reverta rodando o `bootstrap.sh` (o Terraform restaura as permissões descritas no código).
 5. *Dados apagados/corrompidos*: restaure o banco num clone (PITR) e as versões antigas do bucket (90 dias) — ver [`deploy-gcp.md`](deploy-gcp.md#backups-e-restauração).

@@ -11,6 +11,7 @@ import { gerarToken, hashToken } from "@/lib/token";
 import { ROLE_LABELS } from "@/services/acesso";
 import { CUSTO_BCRYPT, problemaSenha } from "@/services/senha";
 import { eventoSeguranca } from "@/lib/log-seguranca";
+import { REGRAS, ROTULO_REGRA, regraAtiva } from "@/services/protecao-ativa";
 import {
   VALIDADE_PADRAO_DIAS,
   calcularExpiracao,
@@ -191,6 +192,29 @@ export const encerrarSessoesUsuario = acaoDeEscrita(
     });
     eventoSeguranca("sessao_revogada", { usuarioId: id, porAdmin: atual.id });
     anotarAtividade({ descricao: `Encerrou as sessões de ${usuario.nome} em todos os aparelhos`, entidade: "usuario", entidadeId: id });
+    return { ok: true };
+  },
+);
+
+// Libera antes do prazo; as falhas que levaram ao bloqueio deixam de contar (o corte é o próprio bloqueio).
+export const liberarBloqueio = acaoDeEscrita(
+  { papeis: ["ADMIN"], revalidar: ["/usuarios"], atividade: "acesso.liberar_bloqueio" },
+  async (atual, id: string): Promise<ActionResult> => {
+    const { count } = await prisma.bloqueio.updateMany({
+      where: { id, liberadoEm: null, ate: { gt: new Date() } },
+      data: { liberadoEm: new Date(), liberadoPorId: atual.id },
+    });
+    if (count === 0) return { ok: false, erro: "Este bloqueio já terminou ou foi liberado." };
+    const bloqueio = await prisma.bloqueio.findUniqueOrThrow({ where: { id }, select: { regra: true, chave: true } });
+    eventoSeguranca("bloqueio_liberado", { regra: bloqueio.regra, chave: bloqueio.chave, porAdmin: atual.id });
+    const porUsuario = regraAtiva(bloqueio.regra) && REGRAS[bloqueio.regra].chave === "usuario";
+    const pessoa = porUsuario ? await prisma.usuario.findUnique({ where: { id: bloqueio.chave }, select: { nome: true } }) : null;
+    const quem = pessoa?.nome ?? bloqueio.chave;
+    anotarAtividade({
+      descricao: `Liberou o bloqueio de ${quem} (${ROTULO_REGRA[bloqueio.regra] ?? bloqueio.regra})`,
+      entidade: "bloqueio",
+      entidadeId: id,
+    });
     return { ok: true };
   },
 );
