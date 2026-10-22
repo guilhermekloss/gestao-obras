@@ -13,6 +13,11 @@ import { CapturaAutomatica } from "@/components/captura-automatica";
 import { carregarEmpresa } from "@/services/empresa";
 import { analiseIaDisponivel } from "@/services/gemini";
 import { LogOut, UserRound } from "lucide-react";
+import { AvisoDeBloqueio } from "@/components/aviso-de-bloqueio";
+import { bloqueioNaoAvisado } from "@/lib/protecao";
+import { marcarAvisoDeBloqueioVisto } from "./conta/actions";
+
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 export default async function AppLayout({
   children,
@@ -26,6 +31,7 @@ export default async function AppLayout({
   const tema = lerTema((await cookies()).get(COOKIE_TEMA)?.value);
   // captura de NF-e ligada na tela Empresa: quem usa o sistema mantém a busca andando (sem agendador na GCP)
   const capturaAtiva = user.role !== "CAMPO" && Boolean((await carregarEmpresa())?.capturaAtiva);
+  const bloqueio = await bloqueioNaoAvisado(user.email, user.avisoDeBloqueioDesde);
 
   async function sair() {
     "use server";
@@ -58,6 +64,7 @@ export default async function AppLayout({
             </form>
           </div>
         </header>
+        {bloqueio && <AvisoDeBloqueio quando={dataHora.format(bloqueio.criadoEm)} marcarVisto={marcarAvisoDeBloqueioVisto} />}
         {capturaAtiva && <CapturaAutomatica />}
         <main id="conteudo" tabIndex={-1} className="flex-1 p-4 pb-28 outline-none md:p-6 md:pb-6">
           {children}

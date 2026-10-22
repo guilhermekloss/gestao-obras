@@ -17,6 +17,8 @@ type Tentativa = { sucesso: boolean; criadoEm: Date };
 export type MotivoBloqueio = "email" | "ip";
 
 export const REGRA_LOGIN: Record<MotivoBloqueio, string> = { email: "login-email", ip: "login-ip" };
+// Aparelho conhecido (cookie assinado): no lugar do limite do e-mail, para quem entra do aparelho de sempre.
+export const REGRA_LOGIN_DISPOSITIVO = "login-dispositivo";
 
 // Falhas que bastam para bloquear agora. Bloqueia também e-mail inexistente (não revela quais contas existem);
 // login certo zera as falhas do e-mail. `desde`: último bloqueio de cada chave — falhas que já renderam

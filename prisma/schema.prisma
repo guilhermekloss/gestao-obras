@@ -114,6 +114,8 @@ model Usuario {
   sessaoVersao      Int           @default(0)
   /// Quando a pessoa passou pelo assistente de navegação (pop-up de boas-vindas); nulo = ainda vai ver.
   assistenteVistoEm DateTime?
+  /// Até quando a pessoa já viu o aviso de "sua conta foi bloqueada por tentativas"; nulo = desde a criação da conta.
+  bloqueioAvisadoEm DateTime?
   obras             UsuarioObra[]
   diarios           DiarioObra[]
   medicoes          Medicao[]
@@ -416,14 +418,17 @@ model Arquivo {
 
 /// Base do bloqueio por excesso de tentativas; linhas antigas são apagadas.
 model TentativaLogin {
-  id       String   @id @default(cuid())
-  email    String
-  ip       String?
-  sucesso  Boolean
-  criadoEm DateTime @default(now())
+  id          String   @id @default(cuid())
+  email       String
+  ip          String?
+  /// id do cookie de aparelho conhecido (services/dispositivo.ts); nulo = aparelho desconhecido
+  dispositivo String?
+  sucesso     Boolean
+  criadoEm    DateTime @default(now())
 
   @@index([email, criadoEm])
   @@index([ip, criadoEm])
+  @@index([dispositivo, criadoEm])
   @@index([criadoEm])
 }
 
