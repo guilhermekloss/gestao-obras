@@ -8,6 +8,7 @@ import {
   faixasDeIp,
   ipConfiavel,
   ipDoCliente,
+  ipValido,
   limiteAtingido,
   situacaoDoBloqueio,
 } from "../protecao-login";
@@ -139,5 +140,12 @@ describe("situacaoDoBloqueio", () => {
     expect(situacaoDoBloqueio({ ate: minAtras(-5), liberadoEm: minAtras(1) }, agora)).toBe("liberado");
     expect(situacaoDoBloqueio({ ate: minAtras(-5), liberadoEm: null }, agora)).toBe("ativo");
     expect(situacaoDoBloqueio({ ate: agora, liberadoEm: null }, agora)).toBe("expirado");
+  });
+});
+
+describe("ipValido", () => {
+  it("aceita IPv4 e IPv6 e recusa faixa, nome e lixo", () => {
+    expect(["203.0.113.7", "2804:14c::1", "::1"].every(ipValido)).toBe(true);
+    expect(["203.0.113.0/24", "exemplo.com", "1.2.3", "256.1.1.1", ""].some(ipValido)).toBe(false);
   });
 });

@@ -80,6 +80,10 @@ function ipParaNumero(ip: string): { v6: boolean; n: bigint } | null {
   return { v6: true, n: todos.reduce((acc, g) => (acc << BigInt(16)) | BigInt(parseInt(g, 16)), BigInt(0)) };
 }
 
+export function ipValido(ip: string): boolean {
+  return ipParaNumero(ip) !== null;
+}
+
 // IPS_CONFIAVEIS (ignoreip do Fail2ban): "200.1.2.3, 200.1.2.0/24, 2804:14c::/32". Entrada inválida é ignorada.
 export function faixasDeIp(texto: string): Faixa[] {
   return texto

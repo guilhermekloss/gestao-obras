@@ -5,7 +5,11 @@ import { prisma } from "../src/lib/prisma";
 
 const sufixo = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 // IP de documentação (RFC 5737) único por execução, para a regra do convite
-const IP_TESTE = `198.51.100.${Math.floor(Math.random() * 254) + 1}`;
+const octeto = () => Math.floor(Math.random() * 254) + 1;
+const IP_TESTE = `198.51.100.${octeto()}`;
+const IP_ROBO = `203.0.113.${octeto()}`;
+const IP_MANUAL = `192.0.2.${octeto()}`;
+const IPS = [IP_TESTE, IP_ROBO, IP_MANUAL];
 const SENHA = "senha-de-teste-e2e";
 
 const PNG = Buffer.from(
@@ -40,8 +44,8 @@ test.afterAll(async () => {
   await prisma.arquivo.deleteMany({ where: { enviadoPorId: { in: ids } } });
   await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
   await prisma.tentativaLogin.deleteMany({ where: { email: emails } });
-  await prisma.bloqueio.deleteMany({ where: { OR: [{ chave: emails }, { chave: { in: [...ids, IP_TESTE] } }] } });
-  await prisma.infracao.deleteMany({ where: { chave: { in: [...ids, IP_TESTE] } } });
+  await prisma.bloqueio.deleteMany({ where: { OR: [{ chave: emails }, { chave: { in: [...ids, ...IPS] } }] } });
+  await prisma.infracao.deleteMany({ where: { chave: { in: [...ids, ...IPS] } } });
 });
 
 test("páginas saem com CSP de nonce e cabeçalhos de segurança", async ({ page }) => {
@@ -116,6 +120,48 @@ test("arquivos falsos seguidos bloqueiam o envio do usuário", async ({ browser 
   });
   expect(depois.status()).toBe(429);
   expect(Number(depois.headers()["retry-after"])).toBeGreaterThan(0);
+});
+
+test("robô que procura /.env sai do site inteiro", async ({ browser }) => {
+  const contexto = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": IP_ROBO } });
+  const robo = contexto.request;
+  for (const caminho of ["/.env", "/wp-login.php", "/.git/config"]) expect((await robo.get(caminho)).status()).toBe(404);
+  const depois = await robo.get("/login");
+  expect(depois.status()).toBe(403);
+  expect(await depois.text()).toContain("Acesso bloqueado temporariamente");
+  // o login direto do Auth.js também fica fechado
+  expect((await robo.get("/api/auth/csrf")).status()).toBe(403);
+  expect(await prisma.bloqueio.count({ where: { regra: "varredura", chave: IP_ROBO } })).toBe(1);
+});
+
+test("admin bloqueia um IP à mão e ele deixa de abrir o sistema", async ({ browser }) => {
+  const admin = await novaPagina(browser);
+  await entrar(admin, await criarUsuario("ADMIN"));
+  await admin.waitForURL("**/dashboard");
+  await admin.goto("/usuarios?aba=bloqueios");
+  await admin.getByRole("button", { name: "Bloquear IP" }).first().click();
+  const dialogo = admin.getByRole("dialog", { name: "Bloquear um IP" });
+  await dialogo.getByLabel("Endereço IP").fill("não é ip");
+  await dialogo.getByRole("button", { name: "Bloquear" }).click();
+  await expect(admin.getByText(/Informe um IPv4/)).toBeVisible();
+  await dialogo.getByLabel("Endereço IP").fill(IP_MANUAL);
+  await dialogo.getByRole("button", { name: "Bloquear" }).click();
+  await expect(admin.getByRole("row").filter({ hasText: IP_MANUAL }).getByText("Bloqueio manual")).toBeVisible();
+
+  const contexto = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": IP_MANUAL } });
+  expect((await contexto.request.get("/login")).status()).toBe(403);
+});
+
+test("quem tenta abrir muitos arquivos sem permissão perde a sessão e o acesso a arquivos", async ({ browser }) => {
+  const page = await novaPagina(browser);
+  await entrar(page, await criarUsuario("CAMPO"));
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  for (let i = 0; i < 20; i++) {
+    expect((await page.request.get(`/api/fotos/1700000000000-${String(i).padStart(12, "0")}.png`)).status()).toBe(404);
+  }
+  expect((await page.request.get("/api/fotos/1700000000000-000000000099.png")).status()).toBe(401);
+  await page.goto("/diario");
+  await expect(page).toHaveURL(/\/login/);
 });
 
 test("upload valida o conteúdo e CAMPO não abre anexo de lançamento", async ({ browser }) => {

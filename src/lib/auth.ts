@@ -13,10 +13,17 @@ import {
   REGRA_LOGIN,
   chaveEmail,
   duracaoDoBloqueio,
-  ipDoCliente,
   limiteAtingido,
 } from "@/services/protecao-login";
-import { bloqueioAtivo, bloqueiosRecentes, ipVigiado, limparRegistrosDeProtecao, ultimoBloqueio } from "@/lib/protecao";
+import {
+  aplicarBloqueio,
+  bloqueioAtivo,
+  bloqueiosRecentes,
+  ipDosCabecalhos,
+  ipVigiado,
+  limparRegistrosDeProtecao,
+  ultimoBloqueio,
+} from "@/lib/protecao";
 import { CUSTO_BCRYPT } from "@/services/senha";
 import { registrarAtividade } from "@/lib/atividade";
 import { eventoSeguranca } from "@/lib/log-seguranca";
@@ -45,10 +52,8 @@ export class LoginBloqueado extends CredentialsSignin {
   code = "bloqueado";
 }
 
-const SALTOS_PROXY = Number(process.env.PROXY_SALTOS ?? 1) || 1;
-
 export async function ipDaRequisicao(): Promise<string | null> {
-  return ipDoCliente((await headers()).get("x-forwarded-for"), SALTOS_PROXY);
+  return ipDosCabecalhos(await headers());
 }
 
 const REGRAS_DE_LOGIN = Object.values(REGRA_LOGIN);
@@ -84,18 +89,11 @@ export async function registrarFalhaLogin(email: string, ip: string | null) {
   const chave = motivo === "email" ? email : ipDaRegra!;
   const anteriores = await bloqueiosRecentes(REGRA_LOGIN[motivo], chave, agora);
   const ate = new Date(agora.getTime() + duracaoDoBloqueio(motivo, anteriores));
-  await prisma.bloqueio.create({
-    data: {
-      regra: REGRA_LOGIN[motivo],
-      chave,
-      ate,
-      motivo:
-        motivo === "email"
-          ? `${MAX_FALHAS_EMAIL} senhas erradas seguidas em 15 min`
-          : `${MAX_FALHAS_IP} falhas de login do mesmo IP em 15 min`,
-    },
-  });
-  eventoSeguranca("bloqueio_aplicado", { regra: REGRA_LOGIN[motivo], email, ip, ate: ate.toISOString(), reincidencia: anteriores });
+  const descricao =
+    motivo === "email"
+      ? `${MAX_FALHAS_EMAIL} senhas erradas seguidas em 15 min`
+      : `${MAX_FALHAS_IP} falhas de login do mesmo IP em 15 min`;
+  await aplicarBloqueio(REGRA_LOGIN[motivo], chave, ate, descricao, { email, ip, reincidencia: anteriores });
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -110,7 +108,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = typeof credentials?.email === "string" ? chaveEmail(credentials.email) : "";
         const senha = typeof credentials?.senha === "string" ? credentials.senha : "";
         if (!email || !senha || senha.length > 1024) return null;
-        const ip = ipDoCliente(request?.headers?.get("x-forwarded-for") ?? null, SALTOS_PROXY);
+        const ip = request?.headers ? ipDosCabecalhos(request.headers) : null;
 
         const bloqueio = await bloqueioDoLogin(email, ip);
         if (bloqueio) {

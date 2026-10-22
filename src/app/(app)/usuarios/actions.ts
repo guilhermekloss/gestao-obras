@@ -11,7 +11,10 @@ import { gerarToken, hashToken } from "@/lib/token";
 import { ROLE_LABELS } from "@/services/acesso";
 import { CUSTO_BCRYPT, problemaSenha } from "@/services/senha";
 import { eventoSeguranca } from "@/lib/log-seguranca";
-import { REGRAS, ROTULO_REGRA, regraAtiva } from "@/services/protecao-ativa";
+import { DURACOES_MANUAIS_MS, REGRAS, ROTULO_REGRA, regraAtiva } from "@/services/protecao-ativa";
+import { ipValido } from "@/services/protecao-login";
+import { ipDaRequisicao } from "@/lib/auth";
+import { esquecerIpDoCache, ipVigiado } from "@/lib/protecao";
 import {
   VALIDADE_PADRAO_DIAS,
   calcularExpiracao,
@@ -206,6 +209,7 @@ export const liberarBloqueio = acaoDeEscrita(
     });
     if (count === 0) return { ok: false, erro: "Este bloqueio já terminou ou foi liberado." };
     const bloqueio = await prisma.bloqueio.findUniqueOrThrow({ where: { id }, select: { regra: true, chave: true } });
+    esquecerIpDoCache(bloqueio.chave);
     eventoSeguranca("bloqueio_liberado", { regra: bloqueio.regra, chave: bloqueio.chave, porAdmin: atual.id });
     const porUsuario = regraAtiva(bloqueio.regra) && REGRAS[bloqueio.regra].chave === "usuario";
     const pessoa = porUsuario ? await prisma.usuario.findUnique({ where: { id: bloqueio.chave }, select: { nome: true } }) : null;
@@ -215,6 +219,29 @@ export const liberarBloqueio = acaoDeEscrita(
       entidade: "bloqueio",
       entidadeId: id,
     });
+    return { ok: true };
+  },
+);
+
+// fail2ban-client banip: tira o IP do site inteiro (proxy.ts) pelo prazo escolhido.
+export const bloquearIp = acaoDeEscrita(
+  { papeis: ["ADMIN"], revalidar: ["/usuarios"], atividade: "acesso.bloquear_ip" },
+  async (atual, formData: FormData): Promise<ActionResult> => {
+    const ip = String(formData.get("ip") ?? "").trim().toLowerCase();
+    const duracao = String(formData.get("duracao") ?? "");
+    if (!ipValido(ip)) return { ok: false, erro: "Informe um IPv4 (203.0.113.7) ou IPv6 válido, sem faixa." };
+    if (!Object.hasOwn(DURACOES_MANUAIS_MS, duracao)) return { ok: false, erro: "Escolha por quanto tempo bloquear." };
+    if (ip === (await ipDaRequisicao())) return { ok: false, erro: "Este é o IP de onde você está acessando agora." };
+    if (!ipVigiado(ip)) return { ok: false, erro: "Este IP está na lista de IPs confiáveis e não pode ser bloqueado." };
+
+    const ate = new Date(Date.now() + DURACOES_MANUAIS_MS[duracao as keyof typeof DURACOES_MANUAIS_MS]);
+    const bloqueio = await prisma.bloqueio.create({
+      data: { regra: "manual", chave: ip, ate, motivo: REGRAS.manual.motivo },
+      select: { id: true },
+    });
+    esquecerIpDoCache(ip);
+    eventoSeguranca("bloqueio_aplicado", { regra: "manual", chave: ip, ate: ate.toISOString(), porAdmin: atual.id });
+    anotarAtividade({ descricao: `Bloqueou o IP ${ip} por ${duracao}`, entidade: "bloqueio", entidadeId: bloqueio.id });
     return { ok: true };
   },
 );
