@@ -94,12 +94,12 @@ export const TOURS: Tour[] = [
       {
         alvo: "#pede-acao",
         titulo: "Pede ação hoje",
-        texto: "O que vence em 7 dias e as notas com divergência. Comece por aqui.",
+        texto: "O que vence em 7 dias, as notas com divergência e os alertas: orçamento, etapas atrasadas e tendência de custo. Comece por aqui.",
       },
       {
         alvo: "#panorama",
         titulo: "Como estão as obras",
-        texto: "O gasto do mês, as obras ativas e o avanço de cada obra.",
+        texto: "O gasto do mês, as obras ativas e o avanço de cada obra: realizado, previsto até hoje, IDP e situação.",
       },
       {
         alvo: "#graficos",

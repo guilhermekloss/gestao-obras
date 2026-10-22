@@ -8,14 +8,18 @@ export function ReguaCota({
   percent,
   cor = "bg-primary",
   rotulo,
+  marca,
   className,
 }: {
   percent: number;
   cor?: string;
   rotulo: string;
+  /** Marca de referência (ex.: previsto até hoje), em %: traço vertical tracejado acima da linha. */
+  marca?: number;
   className?: string;
 }) {
   const pct = Math.max(0, Math.min(100, percent));
+  const ref = marca === undefined ? null : Math.max(0, Math.min(100, marca));
   return (
     <div
       role="progressbar"
@@ -32,6 +36,13 @@ export function ReguaCota({
         className={cn("absolute top-1/2 left-0 h-1.5 -translate-y-1/2", cor)}
         style={{ width: `${pct}%` }}
       />
+      {ref !== null && (
+        <span
+          aria-hidden
+          className="absolute -top-1 bottom-1/2 w-0 -translate-x-1/2 border-l-2 border-dashed border-muted-foreground"
+          style={{ left: `${ref}%` }}
+        />
+      )}
       <span
         className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-foreground"
         style={{ left: `${pct}%` }}

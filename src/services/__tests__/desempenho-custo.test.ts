@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   desembolsoMensal,
   desempenhoCusto,
+  etapasDoDesembolso,
   idc,
   realizadoMensalDaObra,
   tendencia,
@@ -48,8 +49,9 @@ describe("tendencia", () => {
     expect(tendencia(100_000, 10_000, 3_000)).toBe(33_333);
   });
 
-  it("com físico e nada gasto, a projeção é zero (segue a fórmula)", () => {
-    expect(tendencia(100_000, 0, 5_000)).toBe(0);
+  it("com físico e nada gasto, vale o orçado (não projeta custo zero)", () => {
+    expect(tendencia(100_000, 0, 5_000)).toBe(100_000);
+    expect(tendencia(0, 0, 5_000)).toBe(0);
   });
 });
 
@@ -71,6 +73,11 @@ describe("desempenhoCusto", () => {
     expect(d.idcBp).toBe(12_500);
     expect(d.tendenciaCents).toBe(80_000);
     expect(d.variacaoCents).toBe(20_000);
+  });
+
+  it("físico sem realizado: tendência é o orçado, variação zero e IDC null", () => {
+    const d = desempenhoCusto({ orcamentoCents: 45_000, realizadoCents: 0, fisicoBp: 4_000 });
+    expect(d).toMatchObject({ valorAgregadoCents: 18_000, idcBp: null, tendenciaCents: 45_000, variacaoCents: 0 });
   });
 
   it("sem físico nem realizado: tendência é o orçado, variação zero, IDC null", () => {
@@ -185,5 +192,31 @@ describe("realizadoMensalDaObra", () => {
     ]);
     expect([...realizadoMensalDaObra(porMes, "o1")]).toEqual([["2026-01", 100]]);
     expect([...realizadoMensalDaObra(porMes, "o3")]).toEqual([]);
+  });
+});
+
+describe("etapasDoDesembolso", () => {
+  const atuais = [{ orcamentoCents: 100, inicio: "2026-03-01", fim: "2026-03-31" }];
+
+  it("sem linha de base usa o plano atual", () => {
+    expect(etapasDoDesembolso(atuais, null)).toEqual({ etapas: atuais, origem: "plano-atual" });
+  });
+
+  it("com linha de base usa o orçado e as datas da foto, inclusive etapa excluída depois", () => {
+    const r = etapasDoDesembolso(atuais, {
+      etapas: [
+        { orcamentoCents: 80, inicio: "2026-01-01", fim: "2026-01-31" },
+        { orcamentoCents: 20, inicio: null, fim: null },
+      ],
+    });
+    expect(r.origem).toBe("linha-base");
+    expect(r.etapas).toEqual([
+      { orcamentoCents: 80, inicio: "2026-01-01", fim: "2026-01-31" },
+      { orcamentoCents: 20, inicio: null, fim: null },
+    ]);
+    // e o desembolso sai das datas da base
+    const { pontos, semDatasCents } = desembolsoMensal(r.etapas, new Map(), "2026-02-10");
+    expect(pontos.map((p) => [p.mes, p.previstoCents])).toEqual([["2026-01", 80]]);
+    expect(semDatasCents).toBe(20);
   });
 });

@@ -1,9 +1,10 @@
 import { startOfDay } from "date-fns";
 import type { Prisma, TipoDocumento, TipoItem } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
+import { dataParaInput, formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { BP_TOTAL, custoRateado } from "./rateio";
-import { avancoPorEtapa, notasParaAnalise, realizadoPorEtapaTodas, realizadoPorObra } from "./custos";
+import { avancoPorEtapa, medicoesTodas, notasParaAnalise, realizadoPorEtapaTodas, realizadoPorObra } from "./custos";
+import { diaDoBanco, realizadoPorEtapaNaData, situacaoEtapa, type Dia, type MedicaoPonto } from "./cronograma";
 import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
 import { carregarAlertasDaCaptura } from "./sefaz/painel";
@@ -244,7 +245,44 @@ export type ObraParaAlerta = {
   tendenciaCents: number;
   /** Avanço físico ponderado da obra, em base 10000. */
   fisicoBp: number;
+  /** Etapas em situação ATRASADA no cronograma (plano atual, medições até hoje). */
+  etapasAtrasadas?: number;
 };
+
+// Uma por obra, a com mais etapas atrasadas primeiro. Mesma regra da tela do Cronograma (`situacaoEtapa`).
+export function alertasAtraso(obras: ObraParaAlerta[]): Alerta[] {
+  return obras
+    .filter((o) => (o.etapasAtrasadas ?? 0) > 0)
+    .sort((a, b) => (b.etapasAtrasadas ?? 0) - (a.etapasAtrasadas ?? 0))
+    .map((o) => {
+      const n = o.etapasAtrasadas ?? 0;
+      return {
+        id: `atraso:${o.obraId}`,
+        tipo: "ETAPA_ATRASADA" as const,
+        severidade: "ATENCAO" as const,
+        mensagem: `${o.obraNome}: ${n} ${n === 1 ? "etapa atrasada" : "etapas atrasadas"} no cronograma`,
+        link: `/cronograma?obra=${o.obraId}`,
+        obraId: o.obraId,
+      };
+    });
+}
+
+type EtapaComDatas = { id: string; obraId: string; inicioPrevisto: Dia | null; fimPrevisto: Dia | null };
+
+// Realizado de cada etapa = última medição até hoje (medição datada no futuro ainda não conta), como no Cronograma.
+export function contarEtapasAtrasadas(
+  etapas: EtapaComDatas[],
+  medicoes: MedicaoPonto[],
+  hoje: Dia,
+): Map<string, number> {
+  const realizado = realizadoPorEtapaNaData(medicoes, hoje);
+  const contagem = new Map<string, number>();
+  for (const e of etapas) {
+    if (situacaoEtapa(e, realizado.get(e.id) ?? 0, hoje) !== "ATRASADA") continue;
+    contagem.set(e.obraId, (contagem.get(e.obraId) ?? 0) + 1);
+  }
+  return contagem;
+}
 
 export const TENDENCIA_LIMITE_BP = 500; // 5% acima do orçado
 export const TENDENCIA_FISICO_MINIMO_BP = 1_000; // abaixo de 10% de físico a projeção é ruído
@@ -392,6 +430,7 @@ export function montarAlertas(entrada: {
   return ordenarAlertas([
     ...alertasOrcamento(entrada.etapas),
     ...alertasTendencia(entrada.obras ?? []),
+    ...alertasAtraso(entrada.obras ?? []),
     ...alertasParcelasVencidas(entrada.parcelas, entrada.hoje),
     ...alertasDivergencia(entrada.notas),
   ]);
@@ -459,6 +498,7 @@ export function resumirObrasParaAlerta(
   realizadoPorEtapa: Map<string, number>,
   realizadoPorObra: Map<string, number>,
   avancos: Map<string, number>,
+  atrasadas: Map<string, number> = new Map(),
 ): ObraParaAlerta[] {
   const porObra = new Map<string, EtapaComObra[]>();
   for (const e of etapas) {
@@ -487,6 +527,7 @@ export function resumirObrasParaAlerta(
       orcamentoCents: total.orcamentoCents,
       tendenciaCents: total.tendenciaCents,
       fisicoBp: total.fisicoBp,
+      etapasAtrasadas: atrasadas.get(o.id) ?? 0,
     };
   });
 }
@@ -501,15 +542,24 @@ export async function carregarAlertas(
   opcoes: { paraAdmin?: boolean; obraId?: string } = {},
 ): Promise<Alerta[]> {
   const { obraId } = opcoes;
-  const [etapas, realizadoEtapa, realizadoObra, avancos, parcelas, notas, captura] = await Promise.all([
+  const [etapas, realizadoEtapa, realizadoObra, avancos, medicoes, parcelas, notas, captura] = await Promise.all([
     prisma.etapa.findMany({
       where: obraId ? { obraId } : {},
       orderBy: [{ obra: { codigo: "asc" } }, { ordem: "asc" }],
-      select: { id: true, nome: true, orcamentoCents: true, obra: { select: { id: true, nome: true } } },
+      select: {
+        id: true,
+        nome: true,
+        orcamentoCents: true,
+        inicioPrevisto: true,
+        fimPrevisto: true,
+        obra: { select: { id: true, nome: true } },
+      },
     }),
     realizadoPorEtapaTodas(),
     realizadoPorObra(),
     avancoPorEtapa(),
+    // a mesma leitura de avancoPorEtapa() (cache por requisição): não é consulta a mais
+    medicoesTodas(),
     prisma.parcela.findMany({
       where: {
         status: "ABERTA",
@@ -544,6 +594,17 @@ export async function carregarAlertas(
       realizadoEtapa,
       realizadoObra,
       avancos,
+      contarEtapasAtrasadas(
+        etapas.map((e) => ({
+          id: e.id,
+          obraId: e.obra.id,
+          inicioPrevisto: e.inicioPrevisto ? diaDoBanco(e.inicioPrevisto) : null,
+          fimPrevisto: e.fimPrevisto ? diaDoBanco(e.fimPrevisto) : null,
+        })),
+        // medição gravada ao meio-dia local: o dia sai pelo fuso local, como no Cronograma
+        medicoes.map((m) => ({ etapaId: m.etapaId, data: dataParaInput(m.data), percentBp: m.percentBp })),
+        dataParaInput(hoje),
+      ),
     ),
     parcelas: parcelas.map((p) => ({
       notaId: p.nota.id,

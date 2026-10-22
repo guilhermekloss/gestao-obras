@@ -10,10 +10,12 @@ import { diaDoBanco } from "@/services/cronograma";
 import {
   desembolsoMensal,
   desempenhoCusto,
+  etapasDoDesembolso,
   totalDesempenho,
   type Desembolso,
 } from "@/services/desempenho-custo";
-import { dataParaInput, formatarMoeda, rotuloChaveMes } from "@/lib/format";
+import { dataParaInput, formatarData, formatarMoeda, rotuloChaveMes } from "@/lib/format";
+import { carregarLinhaBaseOficial } from "@/services/linha-base-db";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { LabelAjuda } from "@/components/campo-ajuda";
@@ -51,9 +53,10 @@ export default async function OrcamentoPage({
   let linhas: LinhaOrcamento[] = [];
   let total: TotalOrcamento = { ...comFaixa(0, 0, 0), desempenho: totalDesempenho([]) };
   let desembolso: Desembolso = { pontos: [], semDatasCents: 0 };
+  let origemPrevisto: OrigemPrevisto = null;
   if (obraId) {
     exigirAcessoObra(usuario, obraId);
-    const [etapas, realizado, avancos, porMes] = await Promise.all([
+    const [etapas, realizado, avancos, porMes, linhaBase] = await Promise.all([
       prisma.etapa.findMany({
         where: { obraId },
         orderBy: { ordem: "asc" },
@@ -62,6 +65,8 @@ export default async function OrcamentoPage({
       realizadoPorEtapa(obraId),
       avancoPorEtapa(obraId),
       realizadoPorMesDaObra(obraId),
+      // acesso à obra já conferido acima
+      carregarLinhaBaseOficial(obraId),
     ]);
     linhas = etapas.map((e) => ({
       etapaId: e.id,
@@ -83,16 +88,16 @@ export default async function OrcamentoPage({
       ...comFaixa(soma((l) => l.previstoCents), soma((l) => l.realizadoCents), totalDes.fisicoBp),
       desempenho: totalDes,
     };
-    // fase 2: com linha de base, passar as datas dela no lugar das previstas
-    desembolso = desembolsoMensal(
+    const entrada = etapasDoDesembolso(
       etapas.map((e) => ({
         orcamentoCents: e.orcamentoCents,
         inicio: e.inicioPrevisto ? diaDoBanco(e.inicioPrevisto) : null,
         fim: e.fimPrevisto ? diaDoBanco(e.fimPrevisto) : null,
       })),
-      porMes,
-      dataParaInput(new Date()),
+      linhaBase,
     );
+    desembolso = desembolsoMensal(entrada.etapas, porMes, dataParaInput(new Date()));
+    if (linhaBase) origemPrevisto = { nome: linhaBase.nome, criadaEm: linhaBase.criadaEm };
   }
 
   return (
@@ -128,7 +133,7 @@ export default async function OrcamentoPage({
         <>
           <Legenda />
           <OrcamentoForm obraId={obraId} linhas={linhas} total={total} />
-          <SecaoDesembolso obraId={obraId} desembolso={desembolso} />
+          <SecaoDesembolso obraId={obraId} desembolso={desembolso} origem={origemPrevisto} />
         </>
       )}
     </div>
@@ -153,7 +158,7 @@ function Legenda() {
             <li><strong>Avanço físico</strong>: o último avanço registrado da etapa.</li>
             <li><strong>Valor agregado</strong> = orçado × avanço físico. É o quanto do orçado o que já foi feito vale.</li>
             <li><strong>IDC</strong> = valor agregado ÷ realizado. Acima de 1,00 a etapa gasta menos que o previsto; abaixo, mais.</li>
-            <li><strong>Tendência</strong> = realizado ÷ avanço físico: quanto a etapa deve custar no fim, no ritmo atual. Sem avanço, vale o maior entre orçado e realizado.</li>
+            <li><strong>Tendência</strong> = realizado ÷ avanço físico: quanto a etapa deve custar no fim, no ritmo atual. Sem avanço ou sem nada gasto na etapa, vale o maior entre orçado e realizado.</li>
             <li><strong>Variação</strong> = orçado − tendência. Negativa: vai faltar dinheiro.</li>
           </ul>
         }
@@ -164,21 +169,34 @@ function Legenda() {
   );
 }
 
-function SecaoDesembolso({ obraId, desembolso }: { obraId: string; desembolso: Desembolso }) {
+type OrigemPrevisto = { nome: string; criadaEm: Date } | null;
+
+function SecaoDesembolso({
+  obraId,
+  desembolso,
+  origem,
+}: {
+  obraId: string;
+  desembolso: Desembolso;
+  origem: OrigemPrevisto;
+}) {
   const { pontos, semDatasCents } = desembolso;
   return (
     <Card id="secao-desembolso">
       <CardHeader>
         <CardTitle>Desembolso previsto × realizado</CardTitle>
         <CardDescription>
-          Previsto: o orçado de cada etapa distribuído por igual entre o início e o fim previstos. Realizado: as compras
-          rateadas para a obra, no mês da compra.
+          {origem
+            ? `Previsto: a linha de base "${origem.nome}" (${formatarData(origem.criadaEm)}), com o orçado e as datas de cada etapa naquela foto, distribuídos por igual entre o início e o fim.`
+            : "Previsto: o orçado de cada etapa distribuído por igual entre o início e o fim previstos."}{" "}
+          Realizado: as compras rateadas para a obra, no mês da compra.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {semDatasCents > 0 && (
           <p className="text-sm text-muted-foreground">
-            {formatarMoeda(semDatasCents)} do orçado estão em etapas sem datas e ficam fora do previsto.{" "}
+            {formatarMoeda(semDatasCents)} do orçado {origem ? "da linha de base " : ""}estão em etapas sem datas e
+            ficam fora do previsto.{" "}
             <Link href={`/cronograma?obra=${obraId}`} className="text-primary underline-offset-4 hover:underline">
               Definir as datas no cronograma
             </Link>

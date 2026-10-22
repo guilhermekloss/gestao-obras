@@ -7,12 +7,13 @@ const notaFindMany = vi.fn();
 const realizadoPorEtapaTodas = vi.fn();
 const realizadoPorObra = vi.fn();
 const avancoPorEtapa = vi.fn();
+const medicoesTodas = vi.fn();
 const notasParaAnalise = vi.fn();
 const carregarAlertasDaCaptura = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: { etapa: { findMany: etapaFindMany }, parcela: { findMany: parcelaFindMany }, notaFiscal: { findMany: notaFindMany } },
 }));
-vi.mock("../custos", () => ({ realizadoPorEtapaTodas, realizadoPorObra, avancoPorEtapa, notasParaAnalise }));
+vi.mock("../custos", () => ({ realizadoPorEtapaTodas, realizadoPorObra, avancoPorEtapa, medicoesTodas, notasParaAnalise }));
 vi.mock("../sefaz/painel", () => ({ carregarAlertasDaCaptura }));
 
 const { alertasOrcamento, alertasParcelasVencidas, carregarAlertas, carregarCurvaAbc, curvaAbc } = await import("../analises");
@@ -157,6 +158,7 @@ describe("carregarAlertas", () => {
     realizadoPorEtapaTodas.mockResolvedValue(new Map([["e1", 1_500]]));
     realizadoPorObra.mockResolvedValue(new Map([["o1", 1_500]]));
     avancoPorEtapa.mockResolvedValue(new Map());
+    medicoesTodas.mockResolvedValue([]);
     parcelaFindMany.mockResolvedValue([
       { valorCents: 700, vencimento: new Date(2026, 9, 1), nota: { id: "n1", numero: "REC-0001", tipoDocumento: "RECIBO", fornecedor: { nome: "Ferragens" } } },
     ]);
@@ -222,6 +224,34 @@ describe("carregarAlertas", () => {
     expect(parcelaFindMany.mock.calls[0][0].where.nota).toEqual({ rateios: { some: { obraId: "o1" } } });
     expect(carregarAlertasDaCaptura).not.toHaveBeenCalled();
     expect(alertas.map((a) => a.id)).toEqual(["estouro:e1", "vencida:n1"]);
+  });
+
+  it("conta as etapas atrasadas da obra (medições até hoje) e gera um alerta só", async () => {
+    etapaFindMany.mockResolvedValue([
+      // fim previsto já passou sem 100%: atrasada
+      { id: "e1", nome: "Fundação", orcamentoCents: 0, inicioPrevisto: new Date("2026-08-01T00:00:00Z"), fimPrevisto: new Date("2026-09-30T00:00:00Z"), obra: { id: "o1", nome: "Casa A" } },
+      // previsto ~50% hoje e 10% feito: atrasada
+      { id: "e2", nome: "Telhado", orcamentoCents: 0, inicioPrevisto: new Date("2026-10-01T00:00:00Z"), fimPrevisto: new Date("2026-10-28T00:00:00Z"), obra: { id: "o1", nome: "Casa A" } },
+      // concluída
+      { id: "e3", nome: "Muro", orcamentoCents: 0, inicioPrevisto: new Date("2026-08-01T00:00:00Z"), fimPrevisto: new Date("2026-08-31T00:00:00Z"), obra: { id: "o1", nome: "Casa A" } },
+    ]);
+    medicoesTodas.mockResolvedValue([
+      { etapaId: "e2", data: new Date(2026, 9, 10, 12), percentBp: 1_000 },
+      { etapaId: "e3", data: new Date(2026, 7, 31, 12), percentBp: 10_000 },
+      // datada no futuro: ainda não conta
+      { etapaId: "e1", data: new Date(2026, 11, 1, 12), percentBp: 10_000 },
+    ]);
+    const alertas = await carregarAlertas(hoje, { obraId: "o1" });
+    expect(alertas.filter((a) => a.tipo === "ETAPA_ATRASADA")).toEqual([
+      {
+        id: "atraso:o1",
+        tipo: "ETAPA_ATRASADA",
+        severidade: "ATENCAO",
+        mensagem: "Casa A: 2 etapas atrasadas no cronograma",
+        link: "/cronograma?obra=o1",
+        obraId: "o1",
+      },
+    ]);
   });
 
   it("tendência da obra conta o realizado sem etapa e o físico das etapas", async () => {

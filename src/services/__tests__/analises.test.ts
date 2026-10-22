@@ -13,6 +13,8 @@ import {
   rotuloDocumento,
   montarAlertas,
   alertasTendencia,
+  alertasAtraso,
+  contarEtapasAtrasadas,
   ordenarAlertas,
   resumirObrasParaAlerta,
   type Alerta,
@@ -274,6 +276,60 @@ describe("alertasTendencia", () => {
   });
 });
 
+describe("alertasAtraso", () => {
+  it("um alerta por obra com a contagem, mais atrasadas primeiro; zero não avisa", () => {
+    const alertas = alertasAtraso([
+      { ...obra("a", 0, 0, 0), etapasAtrasadas: 1 },
+      { ...obra("b", 0, 0, 0), etapasAtrasadas: 0 },
+      { ...obra("c", 0, 0, 0), etapasAtrasadas: 3 },
+      obra("d", 0, 0, 0),
+    ]);
+    expect(alertas.map((a) => [a.id, a.mensagem, a.link])).toEqual([
+      ["atraso:c", "Lote c: 3 etapas atrasadas no cronograma", "/cronograma?obra=c"],
+      ["atraso:a", "Lote a: 1 etapa atrasada no cronograma", "/cronograma?obra=a"],
+    ]);
+    expect(alertas.every((a) => a.tipo === "ETAPA_ATRASADA" && a.severidade === "ATENCAO")).toBe(true);
+  });
+});
+
+describe("contarEtapasAtrasadas", () => {
+  const hoje = "2026-10-20";
+  const etapaD = (id: string, obraId: string, inicio: string | null, fim: string | null) => ({
+    id,
+    obraId,
+    inicioPrevisto: inicio,
+    fimPrevisto: fim,
+  });
+
+  it("usa a situação do cronograma: fim vencido ou mais de 10 p.p. atrás; atenção e sem datas não contam", () => {
+    const mapa = contarEtapasAtrasadas(
+      [
+        etapaD("venceu", "o1", "2026-09-01", "2026-09-30"),
+        etapaD("atras", "o1", "2026-10-01", "2026-10-31"), // previsto ~64,5% hoje
+        etapaD("atencao", "o1", "2026-10-01", "2026-10-31"),
+        etapaD("semdatas", "o1", null, null),
+        etapaD("feita", "o2", "2026-09-01", "2026-09-30"),
+      ],
+      [
+        { etapaId: "atras", data: "2026-10-15", percentBp: 3_000 },
+        { etapaId: "atencao", data: "2026-10-15", percentBp: 5_800 },
+        { etapaId: "feita", data: "2026-09-30", percentBp: 10_000 },
+      ],
+      hoje,
+    );
+    expect([...mapa]).toEqual([["o1", 2]]);
+  });
+
+  it("medição depois de hoje ainda não conta", () => {
+    const mapa = contarEtapasAtrasadas(
+      [etapaD("e", "o1", "2026-09-01", "2026-09-30")],
+      [{ etapaId: "e", data: "2026-10-21", percentBp: 10_000 }],
+      hoje,
+    );
+    expect(mapa.get("o1")).toBe(1);
+  });
+});
+
 describe("resumirObrasParaAlerta", () => {
   it("projeta por etapa e soma o realizado sem etapa como linha à parte", () => {
     const [o1, o2] = resumirObrasParaAlerta(
@@ -291,17 +347,17 @@ describe("resumirObrasParaAlerta", () => {
       new Map([["e1", 5_000]]),
     );
     // e1: 60.000 / 50% = 120.000; e2: sem físico = 100.000; sem etapa: 10.000
-    expect(o1).toEqual({ obraId: "o1", obraNome: "Lote 01", orcamentoCents: 200_000, tendenciaCents: 230_000, fisicoBp: 2_500 });
-    expect(o2).toEqual({ obraId: "o2", obraNome: "Lote 02", orcamentoCents: 50_000, tendenciaCents: 50_000, fisicoBp: 0 });
+    expect(o1).toEqual({ obraId: "o1", obraNome: "Lote 01", orcamentoCents: 200_000, tendenciaCents: 230_000, fisicoBp: 2_500, etapasAtrasadas: 0 });
+    expect(o2).toEqual({ obraId: "o2", obraNome: "Lote 02", orcamentoCents: 50_000, tendenciaCents: 50_000, fisicoBp: 0, etapasAtrasadas: 0 });
   });
 });
 
 describe("ordem dos alertas", () => {
-  it("tendência vem depois da atenção de orçamento e antes da divergência", () => {
+  it("atraso e tendência vêm depois da atenção de orçamento e antes da divergência", () => {
     const alertas = montarAlertas({
       hoje: new Date(2026, 9, 14),
       etapas: [etapa("at", 10_000, 9_500), etapa("e", 10_000, 12_000)],
-      obras: [obra("o1", 100_000, 150_000, 5_000)],
+      obras: [{ ...obra("o1", 100_000, 150_000, 5_000), etapasAtrasadas: 2 }],
       parcelas: [
         { notaId: "p", notaNumero: "1", fornecedorNome: "X", valorCents: 1, vencimento: new Date(2026, 0, 1) },
       ],
@@ -311,6 +367,7 @@ describe("ordem dos alertas", () => {
       "ORCAMENTO_ESTOURO",
       "PARCELA_VENCIDA",
       "ORCAMENTO_ATENCAO",
+      "ETAPA_ATRASADA",
       "ORCAMENTO_TENDENCIA",
       "NOTA_DIVERGENTE",
     ]);

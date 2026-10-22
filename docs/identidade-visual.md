@@ -57,6 +57,7 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 ## Dashboard: hierarquia e gráficos
 - Três blocos, nesta ordem: **Pede ação hoje** (parcelas a vencer e notas divergentes em destaque, alertas logo abaixo), **Como estão as obras** (gasto no mês, obras ativas, avanço físico, top insumos) e **Gráficos**. Os indicadores não têm o mesmo peso: o de maior peso é o dinheiro a vencer (número grande e botão cheio), depois as divergências, depois o gasto do mês; "Obras ativas" fica discreto.
 - Filtro `?obra=` no topo (`ComboboxFiltro`, "Todas as obras" limpa). Vale para gasto no mês, avanço, gráficos, curva ABC e alertas; "A vencer em 7 dias" segue somando todas (a parcela é da nota inteira).
+- Avanço físico por obra: `ReguaCota` do realizado na cor da situação (`COR_SITUACAO` do cronograma), traço tracejado no previsto até hoje (prop `marca`), `SituacaoBadge` e a linha "Previsto · Realizado · IDP". A situação da obra usa a régua das etapas sobre os totais ponderados (`services/avanco-obra.ts`).
 - Quadro vazio diz o motivo e leva à tela que resolve: curva S sem datas → cronograma; sem medição → aba Avanço; orçamento zerado → `/orcamento`.
 - `Pendencia` (em `dashboard/page.tsx`): faixa e selo de estado só quando há o que fazer; em dia, o cartão recua e o botão some.
 - Gráficos (Recharts) ficam em `dashboard-charts.tsx` e `cronograma/curva-s-chart.tsx`, com peças comuns em `src/components/grafico.tsx`:

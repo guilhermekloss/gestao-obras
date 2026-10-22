@@ -28,7 +28,7 @@ export default async function AlertasPage({
         <h1 className="text-2xl md:text-3xl">{obra ? `Alertas · ${obra.nome}` : "Alertas"}</h1>
         <p className="text-sm text-muted-foreground">
           {alertas.length} alerta(s) · {criticos} crítico(s). Estouro de orçamento por etapa,
-          etapas com 90% ou mais consumido, obras cuja tendência de custo passa do orçado em mais de 5%,
+          etapas com 90% ou mais consumido, obras cuja tendência de custo passa do orçado em mais de 5%, obras com etapas atrasadas no cronograma,
           parcelas vencidas em aberto, notas com divergência itens × total e NF-e recebidas da Sefaz paradas.
         </p>
       </div>

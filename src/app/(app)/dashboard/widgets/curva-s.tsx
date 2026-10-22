@@ -16,14 +16,17 @@ import {
   type PontoCurvaS,
 } from "@/services/cronograma";
 import { hojeDia, paraGrafico, paraPlano } from "@/app/(app)/cronograma/dados";
+import { carregarLinhasBaseOficiais } from "@/services/linha-base-db";
+import { planoDaLinhaBase } from "@/services/linha-base";
 import { CurvaSChart } from "@/app/(app)/cronograma/curva-s-chart";
 
 const TITULO = "Curva S — obras em andamento";
 const TITULO_OBRA = "Curva S da obra";
 
 // Com obra filtrada, vale qualquer situação da obra (o acesso já foi conferido na página).
-function carregar(obraId?: string) {
-  return Promise.all([
+// As linhas de base vêm numa consulta só, depois das obras (precisa dos ids).
+async function carregar(obraId?: string) {
+  const [obras, medicoes] = await Promise.all([
     prisma.obra.findMany({
       where: {
         ...(obraId ? { id: obraId } : { status: "ANDAMENTO" }),
@@ -37,6 +40,8 @@ function carregar(obraId?: string) {
     }),
     medicoesTodas(),
   ]);
+  const linhasBase = await carregarLinhasBaseOficiais(obras.map((o) => o.id));
+  return [obras, medicoes, linhasBase] as const;
 }
 
 // No lugar do widget enquanto ele carrega (vai num <Suspense> próprio: o resto do dashboard não espera por ele)
@@ -72,7 +77,7 @@ export async function CurvaSWidget({ obraId }: { obraId?: string } = {}) {
       </Card>
     );
   }
-  const [obras, medicoes] = dados;
+  const [obras, medicoes, linhasBase] = dados;
 
   // agrupadas por etapa, na ordem das etapas; dentro do grupo segue data, id
   const porEtapa = new Map<string, typeof medicoes>();
@@ -87,7 +92,11 @@ export async function CurvaSWidget({ obraId }: { obraId?: string } = {}) {
       o.etapas,
       o.etapas.flatMap((e) => porEtapa.get(e.id) ?? []),
     );
-    return { plano, pontos, faixa: faixaDaCurvaS(plano, pontos, hoje) };
+    // com linha de base oficial, o previsto vem dela (como no Cronograma); o realizado, das etapas atuais
+    const linha = linhasBase.get(o.id);
+    const base = linha ? planoDaLinhaBase(linha) : null;
+    const faixa = unirFaixas([faixaDaCurvaS(plano, pontos, hoje), base ? faixaDaCurvaS(base, pontos, hoje) : null]);
+    return { plano, pontos, base, faixa };
   });
   const comCurva = planos.filter((p) => p.faixa !== null);
   const faixa = unirFaixas(comCurva.map((p) => p.faixa));
@@ -123,10 +132,12 @@ export async function CurvaSWidget({ obraId }: { obraId?: string } = {}) {
     );
   }
 
+  const comBase = comCurva.filter((p) => p.base).length;
+
   // previsto e realizado na mesma data (hoje) — o ponto do mês corrente compara fim do mês × hoje
   const pesos = comCurva.map((p) => orcamentoTotal(p.plano));
   const previstoHoje = avancoPonderado(
-    comCurva.map((p, i) => ({ orcamentoCents: pesos[i], percentBp: previstoNaData(p.plano, hoje) })),
+    comCurva.map((p, i) => ({ orcamentoCents: pesos[i], percentBp: previstoNaData(p.base ?? p.plano, hoje) })),
   );
   const realizadoHoje = avancoPonderado(
     comCurva.map((p, i) => ({ orcamentoCents: pesos[i], percentBp: realizadoNaData(p.plano, p.pontos, hoje) })),
@@ -135,7 +146,7 @@ export async function CurvaSWidget({ obraId }: { obraId?: string } = {}) {
   const curva: PontoCurvaS[] = agregarCurvasS(
     comCurva.map((p, i) => ({
       orcamentoCents: pesos[i],
-      curva: curvaS(p.plano, p.pontos, hoje, faixa),
+      curva: curvaS(p.plano, p.pontos, hoje, faixa, p.base),
     })),
   );
 
@@ -145,6 +156,7 @@ export async function CurvaSWidget({ obraId }: { obraId?: string } = {}) {
         <CardTitle nivel={3}>{titulo}</CardTitle>
         <CardDescription>
           {comCurva.length} obra{comCurva.length > 1 ? "s" : ""} com cronograma
+          {comBase > 0 && (obraId ? " · previsto pela linha de base" : ` (${comBase} pela linha de base)`)}
           {" · "}hoje: previsto {formatarPercentBp(previstoHoje)} × realizado{" "}
           {formatarPercentBp(realizadoHoje)}
         </CardDescription>

@@ -16,7 +16,7 @@ export type Desempenho = EntradaDesempenho & {
   valorAgregadoCents: number;
   /** Índice de desempenho de custo, em base 10000 (10000 = 1,00). null sem realizado. */
   idcBp: number | null;
-  /** Custo projetado no fim: realizado ÷ físico; sem físico, o maior entre orçado e realizado. */
+  /** Custo projetado no fim: realizado ÷ físico; sem físico ou sem realizado, o maior entre orçado e realizado. */
   tendenciaCents: number;
   /** Orçado − tendência: negativo = vai faltar dinheiro. */
   variacaoCents: number;
@@ -30,8 +30,10 @@ export function idc(valorAgregadoCents: number, realizadoCents: number): number 
   return realizadoCents === 0 ? null : Math.round((valorAgregadoCents * BP_TOTAL) / realizadoCents);
 }
 
+// Físico sem nada gasto (custo lançado sem etapa, ou ainda não lançado) daria tendência zero e uma
+// "sobra" do orçado inteiro: nesse caso vale o orçado, como sem físico.
 export function tendencia(orcamentoCents: number, realizadoCents: number, fisicoBp: number): number {
-  if (fisicoBp > 0) return Math.round((realizadoCents * BP_TOTAL) / fisicoBp);
+  if (fisicoBp > 0 && realizadoCents > 0) return Math.round((realizadoCents * BP_TOTAL) / fisicoBp);
   return Math.max(orcamentoCents, realizadoCents);
 }
 
@@ -142,6 +144,21 @@ export function desembolsoMensal(
   });
 
   return { pontos, semDatasCents };
+}
+
+/**
+ * Etapas do desembolso previsto: as da linha de base oficial quando existe (o compromisso firmado,
+ * com o orçado e as datas da foto, inclusive etapas excluídas depois); senão, as atuais.
+ */
+export function etapasDoDesembolso(
+  atuais: EtapaDesembolso[],
+  linhaBase: { etapas: { orcamentoCents: number; inicio: Dia | null; fim: Dia | null }[] } | null,
+): { etapas: EtapaDesembolso[]; origem: "linha-base" | "plano-atual" } {
+  if (!linhaBase) return { etapas: atuais, origem: "plano-atual" };
+  return {
+    etapas: linhaBase.etapas.map((e) => ({ orcamentoCents: e.orcamentoCents, inicio: e.inicio, fim: e.fim })),
+    origem: "linha-base",
+  };
 }
 
 /** A coluna de uma obra no `realizadoPorMes` de todas (mês → obra → centavos). */

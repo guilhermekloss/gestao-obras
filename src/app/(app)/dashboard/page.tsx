@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { startOfMonth, subMonths } from "date-fns";
 import { exigirAcessoObra, usuarioAtual } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { avancoPorEtapa, realizadoPorObra, realizadoPorMes } from "@/services/custos";
+import { medicoesTodas, realizadoPorObra, realizadoPorMes } from "@/services/custos";
 import { proximosDias } from "@/services/financeiro";
 import { carregarAlertas, carregarCurvaAbc } from "@/services/analises";
-import { avancoDaObra, orcamentoTotal } from "@/services/obra";
+import { orcamentoTotal } from "@/services/obra";
+import { avancoObraHoje } from "@/services/avanco-obra";
+import { hojeDia, paraPlano } from "@/app/(app)/cronograma/dados";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { realizadoMensalDaObra } from "@/services/desempenho-custo";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
@@ -58,7 +60,7 @@ export default async function DashboardPage({
     obras,
     porMesTodas,
     realizado,
-    avancos,
+    medicoes,
     alertas,
     abc,
   ] = await Promise.all([
@@ -73,12 +75,12 @@ export default async function DashboardPage({
     prisma.obra.findMany({
       where: obraId ? { id: obraId } : {},
       orderBy: { codigo: "asc" },
-      include: { etapas: { select: { id: true, orcamentoCents: true } } },
+      include: { etapas: { select: { id: true, orcamentoCents: true, inicioPrevisto: true, fimPrevisto: true } } },
     }),
     realizadoPorMes(inicio12Meses),
     realizadoPorObra(),
-    // sempre o de todas: a mesma leitura de medições serve aos alertas e à curva S
-    avancoPorEtapa(),
+    // sempre todas: a mesma leitura de medições (cache por requisição) serve aos alertas e à curva S
+    medicoesTodas(),
     carregarAlertas(hoje, { paraAdmin: user.role === "ADMIN", obraId }),
     carregarCurvaAbc(obraId ? { obraId } : {}),
   ]);
@@ -122,11 +124,19 @@ export default async function DashboardPage({
 
   // filtrada, a obra aparece mesmo fora de andamento
   const obrasDoAvanco = obras.filter((o) => (obraId || o.status === "ANDAMENTO") && o.etapas.length > 0);
-  const semMedicao = !obrasDoAvanco.some((o) => o.etapas.some((e) => avancos.has(e.id)));
-  const avancoData = obrasDoAvanco.map((o) => ({
-    obra: o.nome,
-    avanco: avancoDaObra(o.etapas, avancos) / 100,
-  }));
+  const medicoesPorEtapa = new Map<string, typeof medicoes>();
+  for (const m of medicoes) {
+    const lista = medicoesPorEtapa.get(m.etapaId);
+    if (lista) lista.push(m);
+    else medicoesPorEtapa.set(m.etapaId, [m]);
+  }
+  const semMedicao = !obrasDoAvanco.some((o) => o.etapas.some((e) => medicoesPorEtapa.has(e.id)));
+  // mesma conta do Cronograma: plano atual, medições até hoje
+  const hojeCronograma = hojeDia();
+  const avancoData = obrasDoAvanco.map((o) => {
+    const { plano, pontos } = paraPlano(o.etapas, o.etapas.flatMap((e) => medicoesPorEtapa.get(e.id) ?? []));
+    return { obraId: o.id, obra: o.nome, ...avancoObraHoje(plano, pontos, hojeCronograma) };
+  });
 
   const obrasAtivas = obras.filter((o) => o.status === "ANDAMENTO").length;
   const sufixoObra = obraId ? `?obra=${obraId}` : "";
