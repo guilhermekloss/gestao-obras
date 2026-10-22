@@ -11,6 +11,7 @@ const {
   realizadoPorEtapaTodas,
   realizadoPorMes,
   realizadoPorObra,
+  ultimoAvancoAte,
   ultimoAvancoPorEtapa,
 } = await import("../custos");
 
@@ -149,6 +150,32 @@ describe("avancoPorEtapa sem obra", () => {
       orderBy: [{ data: "asc" }, { id: "asc" }],
       select: { etapaId: true, data: true, percentBp: true },
     });
+  });
+});
+
+describe("avanço até hoje", () => {
+  it("ultimoAvancoAte ignora medição datada depois do dia (dia local da medição)", () => {
+    const mapa = ultimoAvancoAte(
+      [
+        { etapaId: "e1", data: new Date(2026, 9, 10, 12), percentBp: 2_000 },
+        { etapaId: "e1", data: new Date(2026, 9, 21, 12), percentBp: 8_000 },
+        { etapaId: "e2", data: new Date(2026, 9, 20, 12), percentBp: 5_000 },
+      ],
+      "2026-10-20",
+    );
+    expect([...mapa.entries()]).toEqual([
+      ["e1", 2_000],
+      ["e2", 5_000],
+    ]);
+  });
+
+  it("sem obra e com `ate`, filtra a leitura única de medições", async () => {
+    medicaoFindMany.mockResolvedValue([
+      { etapaId: "e1", data: new Date(2026, 9, 1, 12), percentBp: 3_000 },
+      { etapaId: "e1", data: new Date(2026, 11, 1, 12), percentBp: 10_000 },
+    ]);
+    const mapa = await avancoPorEtapa(undefined, { ate: "2026-10-22" });
+    expect([...mapa.entries()]).toEqual([["e1", 3_000]]);
   });
 });
 

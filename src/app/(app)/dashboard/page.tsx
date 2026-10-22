@@ -3,15 +3,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { startOfMonth, subMonths } from "date-fns";
-import { usuarioAtual } from "@/lib/auth";
+import { exigirAcessoObra, usuarioAtual } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { avancoPorEtapa, realizadoPorObra, realizadoPorMes } from "@/services/custos";
+import { medicoesTodas, realizadoPorObra, realizadoPorMes } from "@/services/custos";
 import { proximosDias } from "@/services/financeiro";
 import { carregarAlertas, carregarCurvaAbc } from "@/services/analises";
-import { avancoDaObra, orcamentoTotal } from "@/services/obra";
+import { orcamentoTotal } from "@/services/obra";
+import { avancoObraHoje } from "@/services/avanco-obra";
+import { hojeDia, paraPlano } from "@/app/(app)/cronograma/dados";
+import { listarObrasParaFiltro } from "@/services/obras";
+import { realizadoMensalDaObra } from "@/services/desempenho-custo";
+import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { chaveMes, formatarMoeda, rotuloChaveMes } from "@/lib/format";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { GastoMensalChart, OrcadoRealizadoChart } from "./dashboard-charts";
@@ -29,10 +34,21 @@ const MAX_ALERTAS = 8;
 const LINK_CARD =
   "inline-flex min-h-10 items-center text-sm text-primary underline-offset-4 hover:underline";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ obra?: string }>;
+}) {
   const user = await usuarioAtual();
   if (!user) redirect("/login");
   if (user.role === "CAMPO") redirect("/diario");
+
+  const { obra: obraParam } = await searchParams;
+  const opcoesObra = await listarObrasParaFiltro(user.obrasPermitidas);
+  // obra inexistente ou fora do acesso: vale o painel de todas (o filtro some)
+  const obraId = opcoesObra.some((o) => o.id === obraParam) ? obraParam : undefined;
+  if (obraId) exigirAcessoObra(user, obraId);
+  const obraFiltrada = opcoesObra.find((o) => o.id === obraId);
 
   const hoje = new Date();
   const inicioMes = startOfMonth(hoje);
@@ -42,9 +58,9 @@ export default async function DashboardPage() {
   const [
     aVencer7,
     obras,
-    porMes,
+    porMesTodas,
     realizado,
-    avancos,
+    medicoes,
     alertas,
     abc,
   ] = await Promise.all([
@@ -57,15 +73,23 @@ export default async function DashboardPage() {
       _count: true,
     }),
     prisma.obra.findMany({
+      where: obraId ? { id: obraId } : {},
       orderBy: { codigo: "asc" },
-      include: { etapas: { select: { id: true, orcamentoCents: true } } },
+      include: { etapas: { select: { id: true, orcamentoCents: true, inicioPrevisto: true, fimPrevisto: true } } },
     }),
     realizadoPorMes(inicio12Meses),
     realizadoPorObra(),
-    avancoPorEtapa(),
-    carregarAlertas(hoje, { paraAdmin: user.role === "ADMIN" }),
-    carregarCurvaAbc(),
+    // sempre todas: a mesma leitura de medições (cache por requisição) serve aos alertas e à curva S
+    medicoesTodas(),
+    carregarAlertas(hoje, { paraAdmin: user.role === "ADMIN", obraId }),
+    carregarCurvaAbc(obraId ? { obraId } : {}),
   ]);
+
+  const porMes = obraId
+    ? new Map(
+        [...realizadoMensalDaObra(porMesTodas, obraId)].map(([mes, cents]) => [mes, new Map([[obraId, cents]])]),
+      )
+    : porMesTodas;
 
   // mesma base dos gráficos (itens × rateio), não NotaFiscal.totalCents: bate com "Gasto mensal
   // por obra"; a diferença entre itens e total aparece no KPI de divergências
@@ -82,8 +106,8 @@ export default async function DashboardPage() {
   const gastoMensalData = mesesOrdenados.map((chave) => {
     const porObra = porMes.get(chave) ?? new Map<string, number>();
     const linha: Record<string, string | number> = { mes: rotuloChaveMes(chave) };
-    for (const [obraId, cents] of porObra) {
-      const nome = nomeObra.get(obraId);
+    for (const [id, cents] of porObra) {
+      const nome = nomeObra.get(id);
       if (nome) linha[nome] = cents;
     }
     return linha;
@@ -96,15 +120,26 @@ export default async function DashboardPage() {
       Realizado: realizado.get(o.id) ?? 0,
     }))
     .filter((d) => d.Orçado > 0 || d.Realizado > 0);
+  const semOrcamento = orcadoRealizadoData.every((d) => d.Orçado === 0);
 
-  const avancoData = obras
-    .filter((o) => o.status === "ANDAMENTO" && o.etapas.length > 0)
-    .map((o) => ({
-      obra: o.nome,
-      avanco: avancoDaObra(o.etapas, avancos) / 100,
-    }));
+  // filtrada, a obra aparece mesmo fora de andamento
+  const obrasDoAvanco = obras.filter((o) => (obraId || o.status === "ANDAMENTO") && o.etapas.length > 0);
+  const medicoesPorEtapa = new Map<string, typeof medicoes>();
+  for (const m of medicoes) {
+    const lista = medicoesPorEtapa.get(m.etapaId);
+    if (lista) lista.push(m);
+    else medicoesPorEtapa.set(m.etapaId, [m]);
+  }
+  const semMedicao = !obrasDoAvanco.some((o) => o.etapas.some((e) => medicoesPorEtapa.has(e.id)));
+  // mesma conta do Cronograma: plano atual, medições até hoje
+  const hojeCronograma = hojeDia();
+  const avancoData = obrasDoAvanco.map((o) => {
+    const { plano, pontos } = paraPlano(o.etapas, o.etapas.flatMap((e) => medicoesPorEtapa.get(e.id) ?? []));
+    return { obraId: o.id, obra: o.nome, ...avancoObraHoje(plano, pontos, hojeCronograma) };
+  });
 
   const obrasAtivas = obras.filter((o) => o.status === "ANDAMENTO").length;
+  const sufixoObra = obraId ? `?obra=${obraId}` : "";
 
   const acaoNota = veFinanceiro(user.role) && (
     <AcaoVazio href="/notas/nova" icone={ReceiptText} variante="outline">
@@ -116,7 +151,30 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl md:text-3xl">Dashboard</h1>
+      <div className="space-y-3">
+        <h1 className="text-2xl md:text-3xl">Dashboard</h1>
+        <form id="filtro-dashboard" method="get" className="flex flex-wrap items-end gap-2">
+          <div className="grid gap-1">
+            <label htmlFor="filtro-obra" className="text-xs text-muted-foreground">Obra</label>
+            <ComboboxFiltro
+              id="filtro-obra"
+              name="obra"
+              defaultValue={obraId ?? ""}
+              placeholder="Todas as obras"
+              todosLabel="Todas as obras"
+              className="w-56"
+              autoSubmit
+              options={opcoesObra.map((o) => ({ value: o.id, label: o.nome }))}
+            />
+          </div>
+          <Button type="submit" variant="secondary" size="sm">Ver</Button>
+          {obraFiltrada && (
+            <Link href="/dashboard" className={LINK_CARD}>
+              Ver todas as obras
+            </Link>
+          )}
+        </form>
+      </div>
 
       {/* 1. O que exige ação hoje: dinheiro a vencer e notas divergentes em destaque, alertas logo abaixo */}
       <section aria-labelledby="pede-acao" className="space-y-4">
@@ -125,7 +183,7 @@ export default async function DashboardPage() {
             Pede ação hoje
           </h2>
           {alertas.length > MAX_ALERTAS && (
-            <Link href="/dashboard/alertas" className={LINK_CARD}>
+            <Link href={`/dashboard/alertas${sufixoObra}`} className={LINK_CARD}>
               Ver todos os alertas ({alertas.length})
             </Link>
           )}
@@ -138,9 +196,11 @@ export default async function DashboardPage() {
             pendente={parcelasAVencer > 0}
             valor={formatarMoeda(aVencer7._sum.valorCents ?? 0)}
             detalhe={
-              parcelasAVencer > 0
+              (parcelasAVencer > 0
                 ? `${parcelasAVencer} ${parcelasAVencer === 1 ? "parcela" : "parcelas"} em aberto`
-                : "Nenhuma parcela vence nesta semana."
+                : "Nenhuma parcela vence nesta semana.") +
+              // a parcela é da nota inteira, não da parte rateada: não dá para separar por obra
+              (obraFiltrada ? " Soma de todas as obras." : "")
             }
             acao="Ver parcelas"
             href="/contas?visao=7dias"
@@ -169,11 +229,20 @@ export default async function DashboardPage() {
         </h2>
         <div className="grid items-start gap-x-8 gap-y-5 sm:grid-cols-[3fr_2fr]">
           <Cota
-            titulo="Gasto no mês"
+            titulo={obraFiltrada ? `Gasto no mês · ${obraFiltrada.nome}` : "Gasto no mês"}
             valor={formatarMoeda(gastoNoMes)}
-            rodape="Itens rateados às obras."
+            rodape={obraFiltrada ? "Itens rateados a esta obra." : "Itens rateados às obras."}
           />
-          <Cota discreta titulo="Obras ativas" valor={String(obrasAtivas)} href="/obras" />
+          {obraFiltrada ? (
+            <Cota
+              discreta
+              titulo="Orçado da obra"
+              valor={formatarMoeda(orcamentoTotal(obras[0]?.etapas ?? []))}
+              href={`/orcamento${sufixoObra}`}
+            />
+          ) : (
+            <Cota discreta titulo="Obras ativas" valor={String(obrasAtivas)} href="/obras" />
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -182,13 +251,21 @@ export default async function DashboardPage() {
               <CardTitle nivel={3}>Avanço físico por obra</CardTitle>
             </CardHeader>
             <CardContent>
-              {avancoData.length === 0 ? (
+              {avancoData.length === 0 || semMedicao ? (
                 <Vazio
                   icone={ChartGantt}
                   titulo="Sem avanço registrado"
-                  texto="Marque quanto de cada etapa já foi feito."
+                  texto={
+                    avancoData.length === 0
+                      ? "Nenhuma obra em andamento com etapas. O avanço aparece quando houver etapas."
+                      : "Nenhuma medição ainda. Marque quanto de cada etapa já foi feito."
+                  }
                   acao={
-                    <AcaoVazio href="/cronograma?aba=avanco" icone={ChartGantt} variante="outline">
+                    <AcaoVazio
+                      href={`/cronograma?${obraId ? `obra=${obraId}&` : ""}aba=avanco`}
+                      icone={ChartGantt}
+                      variante="outline"
+                    >
                       Registrar avanço
                     </AcaoVazio>
                   }
@@ -253,14 +330,18 @@ export default async function DashboardPage() {
               <CardTitle nivel={3}>Orçado vs. realizado</CardTitle>
             </CardHeader>
             <CardContent>
-              {orcadoRealizadoData.length === 0 ? (
+              {semOrcamento ? (
                 <Vazio
                   icone={Scale}
                   titulo="Sem orçamento definido"
-                  texto="Defina o orçado de uma obra para comparar com o gasto."
+                  texto={
+                    obraFiltrada
+                      ? "O orçamento desta obra está zerado. Defina o orçado das etapas para comparar com o gasto."
+                      : "O orçamento das obras está zerado. Defina o orçado das etapas para comparar com o gasto."
+                  }
                   acao={
                     veFinanceiro(user.role) && (
-                      <AcaoVazio href="/orcamento" icone={PiggyBank} variante="outline">
+                      <AcaoVazio href={`/orcamento${sufixoObra}`} icone={PiggyBank} variante="outline">
                         Definir orçamento
                       </AcaoVazio>
                     )
@@ -272,8 +353,8 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Suspense fallback={<CurvaSWidgetCarregando />}>
-            <CurvaSWidget />
+          <Suspense fallback={<CurvaSWidgetCarregando obraId={obraId} />}>
+            <CurvaSWidget obraId={obraId} />
           </Suspense>
         </div>
       </section>

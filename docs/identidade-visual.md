@@ -56,6 +56,9 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
 
 ## Dashboard: hierarquia e gráficos
 - Três blocos, nesta ordem: **Pede ação hoje** (parcelas a vencer e notas divergentes em destaque, alertas logo abaixo), **Como estão as obras** (gasto no mês, obras ativas, avanço físico, top insumos) e **Gráficos**. Os indicadores não têm o mesmo peso: o de maior peso é o dinheiro a vencer (número grande e botão cheio), depois as divergências, depois o gasto do mês; "Obras ativas" fica discreto.
+- Filtro `?obra=` no topo (`ComboboxFiltro`, "Todas as obras" limpa). Vale para gasto no mês, avanço, gráficos, curva ABC e alertas; "A vencer em 7 dias" segue somando todas (a parcela é da nota inteira).
+- Avanço físico por obra: `ReguaCota` do realizado na cor da situação (`COR_SITUACAO` do cronograma), traço tracejado no previsto até hoje (prop `marca`), `SituacaoBadge` e a linha "Previsto · Realizado · IDP". A situação da obra usa a régua das etapas sobre os totais ponderados (`services/avanco-obra.ts`).
+- Quadro vazio diz o motivo e leva à tela que resolve: curva S sem datas → cronograma; sem medição → aba Avanço; orçamento zerado → `/orcamento`.
 - `Pendencia` (em `dashboard/page.tsx`): faixa e selo de estado só quando há o que fazer; em dia, o cartão recua e o botão some.
 - Gráficos (Recharts) ficam em `dashboard-charts.tsx` e `cronograma/curva-s-chart.tsx`, com peças comuns em `src/components/grafico.tsx`:
   - cores só dos tokens `--chart-*`; vermelho é estado, nunca série;
@@ -101,7 +104,7 @@ Use `ListaDeDados` (`src/components/lista-de-dados.tsx`) em vez de `<Table>` sol
 - **Valores** (R$, quantidade, %): `numerica` → à direita, `num` (algarismos tabulares).
 - **Estado** sempre em `StatusBadge` (parcela, convite, situação do usuário, dependência do fornecedor, condição do RDO). **Categoria** (tipo de documento, papel do usuário, classe ABC) fica no `Badge`.
 - Link de linha: use `LINK_DA_LINHA` (44 px no celular). Botões de ícone da linha ganham texto no cartão.
-- Orçamento vs. realizado não usa `ListaDeDados`: é um formulário com campos editáveis e já vira cartão no celular.
+- Orçamento vs. realizado não usa `ListaDeDados`: é um formulário com campos editáveis. Mede o contêiner (`@container`): a partir de 61rem é tabela com as colunas de desempenho de custo; abaixo, um cartão por etapa com "rótulo: valor" (o rótulo fica `sr-only` na tabela).
 
 ## Carregando, erro e página não encontrada
 - **Carregando:** cada tela de lista tem `loading.tsx` (dashboard, notas, contas, obras, diário, cronograma) com esqueleto no desenho da tela, sem spinner. Use o `Skeleton` de `src/components/ui/skeleton.tsx` e os blocos de `src/components/carregando.tsx` (`Carregando`, `CabecalhoSkeleton`, `FiltrosSkeleton`, `TabelaSkeleton`). O pulso some com `prefers-reduced-motion`.

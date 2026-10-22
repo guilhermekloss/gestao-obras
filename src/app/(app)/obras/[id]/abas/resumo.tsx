@@ -10,7 +10,7 @@ import { FormDialog } from "@/components/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { criarEtapa, excluirEtapa } from "../../actions";
-import { formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
+import { dataParaInput, formatarData, formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { ChartGantt, NotebookPen, Plus, Trash2 } from "lucide-react";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { dataDoRdo } from "@/services/rdo";
@@ -31,7 +31,8 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
   const hoje = startOfDay(new Date());
   const [realizado, avancos, ultimosRdos, proximasParcelas] = await Promise.all([
     veValores ? realizadoPorEtapa(id) : Promise.resolve(new Map<string | null, number>()),
-    avancoPorEtapa(id),
+    // avanço de hoje, como na aba Cronograma: medição datada no futuro não conta
+    avancoPorEtapa(id, { ate: dataParaInput(new Date()) }),
     prisma.diarioObra.findMany({
       where: { obraId: id },
       orderBy: { data: "desc" },

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { chaveMes } from "@/lib/format";
+import { chaveMes, dataParaInput } from "@/lib/format";
 import { custoRateado } from "./rateio";
 
 export { chaveMes };
@@ -54,15 +54,25 @@ export async function realizadoPorObra(): Promise<Map<string, number>> {
   return acumular(await notasParaAnalise(), (_, r) => r.obraId);
 }
 
-export async function realizadoPorEtapa(obraId: string): Promise<Map<string | null, number>> {
-  const notas = await prisma.notaFiscal.findMany({
+// Só as notas com rateio na obra, e só os rateios dela; uma leitura por requisição para etapa e mês.
+const notasDaObra = cache(async (obraId: string) =>
+  prisma.notaFiscal.findMany({
     where: { rateios: { some: { obraId } } },
     select: {
+      dataCompra: true,
       itens: { select: { totalCents: true } },
       rateios: { where: { obraId }, select: { obraId: true, etapaId: true, fracaoBp: true } },
     },
-  });
-  return acumular(notas, (_, r) => r.etapaId);
+  }),
+);
+
+export async function realizadoPorEtapa(obraId: string): Promise<Map<string | null, number>> {
+  return acumular(await notasDaObra(obraId), (_, r) => r.etapaId);
+}
+
+// "aaaa-mm" → centavos da obra no mês da compra, desde a primeira nota (mesma base de `realizadoPorMes`).
+export async function realizadoPorMesDaObra(obraId: string): Promise<Map<string, number>> {
+  return acumular(await notasDaObra(obraId), (nota) => chaveMes(nota.dataCompra));
 }
 
 // Rateio sem etapa cai na chave null e sai; os outros rateios da mesma nota não mudam.
@@ -94,12 +104,29 @@ export function ultimoAvancoPorEtapa(medicoes: { etapaId: string; percentBp: num
   return mapa;
 }
 
-export async function avancoPorEtapa(obraId?: string): Promise<Map<string, number>> {
-  if (!obraId) return ultimoAvancoPorEtapa(await medicoesTodas());
+// Igual, mas só com medições até o dia `ate` ("aaaa-mm-dd", dia local: a medição é gravada ao meio-dia local),
+// como no Cronograma: medição datada no futuro ainda não foi feita.
+export function ultimoAvancoAte(
+  medicoes: { etapaId: string; data: Date; percentBp: number }[],
+  ate: string,
+): Map<string, number> {
+  return ultimoAvancoPorEtapa(medicoes.filter((m) => dataParaInput(m.data) <= ate));
+}
+
+/**
+ * Último avanço de cada etapa. Com `ate` (dia "aaaa-mm-dd"), só medições até esse dia: é o que vale para
+ * avanço físico de hoje (desempenho de custo, alertas, resumo da obra). Sem `ate`, a última de todas.
+ */
+export async function avancoPorEtapa(obraId?: string, opcoes: { ate?: string } = {}): Promise<Map<string, number>> {
+  const { ate } = opcoes;
+  if (!obraId) {
+    const todas = await medicoesTodas();
+    return ate ? ultimoAvancoAte(todas, ate) : ultimoAvancoPorEtapa(todas);
+  }
   const medicoes = await prisma.medicao.findMany({
     where: { etapa: { obraId } },
     orderBy: [{ data: "asc" }, { id: "asc" }],
-    select: { etapaId: true, percentBp: true },
+    select: { etapaId: true, data: true, percentBp: true },
   });
-  return ultimoAvancoPorEtapa(medicoes);
+  return ate ? ultimoAvancoAte(medicoes, ate) : ultimoAvancoPorEtapa(medicoes);
 }

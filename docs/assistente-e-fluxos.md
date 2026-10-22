@@ -124,12 +124,12 @@ Avanço físico + RDO (campo) ────────────────�
 | Etapa do ciclo | Onde | Observação |
 |---|---|---|
 | Obra e etapas | `/obras` | Etapas de 1 nível, datas previstas; renomear e reordenar no Resumo da obra |
-| Orçamento | `/orcamento` | Um valor por etapa |
+| Orçamento | `/orcamento` | Um valor por etapa; desempenho de custo (valor agregado, IDC, tendência, variação) e desembolso previsto × realizado por mês (pela linha de base oficial, quando existe) |
 | Lançamento com rateio | `/notas` | Itens rateados por obra/etapa; duplicata avisada; importa XML e lê PDF/foto |
 | Parcelas | dentro do lançamento | Geradas na gravação; preservadas ao editar |
 | Contas a pagar | `/contas` | Abertas, atrasadas, pagas; fluxo mensal |
 | Avanço e RDO | `/cronograma`, `/diario` | Quem está no campo lança; o escritório corrige o avanço lançado |
-| Dashboard | `/dashboard` | Só ADMIN e ESCRITORIO |
+| Dashboard | `/dashboard` | Só ADMIN e ESCRITORIO; filtro `?obra=`; avanço por obra com previsto, realizado, IDP e situação; alertas de etapas atrasadas e de tendência de custo |
 
 ### Cronograma: status, indicadores e linha de base
 
