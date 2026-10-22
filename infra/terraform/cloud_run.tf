@@ -113,6 +113,19 @@ resource "google_cloud_run_v2_service" "app" {
           value = var.cnpjs_empresa
         }
       }
+      dynamic "env" {
+        # só com o Load Balancer: o cabeçalho que ele injeta prova que o salto extra do X-Forwarded-For é dele
+        for_each = google_secret_manager_secret.borda_segredo
+        content {
+          name = "BORDA_SEGREDO"
+          value_source {
+            secret_key_ref {
+              secret  = env.value.secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
       env {
         name = "CHAVE_COFRE"
         value_source {
@@ -172,6 +185,7 @@ resource "google_cloud_run_v2_service" "app" {
     google_secret_manager_secret_version.auth_secret,
     google_secret_manager_secret_version.chave_cofre,
     google_secret_manager_secret_iam_member.run_secrets,
+    google_secret_manager_secret_iam_member.run_borda_segredo,
     google_project_iam_member.run_sql_client,
   ]
 }

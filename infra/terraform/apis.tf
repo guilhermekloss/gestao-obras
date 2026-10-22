@@ -21,6 +21,7 @@ locals {
     var.gemini_habilitado ? ["aiplatform.googleapis.com"] : [],
     var.varredura_imagens ? ["containerscanning.googleapis.com"] : [],
     var.sefaz_agendador ? ["cloudscheduler.googleapis.com"] : [],
+    var.load_balancer ? ["compute.googleapis.com"] : [],
   )
 }
 

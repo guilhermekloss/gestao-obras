@@ -24,6 +24,11 @@ email_alertas = ""
 # IP fixo do escritório: nunca bloqueado por IP no login (o limite por e-mail continua)
 # ips_confiaveis = "200.1.2.3"
 
+# Load Balancer + Cloud Armor (WAF e limite por IP na borda), ~US$ 25/mês. Exige app_url com domínio próprio.
+# load_balancer = true
+# borda_waf_observacao = false   # depois de conferir os falsos positivos das regras OWASP
+# ips_bloqueados_borda = ["203.0.113.7"]
+
 # Varredura de vulnerabilidades das imagens (cobrada por imagem)
 # varredura_imagens = true
 

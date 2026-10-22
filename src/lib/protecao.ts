@@ -8,6 +8,7 @@ import {
   faixasDeIp,
   ipConfiavel,
   ipDoCliente,
+  saltosDaRequisicao,
 } from "@/services/protecao-login";
 import {
   REGRAS,
@@ -21,9 +22,11 @@ import {
 
 const FAIXAS_CONFIAVEIS = faixasDeIp(process.env.IPS_CONFIAVEIS ?? "");
 const SALTOS_PROXY = Number(process.env.PROXY_SALTOS ?? 1) || 1;
+const SEGREDO_BORDA = process.env.BORDA_SEGREDO ?? "";
 
 export function ipDosCabecalhos(cabecalhos: Headers): string | null {
-  return ipDoCliente(cabecalhos.get("x-forwarded-for"), SALTOS_PROXY);
+  const saltos = saltosDaRequisicao(cabecalhos.get("x-borda-segredo"), SEGREDO_BORDA, SALTOS_PROXY);
+  return ipDoCliente(cabecalhos.get("x-forwarded-for"), saltos);
 }
 
 // ignoreip: IP confiável (escritório) não entra nas regras por IP. Sem IP (dev local), a regra por IP não se aplica.

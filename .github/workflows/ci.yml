@@ -127,3 +127,5 @@ jobs:
       - run: terraform fmt -check -recursive
       - run: terraform init -backend=false -input=false
       - run: terraform validate
+      - name: Plano com providers simulados (sem credenciais do GCP)
+        run: terraform test

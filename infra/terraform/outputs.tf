@@ -21,3 +21,8 @@ output "cloud_sql_connection_name" {
 output "uploads_bucket" {
   value = google_storage_bucket.uploads.name
 }
+
+output "borda_ip" {
+  description = "Com load_balancer = true: aponte o registro A do domínio de app_url para este IP. O certificado só é emitido depois que o DNS responder."
+  value       = var.load_balancer ? google_compute_global_address.borda[0].address : null
+}
