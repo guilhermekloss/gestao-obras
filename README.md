@@ -4,6 +4,8 @@ Plataforma web (responsiva/PWA) de gestão de obras: lançamentos (NF, recibo, f
 
 Roadmap e organização do trabalho: [`docs/plano-evolucao.md`](docs/plano-evolucao.md).
 
+Concorrentes (análises, comparativo com o nosso código e backlog): [`docs/concorrentes/`](docs/concorrentes/README.md). Consulte antes de implementar uma funcionalidade.
+
 Documentação completa do produto: pasta `../Gestão de Obras/` (vault Obsidian).
 
 ## Rodando local
