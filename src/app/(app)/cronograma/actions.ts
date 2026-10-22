@@ -149,7 +149,7 @@ export const excluirMedicao = acaoDeEscrita(
 
 // corrige um lançamento (data, % ou observação); a etapa não muda
 export const editarMedicao = acaoDeEscrita(
-  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS, atividade: "cronograma.medicao.editar" },
+  { papeis: ["ADMIN", "ESCRITORIO"], revalidar: ROTAS, atividade: "medicao.editar" },
   async (user, medicaoId: string, formData: FormData): Promise<ActionResult> => {
     const idValido = id().safeParse(medicaoId);
     if (!idValido.success) return { ok: false, erro: "Avanço não encontrado" };
