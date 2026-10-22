@@ -2,7 +2,17 @@ import { REGRA_LOGIN } from "./protecao-login";
 
 // "Jails" além do login (que tem regra própria em protecao-login.ts: login certo zera as falhas).
 // falha = sinal de abuso (link inválido, arquivo falso); uso = limite de custo (IA, OCR), conta toda chamada.
-export type RegraAtiva = "convite" | "upload" | "sefaz" | "assistente" | "leitura";
+// recidiva e manual não contam infrações: a recidiva conta bloqueios, o manual vem do admin.
+export type RegraAtiva =
+  | "convite"
+  | "upload"
+  | "sefaz"
+  | "assistente"
+  | "leitura"
+  | "arquivos"
+  | "varredura"
+  | "recidiva"
+  | "manual";
 
 type DefinicaoRegra = {
   rotulo: string;
@@ -18,6 +28,7 @@ type DefinicaoRegra = {
 };
 
 const MIN = 60_000;
+const HORA = 60 * MIN;
 
 export const REGRAS: Record<RegraAtiva, DefinicaoRegra> = {
   convite: {
@@ -70,7 +81,76 @@ export const REGRAS: Record<RegraAtiva, DefinicaoRegra> = {
     motivo: "30 leituras automáticas de documento em 10 min",
     mensagem: "Você pediu muitas leituras de documento seguidas. Aguarde alguns minutos.",
   },
+  arquivos: {
+    rotulo: "Arquivos sem permissão",
+    chave: "usuario",
+    tipo: "falha",
+    max: 20,
+    janelaMs: 10 * MIN,
+    duracoesMs: [30 * MIN, 2 * HORA, 24 * HORA],
+    motivo: "20 tentativas de abrir fotos ou anexos sem permissão em 10 min (sessão encerrada)",
+    mensagem: "Acesso a arquivos bloqueado temporariamente.",
+  },
+  varredura: {
+    rotulo: "Varredura por robô",
+    chave: "ip",
+    tipo: "falha",
+    max: 3,
+    janelaMs: 10 * MIN,
+    duracoesMs: [HORA, 6 * HORA, 24 * HORA],
+    motivo: "3 acessos a caminhos de robô (como /.env ou /wp-login.php) em 10 min",
+    mensagem: "Acesso bloqueado temporariamente a partir desta rede.",
+  },
+  // recidive do Fail2ban: IP bloqueado várias vezes em 24 h, por qualquer regra, sai do site inteiro
+  recidiva: {
+    rotulo: "Reincidência",
+    chave: "ip",
+    tipo: "falha",
+    max: 3,
+    janelaMs: 24 * HORA,
+    duracoesMs: [24 * HORA, 7 * 24 * HORA],
+    motivo: "IP bloqueado 3 vezes em 24 h",
+    mensagem: "Acesso bloqueado temporariamente a partir desta rede.",
+  },
+  manual: {
+    rotulo: "Bloqueio manual",
+    chave: "ip",
+    tipo: "falha",
+    max: Infinity,
+    janelaMs: 0,
+    duracoesMs: [HORA],
+    motivo: "Bloqueado pelo administrador",
+    mensagem: "Acesso bloqueado temporariamente a partir desta rede.",
+  },
 };
+
+// Estas tiram o IP do site inteiro (proxy.ts); as demais valem só no ponto onde a falha aconteceu.
+export const REGRAS_DO_SITE: RegraAtiva[] = ["varredura", "recidiva", "manual"];
+
+// Regras por IP que contam para a recidiva: login-ip e as de REGRAS com chave "ip", menos a própria recidiva.
+export function contaParaRecidiva(regra: string): boolean {
+  return regra === REGRA_LOGIN.ip || (regraAtiva(regra) && REGRAS[regra].chave === "ip" && regra !== "recidiva");
+}
+
+export const DURACOES_MANUAIS_MS = { "1 hora": HORA, "24 horas": 24 * HORA, "7 dias": 7 * 24 * HORA } as const;
+
+// Caminhos que só robô pede: o app não tem PHP, WordPress nem arquivos de configuração públicos.
+const VARREDURA = [
+  /\.(php\d?|aspx?|jsp|cgi)$/i,
+  /^\/(wp-|wordpress|xmlrpc|phpmyadmin|pma\b|myadmin|cgi-bin|vendor\/phpunit|actuator|server-status|boaform|owa\/|autodiscover)/i,
+  /(^|\/)\.(env|git|svn|hg|aws|ssh|docker|DS_Store|htaccess|htpasswd)([./-]|$)/i,
+  /\.(sql|bak|old|swp)(\.(gz|zip))?$/i,
+];
+
+export function caminhoDeVarredura(caminho: string): boolean {
+  let decodificado = caminho;
+  try {
+    decodificado = decodeURIComponent(caminho);
+  } catch {
+    // %-sequência inválida: avalia como veio
+  }
+  return VARREDURA.some((re) => re.test(decodificado));
+}
 
 export const RETENCAO_INFRACOES_DIAS = 7;
 

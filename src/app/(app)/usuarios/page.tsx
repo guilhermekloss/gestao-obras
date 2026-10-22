@@ -21,7 +21,7 @@ import { EstadoVazio } from "@/components/estado-vazio";
 import { MailPlus, ShieldCheck } from "lucide-react";
 import { MAX_FALHAS_EMAIL, type SituacaoBloqueio } from "@/services/protecao-login";
 import { ROTULO_REGRA } from "@/services/protecao-ativa";
-import { LiberarBloqueio } from "./acoes-bloqueio";
+import { BloquearIpDialog, LiberarBloqueio } from "./acoes-bloqueio";
 import {
   ATIVIDADES_POR_PAGINA,
   carregarBloqueios,
@@ -366,7 +366,7 @@ async function AbaBloqueios() {
   const bloqueios = await carregarBloqueios();
   if (bloqueios.length === 0) {
     return (
-      <EstadoVazio icone={ShieldCheck} titulo="Nenhum bloqueio nos últimos 7 dias">
+      <EstadoVazio icone={ShieldCheck} titulo="Nenhum bloqueio nos últimos 7 dias" acao={<BloquearIpDialog />}>
         Quem erra a senha {MAX_FALHAS_EMAIL} vezes seguidas, um IP que testa links de convite, quem envia arquivos falsos ou passa do
         limite de uso da IA fica bloqueado por um tempo. Os bloqueios aparecem aqui e podem ser liberados antes do prazo.
       </EstadoVazio>
@@ -439,10 +439,13 @@ async function AbaBloqueios() {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Bloqueios ativos e os dos últimos 7 dias. Quem reincide fica bloqueado por mais tempo: no login, o e-mail até 1 hora e o IP até
-        24 horas. Limites de uso da IA e da leitura de notas duram 10 minutos.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Bloqueios ativos e os dos últimos 7 dias. Quem reincide fica bloqueado por mais tempo, e um IP bloqueado 3 vezes em 24 horas sai
+          do sistema inteiro por 24 horas. Limites de uso da IA e da leitura de notas duram 10 minutos.
+        </p>
+        <BloquearIpDialog />
+      </div>
       <ListaDeDados legenda="Bloqueios" linhas={bloqueios} chave={(b) => b.id} colunas={colunas} />
     </div>
   );

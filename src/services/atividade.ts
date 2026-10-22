@@ -46,6 +46,7 @@ export const TIPOS_ATIVIDADE = {
   "convite.revogar": { rotulo: "Cancelou um convite", categoria: "acesso" },
   "convite.aceito": { rotulo: "Fez o cadastro pelo convite", categoria: "acesso" },
   "acesso.liberar_bloqueio": { rotulo: "Liberou um acesso bloqueado por tentativas", categoria: "acesso" },
+  "acesso.bloquear_ip": { rotulo: "Bloqueou um endereço IP", categoria: "acesso" },
   "conta.login": { rotulo: "Entrou no sistema", categoria: "acesso" },
   "conta.senha": { rotulo: "Trocou a própria senha", categoria: "acesso" },
   "conta.encerrar_sessoes": { rotulo: "Encerrou as sessões em todos os dispositivos", categoria: "acesso" },

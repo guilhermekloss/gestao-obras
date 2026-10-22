@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prisma = {
   infracao: { create: vi.fn(), findMany: vi.fn(), deleteMany: vi.fn() },
-  bloqueio: { create: vi.fn(), findFirst: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
+  bloqueio: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
   tentativaLogin: { deleteMany: vi.fn() },
 };
 vi.mock("@/lib/prisma", () => ({ prisma }));
 
 process.env.IPS_CONFIAVEIS = "200.1.2.0/24";
-const { bloqueioAtivo, consumirLimite, ipVigiado, limparRegistrosDeProtecao, registrarInfracao } = await import("../protecao");
+const { aplicarBloqueio, bloqueioAtivo, consumirLimite, esquecerIpDoCache, ipForaDoSite, ipVigiado, limparRegistrosDeProtecao, registrarInfracao } =
+  await import("../protecao");
 const { REGRAS } = await import("@/services/protecao-ativa");
 
 const agora = Date.now();
@@ -18,6 +19,7 @@ beforeEach(() => {
   for (const grupo of Object.values(prisma)) for (const fn of Object.values(grupo)) fn.mockReset();
   prisma.bloqueio.findFirst.mockResolvedValue(null);
   prisma.bloqueio.count.mockResolvedValue(0);
+  prisma.bloqueio.findMany.mockResolvedValue([]);
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
 });
 
@@ -95,5 +97,70 @@ describe("limparRegistrosDeProtecao", () => {
     expect(corte(prisma.infracao.deleteMany)).toBe(7);
     expect(corte(prisma.bloqueio.deleteMany)).toBe(90);
     expect(corte(prisma.tentativaLogin.deleteMany)).toBe(90);
+  });
+});
+
+describe("aplicarBloqueio e recidiva", () => {
+  const criados = () => prisma.bloqueio.create.mock.calls.map((c) => c[0].data.regra);
+
+  it("regra por usuário ou e-mail não confere recidiva", async () => {
+    await aplicarBloqueio("upload", "u1", new Date(agora + 1000), "m");
+    await aplicarBloqueio("login-email", "a@b.c", new Date(agora + 1000), "m");
+    expect(prisma.bloqueio.findMany).not.toHaveBeenCalled();
+    expect(criados()).toEqual(["upload", "login-email"]);
+  });
+
+  it("terceiro bloqueio do IP em 24 h tira o IP do site por 24 h", async () => {
+    prisma.bloqueio.findMany.mockResolvedValue(recentes(3));
+    await aplicarBloqueio("convite", "8.8.8.8", new Date(agora + 1000), "m");
+    expect(criados()).toEqual(["convite", "recidiva"]);
+    const recidiva = prisma.bloqueio.create.mock.calls[1][0].data;
+    expect(recidiva.chave).toBe("8.8.8.8");
+    expect(recidiva.ate.getTime() - Date.now()).toBeGreaterThan(24 * 3600_000 - 5000);
+    const filtro = prisma.bloqueio.findMany.mock.calls[0][0].where;
+    expect(filtro).toMatchObject({ chave: "8.8.8.8", liberadoEm: null, regra: { notIn: ["recidiva", "manual"] } });
+  });
+
+  it("abaixo de 3, ou já contados numa recidiva anterior, não repete", async () => {
+    prisma.bloqueio.findMany.mockResolvedValue(recentes(2));
+    await aplicarBloqueio("login-ip", "8.8.8.8", new Date(agora + 1000), "m");
+    prisma.bloqueio.findMany.mockResolvedValue(recentes(3));
+    prisma.bloqueio.findFirst.mockResolvedValue({ criadoEm: new Date(agora) });
+    await aplicarBloqueio("sefaz", "8.8.8.8", new Date(agora + 1000), "m");
+    expect(criados()).toEqual(["login-ip", "sefaz"]);
+  });
+});
+
+describe("ipForaDoSite", () => {
+  it("consulta só as regras do site e guarda a resposta por um tempo", async () => {
+    prisma.bloqueio.findFirst.mockResolvedValueOnce({ regra: "varredura", ate: new Date(agora + 60_000) });
+    expect(await ipForaDoSite("9.9.9.9")).toBe(true);
+    expect(await ipForaDoSite("9.9.9.9")).toBe(true);
+    expect(prisma.bloqueio.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.bloqueio.findFirst.mock.calls[0][0].where.regra.in.sort()).toEqual(["manual", "recidiva", "varredura"]);
+
+    esquecerIpDoCache("9.9.9.9");
+    expect(await ipForaDoSite("9.9.9.9")).toBe(false);
+    expect(prisma.bloqueio.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it("bloqueio novo na mesma instância vale na hora, sem esperar o cache", async () => {
+    expect(await ipForaDoSite("6.6.6.6")).toBe(false);
+    prisma.bloqueio.findFirst.mockResolvedValue({ regra: "varredura", ate: new Date(agora + 60_000) });
+    await aplicarBloqueio("varredura", "6.6.6.6", new Date(agora + 60_000), "m");
+    expect(await ipForaDoSite("6.6.6.6")).toBe(true);
+  });
+
+  it("bloqueio guardado no cache vence no prazo dele", async () => {
+    vi.useFakeTimers({ now: agora });
+    try {
+      prisma.bloqueio.findFirst.mockResolvedValueOnce({ regra: "manual", ate: new Date(agora + 1000) });
+      expect(await ipForaDoSite("7.7.7.7")).toBe(true);
+      vi.setSystemTime(agora + 2000);
+      expect(await ipForaDoSite("7.7.7.7")).toBe(false);
+      expect(prisma.bloqueio.findFirst).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
