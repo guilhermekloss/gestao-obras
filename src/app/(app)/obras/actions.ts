@@ -5,8 +5,11 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { exigirAcessoObra } from "@/lib/auth";
-import { anotarAtividade } from "@/lib/atividade";
+import { z } from "zod";
+import { anotarAtividade, ignorarAtividade } from "@/lib/atividade";
 import { obraSchema, etapaSchema, ETAPAS_PADRAO } from "@/schemas/obra";
+import { id as idSchema } from "@/schemas/comum";
+import { trocarComVizinha, type DirecaoEtapa } from "@/services/obra";
 import { formatarCno, normalizarCno } from "@/services/cno";
 
 function parseObra(formData: FormData) {
@@ -176,6 +179,95 @@ export const excluirEtapa = acaoDeEscrita(
       obraIds: [etapa.obraId],
     });
     revalidatePath(`/obras/${etapa.obraId}`);
+    return { ok: true };
+  },
+);
+
+// a etapa aparece no cronograma, no orçamento e no dashboard
+function revalidarEtapas(obraId: string) {
+  for (const caminho of [`/obras/${obraId}`, "/cronograma", "/orcamento", "/dashboard"]) revalidatePath(caminho);
+}
+
+export const renomearEtapa = acaoDeEscrita(
+  { papeis: ["ADMIN", "ESCRITORIO"], atividade: "etapa.renomear" },
+  async (user, id: string, formData: FormData): Promise<ActionResult> => {
+    const idValido = idSchema().safeParse(id);
+    if (!idValido.success) return { ok: false, erro: "Etapa não encontrada" };
+    const parsed = etapaSchema.safeParse({ nome: String(formData.get("nome") ?? "").trim() });
+    if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
+
+    const etapa = await prisma.etapa.findUnique({
+      where: { id: idValido.data },
+      select: { nome: true, obraId: true, obra: { select: { nome: true } } },
+    });
+    if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
+    exigirAcessoObra(user, etapa.obraId, "Etapa não encontrada");
+    if (etapa.nome === parsed.data.nome) {
+      ignorarAtividade();
+      return { ok: true };
+    }
+
+    await prisma.etapa.update({ where: { id: idValido.data }, data: { nome: parsed.data.nome } });
+    anotarAtividade({
+      descricao: `Renomeou a etapa ${etapa.nome} para ${parsed.data.nome} (${etapa.obra.nome})`,
+      entidade: "obra",
+      entidadeId: etapa.obraId,
+      obraIds: [etapa.obraId],
+    });
+    revalidarEtapas(etapa.obraId);
+    return { ok: true };
+  },
+);
+
+const direcaoSchema = z.enum(["cima", "baixo"]);
+
+// Troca a etapa de lugar com a vizinha e renumera 1..n: ordens repetidas ou com buracos (dados antigos) se acertam.
+export const moverEtapa = acaoDeEscrita(
+  { papeis: ["ADMIN", "ESCRITORIO"], atividade: "etapa.reordenar" },
+  async (user, id: string, direcao: DirecaoEtapa): Promise<ActionResult> => {
+    const idValido = idSchema().safeParse(id);
+    const direcaoValida = direcaoSchema.safeParse(direcao);
+    if (!idValido.success || !direcaoValida.success) return { ok: false, erro: "Etapa não encontrada" };
+
+    const etapa = await prisma.etapa.findUnique({
+      where: { id: idValido.data },
+      select: { nome: true, obraId: true, obra: { select: { nome: true } } },
+    });
+    if (!etapa) return { ok: false, erro: "Etapa não encontrada" };
+    exigirAcessoObra(user, etapa.obraId, "Etapa não encontrada");
+
+    const movida = await prisma.$transaction(async (tx) => {
+      // trava a obra: dois cliques seguidos não embaralham a ordem
+      await tx.$queryRaw`SELECT id FROM "Obra" WHERE id = ${etapa.obraId} FOR UPDATE`;
+      const etapas = await tx.etapa.findMany({
+        where: { obraId: etapa.obraId },
+        orderBy: [{ ordem: "asc" }, { id: "asc" }],
+        select: { id: true, ordem: true },
+      });
+      const novaOrdem = trocarComVizinha(
+        etapas.map((e) => e.id),
+        idValido.data,
+        direcaoValida.data,
+      );
+      if (!novaOrdem) return false;
+      const atual = new Map(etapas.map((e) => [e.id, e.ordem]));
+      for (const [i, etapaId] of novaOrdem.entries()) {
+        if (atual.get(etapaId) !== i + 1) await tx.etapa.update({ where: { id: etapaId }, data: { ordem: i + 1 } });
+      }
+      return true;
+    });
+    // já está na ponta: nada muda, nada a registrar
+    if (!movida) {
+      ignorarAtividade();
+      return { ok: true };
+    }
+    anotarAtividade({
+      descricao: `Moveu a etapa ${etapa.nome} para ${direcaoValida.data} (${etapa.obra.nome})`,
+      entidade: "obra",
+      entidadeId: etapa.obraId,
+      obraIds: [etapa.obraId],
+    });
+    revalidarEtapas(etapa.obraId);
     return { ok: true };
   },
 );

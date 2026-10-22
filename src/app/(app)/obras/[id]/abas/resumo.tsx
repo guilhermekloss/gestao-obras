@@ -16,12 +16,17 @@ import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { dataDoRdo } from "@/services/rdo";
 import { podeEditarCadastros, veFinanceiro } from "@/services/acesso";
 import type { AbaObraProps } from "./tipos";
+import { MoverEtapaBotoes, RenomearEtapaDialog } from "./etapa-acoes";
 
 export async function AbaResumo({ obra, role }: AbaObraProps) {
   const id = obra.id;
   const podeEditar = podeEditarCadastros(role);
   const veValores = veFinanceiro(role);
-  const etapas = await prisma.etapa.findMany({ where: { obraId: id }, orderBy: { ordem: "asc" } });
+  const etapas = await prisma.etapa.findMany({
+    where: { obraId: id },
+    orderBy: [{ ordem: "asc" }, { id: "asc" }],
+    select: { id: true, nome: true, orcamentoCents: true },
+  });
 
   const hoje = startOfDay(new Date());
   const [realizado, avancos, ultimosRdos, proximasParcelas] = await Promise.all([
@@ -119,30 +124,41 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
               </EstadoVazio>
             ) : (
               <ul className="divide-y">
-                {etapas.map((etapa) => {
+                {etapas.map((etapa, i) => {
                   const bp = avancos.get(etapa.id) ?? 0;
                   return (
-                    <li key={etapa.id} className="flex items-center gap-3 py-2">
-                      <span className="flex-1 text-sm">{etapa.nome}</span>
-                      <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{ width: `${bp / 100}%` }}
-                        />
+                    <li key={etapa.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                      <span className="min-w-0 flex-1 basis-32 text-sm break-words">{etapa.nome}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${bp / 100}%` }}
+                          />
+                        </div>
+                        <span className="w-12 text-right text-xs text-muted-foreground num">
+                          {formatarPercentBp(bp)}
+                        </span>
                       </div>
-                      <span className="w-12 text-right text-xs text-muted-foreground">
-                        {formatarPercentBp(bp)}
-                      </span>
                       {podeEditar && (
-                        <ConfirmButton
-                          action={excluirEtapa.bind(null, etapa.id)}
-                          mensagem={`Excluir a etapa "${etapa.nome}"?`}
-                          rotulo={`Excluir a etapa ${etapa.nome}`}
-                          variant="ghost"
-                          size="icon"
-                        >
-                          <Trash2 className="size-4 text-muted-foreground" />
-                        </ConfirmButton>
+                        <div className="ml-auto flex items-center">
+                          <RenomearEtapaDialog etapaId={etapa.id} nome={etapa.nome} />
+                          <MoverEtapaBotoes
+                            etapaId={etapa.id}
+                            nome={etapa.nome}
+                            primeira={i === 0}
+                            ultima={i === etapas.length - 1}
+                          />
+                          <ConfirmButton
+                            action={excluirEtapa.bind(null, etapa.id)}
+                            mensagem={`Excluir a etapa "${etapa.nome}"?`}
+                            rotulo={`Excluir a etapa ${etapa.nome}`}
+                            variant="ghost"
+                            size="icon"
+                          >
+                            <Trash2 className="size-4 text-muted-foreground" />
+                          </ConfirmButton>
+                        </div>
                       )}
                     </li>
                   );

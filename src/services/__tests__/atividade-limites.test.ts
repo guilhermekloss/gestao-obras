@@ -8,7 +8,14 @@ describe("categoriaDoTipo / tiposDaCategoria", () => {
     expect(categoriaDoTipo("nao.existe")).toBeNull();
   });
   it("lista só os tipos da categoria, na ordem do catálogo", () => {
-    expect(tiposDaCategoria("campo")).toEqual(["rdo.criar", "rdo.editar", "rdo.excluir", "medicao.criar", "medicao.excluir"]);
+    expect(tiposDaCategoria("campo")).toEqual([
+      "rdo.criar",
+      "rdo.editar",
+      "rdo.excluir",
+      "medicao.criar",
+      "medicao.excluir",
+      "medicao.editar",
+    ]);
     expect(tiposDaCategoria("cadastro")).toContain("obra.criar");
     expect(tiposDaCategoria("cadastro")).not.toContain("nota.criar");
   });

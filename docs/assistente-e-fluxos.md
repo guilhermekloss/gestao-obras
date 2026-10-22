@@ -123,13 +123,28 @@ Avanço físico + RDO (campo) ────────────────�
 
 | Etapa do ciclo | Onde | Observação |
 |---|---|---|
-| Obra e etapas | `/obras` | Etapas de 1 nível, datas previstas |
+| Obra e etapas | `/obras` | Etapas de 1 nível, datas previstas; renomear e reordenar no Resumo da obra |
 | Orçamento | `/orcamento` | Um valor por etapa |
 | Lançamento com rateio | `/notas` | Itens rateados por obra/etapa; duplicata avisada; importa XML e lê PDF/foto |
 | Parcelas | dentro do lançamento | Geradas na gravação; preservadas ao editar |
 | Contas a pagar | `/contas` | Abertas, atrasadas, pagas; fluxo mensal |
-| Avanço e RDO | `/cronograma`, `/diario` | Quem está no campo lança |
+| Avanço e RDO | `/cronograma`, `/diario` | Quem está no campo lança; o escritório corrige o avanço lançado |
 | Dashboard | `/dashboard` | Só ADMIN e ESCRITORIO |
+
+### Cronograma: status, indicadores e linha de base
+
+| Peça | Como funciona | Onde |
+|---|---|---|
+| **Etapas** | ADMIN e ESCRITORIO renomeiam (lápis) e mudam a ordem (setas ↑/↓) na lista de etapas do Resumo da obra. A ordem vale para o Gantt, o orçamento e o CSV. Atividades `etapa.renomear` e `etapa.reordenar` | `obras/actions.ts`, `obras/[id]/abas/etapa-acoes.tsx` |
+| **Status da etapa** | Concluída; Sem datas; **Atrasada** (fim previsto vencido sem 100%, ou mais de 10 p.p. atrás do previsto); **Atenção** (mais de 5 e até 10 p.p. atrás); Não iniciada; Em dia. Exatamente 5 p.p. ainda é Em dia; exatamente 10 p.p., Atenção | `situacaoEtapa` em `services/cronograma.ts` |
+| **Previsto, realizado e desvio** | Previsto linear nos dias entre início e fim; realizado = última medição **até hoje**; desvio = realizado − previsto, em p.p. Por etapa na aba Avanço e no balão do Gantt | `previstoEtapaNaData`, `desvioBp` |
+| **IDP** | Índice de desempenho de prazo = realizado ÷ previsto até hoje (ponderado pelo orçamento), exibido como "0,92". Sem previsto ainda, "—". No cabeçalho do cronograma e na aba Cronograma da obra | `idp` (base 10000) |
+| **Linha de base** | "Salvar linha de base" (ADMIN/ESCRITORIO, no card do Gantt) fotografa nome, datas e orçamento de todas as etapas e vira a oficial; a anterior fica guardada, mas deixa de valer. Exige ao menos uma etapa com datas. O Gantt mostra a barra fina da base e a coluna "Var. fim" (dias; + atrasou, − adiantou); a curva S passa a usar o previsto da base. Etapa excluída depois continua na foto. Atividade `cronograma.linha_base` | `LinhaBase`/`LinhaBaseEtapa`, `services/linha-base*.ts` |
+| **Corrigir avanço** | ADMIN/ESCRITORIO corrigem data, % e observação pelo lápis do Histórico (aba Avanço). O valor continua preso entre os avanços das datas vizinhas da mesma etapa. Atividade `medicao.editar` | `editarMedicao`, `validarAvancoNaSerie(..., ignorarId)` |
+| **Exportar CSV** | `/cronograma/exportar?obra=`: `;`, BOM UTF-8, datas dd/mm/aaaa; texto que começa com `= + - @` ganha `'` (sem fórmula). Colunas: etapa, início, fim, duração, previsto hoje, realizado, desvio, status, LB início, LB fim, variação do fim e **peso só para quem vê valores** (nunca CAMPO) | `services/cronograma-csv.ts` |
+| **Imprimir** | "Imprimir / salvar PDF" (mesmo botão do RDO, `components/botao-imprimir.tsx`): A4 paisagem, sem menu, cabeçalho e assistente | `cronograma/page.tsx` |
+
+O CAMPO vê status, IDP, desvio e a barra da linha de base, e exporta o CSV sem o peso; não edita datas, não salva linha de base, não corrige avanço e não renomeia nem reordena etapas.
 
 ### Papéis: quem vê o quê
 
@@ -179,7 +194,7 @@ compras) e o benchmark da seção 1 do plano. Links em
 | Contratos de empreiteiro | Ausente | Mão de obra fora do sistema |
 | Compras | Ausente | Sem solicitação, cotação, pedido, recebimento |
 | Contas a receber | Ausente | Sem receita nem margem por obra |
-| Cronograma e avanço | Bom | Sem dependências nem linha de base |
+| Cronograma e avanço | Bom | Linha de base, status Atenção, IDP e exportação CSV entregues; sem dependências entre etapas |
 | Diário de obra (RDO) | Bom | Sem aprovação/assinatura; sem vínculo com o avanço |
 | Dashboard | Bom | Consultas leem tudo em memória |
 | Documentos, estoque, qualidade, portal, notificações | Ausente | Backlog |
@@ -211,7 +226,7 @@ compras) e o benchmark da seção 1 do plano. Links em
 | Lacuna | Motivo |
 |---|---|
 | Obra sem cliente, área, valor de contrato, término previsto, responsável técnico (ART/RRT) e sem transições de status | RDO e avanço são aceitos em obra concluída ou pausada |
-| Etapas sem hierarquia (EAP), sem renomear/reordenar, sem dependências nem linha de base | Cronograma não mede atraso contra o planejado original |
+| Etapas sem hierarquia (EAP) e sem dependências (renomear, reordenar e linha de base já entregues) | Sem dependência, mudar uma data não empurra as etapas seguintes |
 | RDO sem aprovação/assinatura e sem vínculo com o avanço | Diário não serve como prova nem alimenta o físico |
 | Nota sem cancelamento (só exclusão definitiva) | Perde-se o histórico |
 | Retenções (ISS/INSS) como dado | Hoje só aparecem em texto |
@@ -228,7 +243,7 @@ compras) e o benchmark da seção 1 do plano. Links em
 | Documentos da obra (plantas, contratos, alvarás) | Já previsto em 2.4 |
 | Estoque | Pequeno ganho para obras de lote |
 | Checklists/FVS | Diferencial de qualidade, não de controle de custo |
-| Exportação CSV/PDF | Conveniência |
+| Exportação CSV/PDF fora do cronograma (o cronograma já exporta CSV e imprime) | Conveniência |
 | Dados bancários/PIX do fornecedor e deduplicação por nome | Facilita pagamento e limpa cadastro |
 | Desativar material pela tela | Hoje só pelo banco |
 | Portal do cliente | Só com obra por encomenda |

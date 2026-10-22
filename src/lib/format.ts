@@ -49,6 +49,26 @@ export function formatarPercentBp(bp: number): string {
   return `${(bp / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 }
 
+// IDP em base 10000 → "0,92"; sem previsto ainda → "—".
+export function formatarIdp(idpBase10000: number | null): string {
+  if (idpBase10000 === null) return "—";
+  return (idpBase10000 / 10000).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Desvio em pontos percentuais com sinal: "+2,5 p.p.", "−8 p.p.", "0 p.p." (sinal de menos tipográfico).
+export function formatarDesvioBp(bp: number): string {
+  const valor = (Math.abs(bp) / 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  if (valor === "0") return "0 p.p.";
+  return `${bp > 0 ? "+" : "\u2212"}${valor} p.p.`;
+}
+
+// Variação em dias com sinal: "+5 d", "−2 d", "0 d"; sem dado → "—".
+export function formatarVariacaoDias(dias: number | null): string {
+  if (dias === null) return "—";
+  if (dias === 0) return "0 d";
+  return `${dias > 0 ? "+" : "\u2212"}${Math.abs(dias)} d`;
+}
+
 export function percentBpParaEditavel(bp: number): string {
   return (bp / 100).toFixed(2).replace(".", ",");
 }

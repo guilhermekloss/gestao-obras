@@ -4,10 +4,13 @@ import {
   chaveMes,
   rotuloChaveMes,
   dataParaInput,
+  formatarDesvioBp,
+  formatarIdp,
   formatarMoeda,
   formatarMoedaAbreviada,
   formatarPercentBp,
   formatarTempoRelativo,
+  formatarVariacaoDias,
   inputParaData,
   moedaParaCents,
   percentBpParaEditavel,
@@ -135,5 +138,28 @@ describe("formatarMoedaAbreviada", () => {
 
   it("mantém o sinal de valores negativos", () => {
     expect(formatarMoedaAbreviada(-4_820_000)).toBe("-R$\u00a048,2\u00a0mil");
+  });
+});
+
+describe("indicadores do cronograma", () => {
+  it("IDP com duas casas, vírgula decimal", () => {
+    expect(formatarIdp(9200)).toBe("0,92");
+    expect(formatarIdp(10000)).toBe("1,00");
+    expect(formatarIdp(12345)).toBe("1,23");
+    expect(formatarIdp(null)).toBe("—");
+  });
+
+  it("desvio em p.p. com sinal", () => {
+    expect(formatarDesvioBp(-810)).toBe("\u22128,1 p.p.");
+    expect(formatarDesvioBp(250)).toBe("+2,5 p.p.");
+    expect(formatarDesvioBp(0)).toBe("0 p.p.");
+    expect(formatarDesvioBp(-4)).toBe("0 p.p.");
+  });
+
+  it("variação em dias com sinal", () => {
+    expect(formatarVariacaoDias(5)).toBe("+5 d");
+    expect(formatarVariacaoDias(-2)).toBe("\u22122 d");
+    expect(formatarVariacaoDias(0)).toBe("0 d");
+    expect(formatarVariacaoDias(null)).toBe("—");
   });
 });
