@@ -1,82 +1,182 @@
 # Gestão de Obras
 
-Plataforma web (responsiva/PWA) de gestão de obras: lançamentos (NF, recibo, folha, guia) com rateio entre obras, leitura automática da nota por foto, PDF ou XML da NF-e, contas a pagar, diário de obra mobile com impressão, cronograma com Gantt e curva S, orçamento vs. realizado com curva ABC e alertas, e dashboard. Substitui as planilhas de quantitativo e financeiro.
+Plataforma web (responsiva, instalável como PWA) para construtoras de pequeno e médio porte controlarem custo, cronograma e diário das obras num lugar só, no lugar das planilhas de quantitativo e financeiro.
 
-Roadmap e organização do trabalho: [`docs/plano-evolucao.md`](docs/plano-evolucao.md).
+## Contexto e meu papel
 
-Concorrentes (análises, comparativo com o nosso código e backlog): [`docs/concorrentes/`](docs/concorrentes/README.md). Consulte antes de implementar uma funcionalidade.
+Construí este sistema para uma empresa de construção que controlava custo e obra em planilhas. Atuei como **product builder e forward deployed engineer**: fiz tudo sozinho, da conversa com quem usa o sistema ao deploy em produção.
 
-Documentação completa do produto: pasta `../Gestão de Obras/` (vault Obsidian).
+- **Produto:** levantei como o escritório e o campo trabalhavam e defini o que entra e o que fica de fora.
+- **Desenvolvimento:** escrevi o app inteiro, do banco e das regras de negócio à interface mobile.
+- **Cloud:** configurei toda a infra no Google Cloud com Terraform e a esteira de CI/CD, com deploy sem passo manual.
+- **Segurança:** defini e apliquei as diretrizes, de autorização e sessão a segredos e permissões na nuvem.
+
+**Boas práticas aplicadas**
+
+- **Código:** TypeScript estrito, regras de negócio puras em `src/services/`, dinheiro em centavos, escrita de dados por um ponto único com log de auditoria.
+- **Testes:** unitários, casos-limite, teste de mutação e e2e rodando contra o build de produção.
+- **CI/CD:** lint, tipos, testes, build, migrations conferidas contra o schema, imagem Docker sem root e smoke test antes de receber tráfego, com rollback em workflow próprio.
+- **Infra como código:** Terraform validado no CI, deploy por OIDC (sem chave de serviço), segredos no Secret Manager, banco sem IP público.
+- **Cadeia de suprimentos:** GitHub Actions fixadas por SHA, Dependabot, `npm audit` e verificação de assinaturas.
+- **Processo:** `main` protegida, PR com checklist, histórico linear e documentação em `docs/`.
+
+**Resultados:** [preencher só com dado real, ex.: tempo de lançamento de nota antes e depois, nº de obras e usuários ativos]
+
+---
+
+## Produto
+
+### O problema
+
+Em construtora pequena e média, o custo da obra costuma viver em planilhas: uma de notas fiscais, outra de quantitativo, outra de contas a pagar. Isso gera três problemas recorrentes:
+
+1. **Custo por obra impreciso.** Uma nota que atende duas obras é lançada inteira em uma, ou dividida à mão. Mão de obra, diárias e guias ficam de fora porque "não têm nota".
+2. **Digitação manual.** Cada nota é redigitada item a item, com erro de valor, CNPJ e vencimento.
+3. **Escritório e campo desconectados.** O engenheiro registra o dia da obra no papel ou no WhatsApp; o avanço físico não conversa com o financeiro, e ninguém vê desvio de prazo ou custo antes de ele acontecer.
+
+### Para quem
+
+| Perfil | O que precisa | Papel no app |
+|---|---|---|
+| Dono / gestor | Saber quanto cada obra custou, quanto falta pagar e onde está o desvio | `ADMIN` |
+| Escritório (financeiro, compras) | Lançar notas rápido, ratear entre obras, controlar vencimentos | `ESCRITORIO` |
+| Campo (engenheiro, mestre) | Registrar o diário e o avanço pelo celular, sem ver valores | `CAMPO` |
+
+### O que o produto faz
+
+**Custo e financeiro**
+- Lançamento de NF, recibo, folha e guia com **rateio entre obras** e parcelas a pagar. Lançamento sem NF ganha número automático, para que todo custo entre na obra.
+- **Leitura automática da nota** por foto, PDF ou XML da NF-e: texto do PDF, código de barras/QR e OCR local. Uma tela de conferência mostra os dados ao lado do documento e só grava depois da confirmação. IA (Gemini) é opcional, para releitura quando a confiança é baixa.
+- **Captura automática de NF-e na Sefaz** com o certificado A1 da empresa: as notas emitidas contra o CNPJ aparecem sem ninguém digitar.
+- Contas a pagar por urgência e fluxo mensal.
+- Catálogo de materiais que se liga sozinho aos itens das notas pela descrição.
+
+**Planejamento e campo**
+- Cronograma com Gantt, curva S, linha de base, IDP e status de atenção por etapa.
+- **Diário de obra (RDO)** mobile com fotos, rascunho offline no aparelho e versão para impressão.
+- Avanço físico por etapa, lançado pelo campo.
+
+**Análise**
+- Orçamento × realizado por obra e etapa, curva ABC de insumos, desembolso mensal contra a linha de base e alerta de tendência de estouro.
+- **Score de dependência de fornecedor**: mostra quanto do gasto está concentrado em poucos fornecedores (nenhum dos concorrentes pesquisados oferece).
+- Dashboard com filtro por obra e central de alertas.
+
+**Acesso e auditoria**
+- Convite por link de uso único, com papel, obras liberadas e validade.
+- Usuário de campo pode ser limitado a obras específicas; valores financeiros são bloqueados no servidor, não só escondidos na tela.
+- Log de auditoria de toda ação de escrita e página de atuação por usuário (o que lançou, em quais obras, produção semanal).
+- Assistente de navegação: tour guiado no primeiro acesso, central de ajuda por fluxo e perguntas em linguagem natural.
+
+### Decisões de produto
+
+- **Escopo deliberadamente menor que um ERP.** O benchmark com Sienge, Obra Prima, Vobi, Mais Controle e outros ([`docs/plano-evolucao.md`](docs/plano-evolucao.md)) definiu o que fica de fora: BIM, RFIs, licitação, CRM, base SINAPI completa. O foco é o que a construtora pequena usa todo dia.
+- **Leitura de nota sem depender de IA externa.** O leitor nativo roda local e sem custo por documento. A IA entra só como reforço opcional. Isso reduz custo variável e evita mandar documento fiscal para terceiros por padrão.
+- **Conferência humana antes de gravar.** Leitura automática erra; o usuário vê o documento e os campos lado a lado e confirma. A tela mostra o índice de acerto para indicar onde olhar.
+- **Rateio por nota, não por item.** Simplifica o lançamento, que é o gargalo do escritório. Item para outra obra vai em nota separada.
+- **Campo sem valores.** O papel `CAMPO` registra diário e avanço, mas não vê custo. A regra é aplicada no servidor e a sessão é conferida no banco a cada requisição, então mudar papel ou desativar alguém vale na hora.
+
+### Roadmap
+
+Próximas ondas (detalhe em [`docs/plano-evolucao.md`](docs/plano-evolucao.md)):
+
+- Contratos de empreiteiro e medição de serviço com retenções (INSS, ISS, caução), que hoje é o maior custo fora do sistema.
+- Compras: solicitação → cotação → pedido → NF vinculada.
+- Contas a receber e fluxo de caixa realizado + projetado.
+- Documentos da obra, portal do cliente, conciliação OFX, notificações por WhatsApp.
+
+---
+
+## Engenharia
+
+### Stack
+
+Next.js 16 (App Router, Server Actions) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + Prisma 6 · Auth.js v5 · Recharts · Tesseract (OCR local) · Google Cloud (Cloud Run, Cloud SQL, Cloud Storage, Secret Manager) · Terraform · GitHub Actions.
+
+### Arquitetura
+
+- **Regras de negócio puras em `src/services/`**, sem dependência de framework e cobertas por testes unitários: rateio, parcelas, custos, cronograma, curva ABC, alertas, permissão por obra, política de senha, proteção contra força bruta, leitor de documentos, cliente Sefaz.
+- **Dinheiro em centavos (`Int`) e percentuais em basis points**, para não ter erro de ponto flutuante em soma de parcelas e rateio.
+- **Seam único para escrita:** toda Server Action passa por `acaoDeEscrita` (`src/lib/acao.ts`), que valida sessão, papel e acesso à obra e grava o log de auditoria.
+- **Leitor de documentos em duas etapas:** extração (texto do PDF, código de barras, OCR ou Cloud Vision) → interpretação por tipo de documento (DANFE, NFC-e, NFS-e, boleto, guia, recibo) → normalização e checagem de somas.
+
+```
+src/
+  app/(app)/      módulos: obras, notas, contas, cronograma, diario, orcamento,
+                  fornecedores, materiais, dashboard, usuarios, empresa, sefaz
+  services/       regras de negócio (puras e testadas), leitor-nativo/, sefaz/, assistente/
+  lib/            auth, acao (seam de escrita), csp, storage, cofre (cifra do certificado A1)
+  proxy.ts        Content-Security-Policy com nonce e renovação de sessão
+prisma/           schema, migrations, seed e dados de demonstração
+infra/terraform/  toda a infraestrutura do GCP
+e2e/              Playwright: fluxo crítico, convite, segurança, acessibilidade
+```
+
+### Qualidade
+
+- Testes unitários (Vitest) nas regras de negócio, com suítes de casos-limite separadas (`*-limites.test.ts`).
+- **Teste de mutação** (Stryker) para medir se os testes realmente pegam erro, não só cobrem linha.
+- E2E (Playwright) do fluxo crítico (nota → pagar parcela → custo na obra), convite, permissões, captura Sefaz e acessibilidade (rótulos, foco e área de toque em todas as telas do menu). O e2e falha se houver violação de CSP.
+- Corpus sintético de documentos fiscais (`scripts/leitor-nativo/`) para medir a precisão do leitor a cada mudança.
+
+### Segurança
+
+- Senha mínima de 10 caracteres, bloqueio após 5 tentativas, sessão de 8 h ociosa / 7 dias no máximo, revogação de todas as sessões.
+- CSP com nonce, arquivos validados pelo conteúdo (não pela extensão) e servidos com checagem de acesso por obra.
+- Certificado A1 cifrado no banco com chave do Secret Manager.
+- Banco sem IP público (só Auth Proxy via IAM), deploy via OIDC sem chave de serviço, actions fixadas por SHA, `npm audit` e verificação de assinaturas no CI.
+- Detalhes, riscos aceitos e roteiro de incidente: [`docs/seguranca.md`](docs/seguranca.md). Reporte de falhas: [`SECURITY.md`](SECURITY.md).
+
+### Deploy
+
+Cloud Run + Cloud SQL + Cloud Storage em São Paulo, provisionados por Terraform. Cada merge na `main` passa por CI, gera imagem, roda migrations, sobe uma revisão sem tráfego, faz smoke test e só então recebe 100% do tráfego. Guia: [`docs/deploy-gcp.md`](docs/deploy-gcp.md) e [`docs/fluxo-de-trabalho.md`](docs/fluxo-de-trabalho.md).
+
+---
 
 ## Rodando local
 
+Pré-requisitos: Node 22 e Docker.
+
 ```bash
-docker compose up -d        # PostgreSQL
+docker compose up -d          # PostgreSQL local
 npm install
-npx prisma migrate dev      # cria as tabelas
-npm run db:seed             # admin + 6 lotes com etapas padrão
-npm run dev                 # http://localhost:3000
+cp .env.example .env          # preencha o AUTH_SECRET
+npx prisma migrate dev        # cria as tabelas
+npm run db:seed               # usuário admin + 6 obras com etapas padrão
+npx tsx prisma/teste-fluxo.ts # opcional: dados de demonstração
+npm run dev                   # http://localhost:3000
 ```
 
-Leitura automática de foto/PDF de nota: nativa, sem serviço de IA externo — camada de texto do PDF, código de barras/QR e OCR local (Tesseract). `OCR_MOTOR=vision` usa o Google Cloud Vision (mais preciso em foto); `OCR_MOTOR=desligado` deixa foto/PDF só anexados. `GEMINI_MODELO_ASSISTENTE` (opcional) troca o modelo das perguntas do assistente de navegação. Na conferência, o botão **Analisar com IA** (Gemini, opcional: `GEMINI_PROJETO` ou `GEMINI_API_KEY`) relê o documento quando o índice de acerto é baixo. Após a leitura, um pop-up de conferência mostra todos os dados ao lado do documento e só grava após a confirmação do usuário; `CNPJS_EMPRESA` (opcional) confere o destinatário da nota. Detalhes em [`docs/leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md).
+Login local: `admin@obras.local` / `admin123`. Esse usuário só existe no seed de desenvolvimento; em produção o seed exige `SEED_ADMIN_SENHA` com 12+ caracteres.
 
-Login inicial: `admin@obras.local` / `admin123` (troque em **Minha conta**).
+Variáveis opcionais: `OCR_MOTOR` (`vision` usa o Google Cloud Vision; `desligado` só anexa o arquivo), `GEMINI_PROJETO` ou `GEMINI_API_KEY` (habilita o botão **Analisar com IA**), `CNPJS_EMPRESA` (confere o destinatário da nota), `STORAGE_BUCKET` (sem ele, arquivos vão para `./uploads`), `APP_URL` (domínio dos links de convite). Detalhes em [`docs/leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md) e [`docs/captura-sefaz.md`](docs/captura-sefaz.md).
 
-Novos usuários: em **Usuários → Convidar por link** o admin define papel, obras e validade e envia o link (WhatsApp, e-mail ou copiar); a pessoa cria a própria conta em `/convite/<token>`. O link é de uso único e o banco guarda só o hash do token. O endereço do link sai do próprio request; defina `APP_URL` (ex.: `https://obras.suaempresa.com.br`) se o app ficar atrás de um domínio diferente.
-
-Para testar no celular: acesse `http://<IP-da-máquina>:3000` na mesma rede Wi-Fi e use "Adicionar à tela inicial".
-
-## Produção (Google Cloud)
-
-Cloud Run + Cloud SQL (PostgreSQL) + Cloud Storage em São Paulo, infraestrutura em Terraform (`infra/`) e deploy automático pelo GitHub Actions a cada merge na `main` (CI → migrations → revisão nova testada antes de receber tráfego). Configuração inicial, operação e segurança: [`docs/deploy-gcp.md`](docs/deploy-gcp.md). Como trabalhar no dia a dia (branch → PR → merge → deploy, migrations, rollback): [`docs/fluxo-de-trabalho.md`](docs/fluxo-de-trabalho.md).
-
-Em produção os arquivos vão para o bucket definido em `STORAGE_BUCKET`; sem essa variável, ficam em `./uploads` (desenvolvimento).
-
-## Testes
+### Testes
 
 ```bash
-npm test                # Vitest — services (parcelas, rateio, fluxo, importação, senha, bloqueio de login)
-npx playwright test     # e2e — fluxo crítico (NF → pagar → custo na obra), convite e segurança; falha se houver violação de CSP
+npm test                # unitários (Vitest)
+npm run test:e2e        # e2e (Playwright)
+npm run test:mutation   # teste de mutação (Stryker)
 ```
 
-## Stack
+---
 
-Next.js 16 (App Router) · TypeScript · Tailwind 4 + shadcn/ui · PostgreSQL + Prisma 6 · Auth.js v5 · Recharts. Dinheiro em centavos (Int); percentuais em basis points. Regras de negócio em `src/services/` (puras, testadas).
+## Documentação
 
-## Estrutura
-
-- `src/app/(app)/` — módulos: obras (página em abas: `obras/[id]/abas/`), fornecedores, materiais (catálogo + vínculo automático com os itens das notas), notas (lançamentos com envio único de foto/PDF/XML em `nova/` + `importar-xml`), contas, diario, cronograma (Gantt, curva S, Avanço), orcamento (+ `abc`), usuarios, dashboard (+ `alertas`, `widgets/`), importar (migração CSV — fora do menu)
-- `src/components/assistente/` + `src/services/assistente/` — assistente de navegação: pop-up de boas-vindas no primeiro login (`Usuario.assistenteVistoEm`), botão fixo, tour guiado, central de ajuda com os guias de cada fluxo (`guias.ts`, fonte única) e perguntas à IA (Gemini). Mudou uma tela? Atualize o guia dela.
-- `src/app/convite/[token]` — cadastro público pelo link de convite
-- `src/app/(app)/conta` — Minha conta: troca de senha, sair de todos os aparelhos, acessos recentes
-- `src/services/` — acesso (permissão por obra), senha (política), protecao-login (força bruta), arquivos (tipo pelo conteúdo, URLs aceitas), convite, atividade (catálogo do log, atuação por obra), parcelas, rateio, financeiro, obra, custos, obras (seleção de obras ativas), importacao, dependencia, cronograma, rdo, analises (curva ABC, alertas), fornecedores, correspondencia-fornecedor, nfe-xml, leitura-documento (conferência da nota lida), leitor-nativo (foto/PDF → dados: texto do PDF, código de barras/QR, OCR) e leitor-gemini (Analisar com IA)
-- `src/lib/` — prisma, auth (`usuarioAtual`, `exigirPapel`, `exigirAcessoObra`, bloqueio de login) + auth.config (sessão, usada também pelo `src/proxy.ts`), acao (`acaoDeEscrita` — seam das server actions e do log de auditoria), atividade (`anotarAtividade`), log-seguranca (eventos em JSON), csp, token (link de convite), format (moeda/data/percentual BR), storage, imagem (reduz a foto antes do upload)
-- `src/proxy.ts` — Content-Security-Policy com nonce e renovação do cookie de sessão
-- `prisma/` — schema, seed, `teste-fluxo.ts` (dados de demonstração)
-
-## Papéis
-
-| Papel | Acesso |
+| Documento | Conteúdo |
 |---|---|
-| ADMIN | tudo + usuários, convites e log de atividade |
-| ESCRITORIO | NFs, financeiro, orçamento, importação — todas as obras |
-| CAMPO | RDO (edita/exclui o próprio por 7 dias), avanço no cronograma, obras — sem valores financeiros (bloqueado no servidor). Pode ser limitado a obras específicas: as demais somem das listas e dão 404 pela URL |
+| [`plano-evolucao.md`](docs/plano-evolucao.md) | Benchmark de mercado, mapa de funcionalidades e roadmap |
+| [`leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md) | Como funciona a leitura de foto, PDF e XML |
+| [`captura-sefaz.md`](docs/captura-sefaz.md) | Captura automática de NF-e com certificado A1 |
+| [`assistente-e-fluxos.md`](docs/assistente-e-fluxos.md) | Assistente de navegação e auditoria dos fluxos |
+| [`seguranca.md`](docs/seguranca.md) | Camadas de segurança, riscos aceitos, incidente |
+| [`deploy-gcp.md`](docs/deploy-gcp.md) | Infraestrutura e primeiro deploy |
+| [`fluxo-de-trabalho.md`](docs/fluxo-de-trabalho.md) | Branch → PR → deploy, migrations e rollback |
+| [`identidade-visual.md`](docs/identidade-visual.md) | Tipografia, cores e componentes |
+| [`auditoria-indices.md`](docs/auditoria-indices.md) / [`auditoria-timeouts.md`](docs/auditoria-timeouts.md) | Revisões de performance do banco e de timeouts |
 
-Papel, desativação e obras liberadas valem na hora: a sessão é conferida no banco a cada requisição (`usuarioAtual` em `lib/auth.ts`), não só no login. Trocar a senha ou **Encerrar sessões** derruba os logins abertos em todos os aparelhos.
+## Limitações conhecidas
 
-## Segurança
-
-Camadas (contas, autorização, CSP, arquivos, dados, nuvem, CI/CD, alertas), riscos aceitos e roteiro de incidente: [`docs/seguranca.md`](docs/seguranca.md). Para reportar uma falha: [`SECURITY.md`](SECURITY.md). Em resumo: senha mínima de 10 caracteres, bloqueio após 5 tentativas erradas, sessão de 8 h ociosa / 7 dias no máximo, CSP com nonce (`src/proxy.ts`), arquivos conferidos pelo conteúdo e por obra, eventos de segurança em JSON no log com alertas no Terraform.
-
-**Gestão de acessos ligada aos dados:** cada usuário tem uma página (`/usuarios/<id>`) com o que produziu — lançamentos e valor, RDOs, avanços, atuação por obra, produção semanal — e o histórico de ações. Toda action com `atividade` em `acaoDeEscrita` grava uma linha no log de auditoria (`Atividade`), com o detalhe anotado via `anotarAtividade` (`lib/atividade.ts`; catálogo de tipos em `services/atividade.ts`). A obra ganhou a aba **Equipe** (quem acessa e o que cada um registrou nela).
-
-## Pendências conscientes
-
-- Service worker (cache offline) não instalado — o PWA é instalável via manifest.
-- Rateio é por nota (aplicado a todos os itens) — o modelo de dados garante isso (`RateioNota` pertence à `NotaFiscal`, não ao item). Para destinar um item a outra obra, lance em uma nota separada.
-- Editar um lançamento preserva as parcelas pagas cujo valor e vencimento não mudaram; alterar ou remover uma parcela paga a reabre/remove, com confirmação.
-- Lançamentos sem NF (recibo, folha, guia, outro) recebem número automático por fornecedor quando ficam em branco: `REC-0001`, `FOL-0001`, `GUIA-0001`, `DOC-0001`.
-- Datas em colunas `@db.Date` (RDO, datas previstas de etapa) e datas gravadas à meia-noite UTC podem aparecer um dia antes num servidor fora de UTC — rodar o servidor em UTC até a padronização (ver plano, Onda 2).
-- Fotos removidas de um RDO ficam órfãs no storage (`./uploads` ou o bucket) até o driver ganhar `remover` (Onda 2).
-- O log de auditoria começa a contar a partir da migração `gestao_acessos`; a página do usuário usa os próprios registros (autor do RDO, de quem lançou a nota, do avanço) para mostrar o histórico anterior.
-- Importador espera o formato documentado na tela Importar — valide com as planilhas reais exportadas em CSV.
+- Sem service worker: o PWA é instalável, mas não funciona offline (o rascunho do RDO fica salvo no aparelho).
+- Rateio é por nota; item destinado a outra obra vai em nota separada.
+- Datas `@db.Date` assumem servidor em UTC até a padronização.
+- Fotos removidas de um RDO ficam no storage até existir uma rotina de limpeza.
