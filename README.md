@@ -4,12 +4,21 @@ Plataforma web (responsiva, instalável como PWA) para construtoras de pequeno e
 
 ## Contexto e meu papel
 
-Construí este sistema para uma empresa de construção que controlava custo e obra em planilhas. Atuei como **product builder e forward deployed engineer**: fui da conversa com quem usa o sistema até o deploy em produção, sozinho, sem time de produto ou de engenharia separado.
+Construí este sistema para uma empresa de construção que controlava custo e obra em planilhas. Atuei como **product builder e forward deployed engineer**: fiz tudo sozinho, da conversa com quem usa o sistema ao deploy em produção.
 
-- **Descoberta e produto:** levantei como o escritório e o campo trabalhavam, defini o que entrava e o que ficava de fora, e priorizei pelo que mais doía no dia a dia (lançamento de nota, rateio entre obras, custo fora do sistema).
-- **Desenvolvimento:** escrevi o app inteiro, do banco e das regras de negócio à interface mobile, incluindo o leitor de notas e a captura na Sefaz.
-- **Infraestrutura e operação:** montei a infra no Google Cloud com Terraform, a esteira de CI/CD com deploy sem passo manual, a segurança e o monitoramento.
-- **Implantação:** coloquei em uso com a equipe da empresa, migrei os dados das planilhas e ajustei o produto a partir do uso real.
+- **Produto:** levantei como o escritório e o campo trabalhavam e defini o que entra e o que fica de fora.
+- **Desenvolvimento:** escrevi o app inteiro, do banco e das regras de negócio à interface mobile.
+- **Cloud:** configurei toda a infra no Google Cloud com Terraform e a esteira de CI/CD, com deploy sem passo manual.
+- **Segurança:** defini e apliquei as diretrizes, de autorização e sessão a segredos e permissões na nuvem.
+
+**Boas práticas aplicadas**
+
+- **Código:** TypeScript estrito, regras de negócio puras em `src/services/`, dinheiro em centavos, escrita de dados por um ponto único com log de auditoria.
+- **Testes:** unitários, casos-limite, teste de mutação e e2e rodando contra o build de produção.
+- **CI/CD:** lint, tipos, testes, build, migrations conferidas contra o schema, imagem Docker sem root e smoke test antes de receber tráfego, com rollback em workflow próprio.
+- **Infra como código:** Terraform validado no CI, deploy por OIDC (sem chave de serviço), segredos no Secret Manager, banco sem IP público.
+- **Cadeia de suprimentos:** GitHub Actions fixadas por SHA, Dependabot, `npm audit` e verificação de assinaturas.
+- **Processo:** `main` protegida, PR com checklist, histórico linear e documentação em `docs/`.
 
 **Resultados:** [preencher só com dado real, ex.: tempo de lançamento de nota antes e depois, nº de obras e usuários ativos]
 
