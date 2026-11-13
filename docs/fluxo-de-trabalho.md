@@ -1,6 +1,6 @@
 # Fluxo de trabalho: do código à produção
 
-**A `main` é produção.** Todo merge nela é publicado em https://gestao-obras-rwqh5crh5q-rj.a.run.app sem passo manual. Por isso, só entra na `main` código que passou pelo CI num pull request.
+**A `main` é produção.** Todo merge nela é publicado no Cloud Run sem passo manual. Por isso, só entra na `main` código que passou pelo CI num pull request.
 
 ```
 branch ──► PR ──► CI (testes, build, imagem, Terraform) ──► merge (squash) na main

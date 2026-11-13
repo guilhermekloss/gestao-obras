@@ -3,9 +3,6 @@
 Benchmark de mercado (out/2026) → mapa de funcionalidades → plano de execução
 com múltiplos agentes em paralelo sem conflito.
 
-Concorrentes: [`docs/concorrentes/`](concorrentes/README.md) (análise a fundo de cada um, comparativo
-com o nosso código e backlog; começa pelo Cofield).
-
 ---
 
 ## 1. Benchmark resumido
