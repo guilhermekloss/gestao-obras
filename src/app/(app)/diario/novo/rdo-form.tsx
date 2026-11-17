@@ -16,7 +16,7 @@ import { CabecalhoSecao } from "@/components/cabecalho-secao";
 import { Combobox } from "@/components/combobox";
 import { SeletorOpcoes, type Opcao } from "@/components/seletor-opcoes";
 import { cn } from "@/lib/utils";
-import { atualizarRdo, criarRdo } from "../actions";
+import { atualizarRdo, criarRdo, ultimoRdoDaObra, type UltimoRdo } from "../actions";
 import { dataParaInput } from "@/lib/format";
 import { CLIMAS, CONDICOES, resumoClima, rotuloClima, rotuloCondicao, type Clima } from "@/services/rdo";
 import { ContadorLista, type ItemContado } from "./contador-lista";
@@ -217,6 +217,29 @@ export function RdoForm({
     setAtividades(c.atividades);
     setOcorrencias(c.ocorrencias);
     setFotos(c.fotos.map((f) => ({ url: f.url, preview: f.url })));
+  }
+
+  // RDO novo: oferece repetir a equipe e os equipamentos do último RDO da obra
+  const [ultimo, setUltimo] = useState<{ obraId: string; rdo: UltimoRdo } | null>(null);
+  useEffect(() => {
+    if (rdo || !obraId) return;
+    let cancelado = false;
+    ultimoRdoDaObra(obraId)
+      .then((r) => {
+        if (!cancelado) setUltimo(r ? { obraId, rdo: r } : null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [obraId, rdo]);
+  const repetivel = ultimo && ultimo.obraId === obraId && efetivo.length === 0 && equipamentos.length === 0 ? ultimo.rdo : null;
+
+  function repetirUltimo() {
+    if (!repetivel) return;
+    setEfetivo(repetivel.efetivo);
+    setEquipamentos(repetivel.equipamentos);
+    toast.success("Equipe e equipamentos repetidos. Ajuste o que mudou hoje.");
   }
 
   const obraDefinida = Boolean(v || obraInicial);
@@ -420,6 +443,29 @@ export function RdoForm({
           )}
         </div>
       </div>
+
+      {repetivel && (
+        <div
+          role="status"
+          className="grid gap-3 rounded-xl border border-estado-andamento-borda bg-estado-andamento p-4 text-estado-andamento-fg sm:grid-cols-[1fr_auto] sm:items-center"
+        >
+          <p className="text-base">
+            Último RDO ({repetivel.data.split("-").reverse().join("/")}):{" "}
+            <b>
+              {[
+                soma(repetivel.efetivo) > 0 && plural(soma(repetivel.efetivo), "pessoa", "pessoas"),
+                soma(repetivel.equipamentos) > 0 && plural(soma(repetivel.equipamentos), "equipamento", "equipamentos"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </b>
+            .
+          </p>
+          <Button type="button" variant="outline" className="h-14 px-5 pointer-coarse:h-14" onClick={repetirUltimo}>
+            <HardHat className="size-5" /> Repetir equipe
+          </Button>
+        </div>
+      )}
 
       <Accordion multiple value={secoes} onValueChange={(valor) => setSecoes(valor as Secao[])}>
         <AccordionItem value="clima">

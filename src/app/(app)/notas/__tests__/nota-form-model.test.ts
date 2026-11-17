@@ -11,6 +11,8 @@ import {
   tipoItemSugerido,
   totalItemForm,
   valoresDaLeitura,
+  valoresDoHabito,
+  type HabitoFornecedor,
   type ItemForm,
   type NotaFormValues,
   type ParcelaForm,
@@ -310,5 +312,54 @@ describe("valoresDaLeitura", () => {
     const valores = { ...(v as NotaFormValues), rateios: [] };
     expect(montarPayload(valores, undefined, false).chaveNfe).toBe(leitura.chaveNfe);
     expect(montarPayload(valores, "nota-1", false).chaveNfe).toBeUndefined();
+  });
+});
+
+describe("valoresDoHabito", () => {
+  const OBRAS = [
+    { id: "o1", etapas: [{ id: "e1" }] },
+    { id: "o2", etapas: [] },
+  ];
+  const HABITO: HabitoFornecedor = {
+    numero: "1005",
+    tipoDocumento: "RECIBO",
+    dataCompra: "2026-10-21",
+    formaPagto: "BOLETO",
+    numParcelas: 2,
+    rateios: [
+      { obraId: "o1", etapaId: "e1", fracaoBp: 6000 },
+      { obraId: "o2", etapaId: "sumiu", fracaoBp: 4000 },
+    ],
+  };
+  const LIVRE = { tipoDocumento: true, pagamento: true, rateio: true };
+
+  it("repete tipo, pagamento e rateio; etapa que não existe mais vira sem etapa", () => {
+    expect(valoresDoHabito(HABITO, OBRAS, LIVRE)).toEqual({
+      tipoDocumento: "RECIBO",
+      formaPagto: "BOLETO",
+      numParcelas: "2",
+      rateios: [
+        { obraId: "o1", etapaId: "e1", percent: "60,00" },
+        { obraId: "o2", etapaId: "", percent: "40,00" },
+      ],
+    });
+  });
+
+  it("não passa por cima do que já foi definido", () => {
+    expect(valoresDoHabito(HABITO, OBRAS, { tipoDocumento: false, pagamento: false, rateio: false })).toEqual({});
+    expect(Object.keys(valoresDoHabito(HABITO, OBRAS, { ...LIVRE, rateio: false }))).toEqual([
+      "tipoDocumento",
+      "formaPagto",
+      "numParcelas",
+    ]);
+  });
+
+  it("deixa o rateio como está quando uma das obras não está mais disponível", () => {
+    expect(valoresDoHabito(HABITO, [OBRAS[0]], LIVRE).rateios).toBeUndefined();
+  });
+
+  it("limita as parcelas ao que o formulário oferece", () => {
+    expect(valoresDoHabito({ ...HABITO, numParcelas: 12 }, OBRAS, LIVRE).numParcelas).toBe("6");
+    expect(valoresDoHabito({ ...HABITO, numParcelas: 0 }, OBRAS, LIVRE).numParcelas).toBe("1");
   });
 });

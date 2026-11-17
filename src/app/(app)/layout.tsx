@@ -6,6 +6,7 @@ import { COOKIE_TEMA, lerTema } from "@/lib/tema";
 import { ROLE_LABELS } from "@/services/acesso";
 import { Sidebar, BottomNav, TituloDaPagina } from "@/components/nav";
 import { BotaoTema } from "@/components/botao-tema";
+import { BuscaGlobal } from "@/components/busca-global";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { Assistente } from "@/components/assistente/assistente";
@@ -45,6 +46,7 @@ export default async function AppLayout({
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b bg-card px-4">
           <TituloDaPagina />
           <div className="flex shrink-0 items-center gap-1">
+            <BuscaGlobal role={user.role} />
             <BotaoTema inicial={tema} />
             <Button variant="ghost" size="sm" render={<Link href="/conta" />} aria-label="Minha conta" data-assistente="conta">
               <UserRound className="size-4" />

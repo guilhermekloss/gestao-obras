@@ -6,6 +6,9 @@ import { descricaoDoLancamento, registrarLancamento } from "@/services/lancament
 import { fornecedorSchema, criarFornecedorValidado } from "@/services/fornecedores";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
+import { exigirPapel } from "@/lib/auth";
+import { dataParaInput } from "@/lib/format";
+import type { HabitoFornecedor } from "./nota-form-model";
 
 type SalvarNotaResult = ActionResult & { id?: string };
 
@@ -113,3 +116,30 @@ export const criarFornecedorInline = acaoDeEscrita(
     };
   },
 );
+
+// Último lançamento do fornecedor: o formulário usa para sugerir tipo, forma de pagamento, parcelas e rateio.
+export async function habitoDoFornecedor(fornecedorId: string): Promise<HabitoFornecedor | null> {
+  await exigirPapel("ADMIN", "ESCRITORIO");
+  if (typeof fornecedorId !== "string" || !fornecedorId) return null;
+  const nota = await prisma.notaFiscal.findFirst({
+    where: { fornecedorId },
+    orderBy: [{ dataCompra: "desc" }, { createdAt: "desc" }],
+    select: {
+      numero: true,
+      tipoDocumento: true,
+      dataCompra: true,
+      formaPagto: true,
+      _count: { select: { parcelas: true } },
+      rateios: { orderBy: { fracaoBp: "desc" }, select: { obraId: true, etapaId: true, fracaoBp: true } },
+    },
+  });
+  if (!nota) return null;
+  return {
+    numero: nota.numero,
+    tipoDocumento: nota.tipoDocumento,
+    dataCompra: dataParaInput(nota.dataCompra),
+    formaPagto: nota.formaPagto,
+    numParcelas: nota._count.parcelas,
+    rateios: nota.rateios,
+  };
+}

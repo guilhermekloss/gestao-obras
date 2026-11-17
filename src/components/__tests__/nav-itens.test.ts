@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Role } from "@prisma/client";
-import { dividirBarra, itensPara, naRota, TITULOS } from "../nav-itens";
+import { agrupar, dividirBarra, itensPara, naRota, TITULOS } from "../nav-itens";
 
 const rotas = (role: Role) => itensPara(role).map((i) => i.href);
 
@@ -9,13 +9,13 @@ describe("itensPara: permissões por papel", () => {
     expect(rotas("ADMIN")).toEqual([
       "/dashboard",
       "/obras",
-      "/fornecedores",
-      "/materiais",
-      "/notas",
-      "/contas",
       "/diario",
       "/cronograma",
+      "/notas",
+      "/contas",
       "/orcamento",
+      "/fornecedores",
+      "/materiais",
       "/usuarios",
       "/empresa",
       "/sefaz",
@@ -52,6 +52,18 @@ describe("dividirBarra", () => {
     for (const role of ["ADMIN", "ESCRITORIO", "CAMPO"] as const) {
       expect(dividirBarra(itensPara(role)).barra.length).toBeLessThanOrEqual(4);
     }
+  });
+});
+
+describe("agrupar", () => {
+  it("ADMIN vê as cinco seções, sem perder nem repetir tela", () => {
+    const grupos = agrupar(itensPara("ADMIN"));
+    expect(grupos.map((g) => g.grupo)).toEqual(["Visão geral", "Obra", "Financeiro", "Cadastros", "Administração"]);
+    expect(grupos.flatMap((g) => g.itens.map((i) => i.href))).toEqual(rotas("ADMIN"));
+  });
+
+  it("CAMPO vê só a seção Obra", () => {
+    expect(agrupar(itensPara("CAMPO")).map((g) => g.grupo)).toEqual(["Obra"]);
   });
 });
 

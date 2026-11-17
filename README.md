@@ -61,6 +61,10 @@ Em construtora pequena e média, o custo da obra costuma viver em planilhas: uma
 - **Score de dependência de fornecedor**: mostra quanto do gasto está concentrado em poucos fornecedores (nenhum dos concorrentes pesquisados oferece).
 - Dashboard com filtro por obra e central de alertas.
 
+**Navegação e preenchimento**
+- Busca global (Ctrl+K) por tela, ação, obra, fornecedor, lançamento e material.
+- Lançamento repete pagamento e rateio do último lançamento do fornecedor e gera as parcelas sozinho; o RDO repete a equipe do dia anterior com um toque.
+
 **Acesso e auditoria**
 - Convite por link de uso único, com papel, obras liberadas e validade.
 - Usuário de campo pode ser limitado a obras específicas; valores financeiros são bloqueados no servidor, não só escondidos na tela.
