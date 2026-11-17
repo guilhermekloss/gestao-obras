@@ -7,9 +7,9 @@ import { CondicaoTrabalho, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { inputParaData } from "@/lib/format";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
-import { exigirAcessoObra } from "@/lib/auth";
+import { exigirAcessoObra, exigirPapel } from "@/lib/auth";
 import { anotarAtividade } from "@/lib/atividade";
-import { formatarData } from "@/lib/format";
+import { dataParaInput, formatarData } from "@/lib/format";
 import { dataIso, id, texto } from "@/schemas/comum";
 import { arquivosSaoDoUsuario, descartarArquivosSemUso } from "@/services/arquivos-db";
 import {
@@ -18,6 +18,8 @@ import {
   diffFotos,
   permissaoRdo,
   urlFotoValida,
+  normalizarEfetivo,
+  normalizarEquipamentos,
   validarEfetivo,
   validarEquipamentos,
 } from "@/services/rdo";
@@ -204,3 +206,31 @@ export const excluirRdo = acaoDeEscrita(
     return { ok: true };
   },
 );
+
+export type UltimoRdo = {
+  /** AAAA-MM-DD */
+  data: string;
+  efetivo: { nome: string; qtd: number }[];
+  equipamentos: { nome: string; qtd: number }[];
+};
+
+// Equipe e equipamentos do RDO mais recente da obra: o formulário oferece repetir em vez de contar tudo de novo.
+export async function ultimoRdoDaObra(obraId: string): Promise<UltimoRdo | null> {
+  const usuario = await exigirPapel();
+  if (typeof obraId !== "string" || !obraId) return null;
+  try {
+    exigirAcessoObra(usuario, obraId);
+  } catch {
+    return null;
+  }
+  const rdo = await prisma.diarioObra.findFirst({
+    where: { obraId },
+    orderBy: { data: "desc" },
+    select: { data: true, efetivo: true, equipamentos: true },
+  });
+  if (!rdo) return null;
+  const efetivo = normalizarEfetivo(rdo.efetivo).map((e) => ({ nome: e.funcao, qtd: e.qtd }));
+  const equipamentos = normalizarEquipamentos(rdo.equipamentos);
+  if (efetivo.length === 0 && equipamentos.length === 0) return null;
+  return { data: dataParaInput(rdo.data), efetivo, equipamentos };
+}

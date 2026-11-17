@@ -35,6 +35,11 @@ test("lançar NF, pagar parcela e ver custo na obra", async ({ page }) => {
 
   await page.goto("/notas/nova");
   await selecionarCombobox(page, "Buscar por nome ou CNPJ...", "Aço Forte Distribuidora");
+  // o fornecedor já tem a NF do seed (cartão 3x, L03 60% + L19 40%): o formulário repete e o teste desfaz para partir do limpo
+  await expect(page.getByText("Preenchido como no último lançamento deste fornecedor")).toBeVisible();
+  await expect(page.locator('input[name="rateios.1.percent"]')).toHaveValue("40,00");
+  await page.getByRole("button", { name: "Desfazer" }).click();
+  await expect(page.locator('input[name="rateios.1.percent"]')).toHaveCount(0);
   await page.fill("#numero", NUMERO_NF);
   await page.fill("#total", "1200,00");
 

@@ -231,3 +231,46 @@ export function valoresDaLeitura(
     parcelas,
   };
 }
+
+/** Como foi o último lançamento do fornecedor: base para pré-preencher o próximo. */
+export type HabitoFornecedor = {
+  numero: string;
+  tipoDocumento: TipoDocumento;
+  /** AAAA-MM-DD */
+  dataCompra: string;
+  formaPagto: FormaPagto;
+  numParcelas: number;
+  rateios: { obraId: string; etapaId: string | null; fracaoBp: number }[];
+};
+
+export type ValoresDoHabito = Partial<Pick<NotaFormValues, "tipoDocumento" | "formaPagto" | "numParcelas" | "rateios">>;
+
+const MAX_PARCELAS_FORM = 6;
+
+/**
+ * O que o hábito do fornecedor preenche, sem passar por cima do que a pessoa (ou a leitura do documento) já definiu.
+ * O rateio só entra inteiro: se uma das obras não está mais disponível, fica como está. Etapa que sumiu vira "sem etapa".
+ */
+export function valoresDoHabito(
+  habito: HabitoFornecedor,
+  obras: { id: string; etapas: { id: string }[] }[],
+  livre: { tipoDocumento: boolean; pagamento: boolean; rateio: boolean },
+): ValoresDoHabito {
+  const valores: ValoresDoHabito = {};
+  if (livre.tipoDocumento) valores.tipoDocumento = habito.tipoDocumento;
+  if (livre.pagamento) {
+    valores.formaPagto = habito.formaPagto;
+    valores.numParcelas = String(Math.min(MAX_PARCELAS_FORM, Math.max(1, habito.numParcelas)));
+  }
+  if (livre.rateio && habito.rateios.length > 0) {
+    const porId = new Map(obras.map((o) => [o.id, o]));
+    if (habito.rateios.every((r) => porId.has(r.obraId))) {
+      valores.rateios = habito.rateios.map((r) => ({
+        obraId: r.obraId,
+        etapaId: r.etapaId && porId.get(r.obraId)!.etapas.some((e) => e.id === r.etapaId) ? r.etapaId : "",
+        percent: percentBpParaEditavel(r.fracaoBp),
+      }));
+    }
+  }
+  return valores;
+}

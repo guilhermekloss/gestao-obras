@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { BP_TOTAL } from "@/services/rateio";
 import { FORMA_PAGTO_LABELS, TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, exigeNumero } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
-import { salvarNota, criarFornecedorInline } from "./actions";
+import { salvarNota, criarFornecedorInline, habitoDoFornecedor } from "./actions";
 import { consultarPrecoSugerido, criarMaterialInline } from "../materiais/actions";
 import type { MaterialCatalogo } from "@/services/materiais";
 import { UNIDADES_PADRAO } from "@/services/materiais";
@@ -43,7 +43,10 @@ import {
   somaRateioForm,
   tipoItemSugerido,
   totalItemForm,
+  valoresDoHabito,
+  type HabitoFornecedor,
   type ItemForm,
+  type ValoresDoHabito,
   type NotaFormValues,
 } from "./nota-form-model";
 import { avisoItensDiferemDoTotal, linhasDeConferencia } from "./conferencia-lancamento";
@@ -138,7 +141,7 @@ export function NotaForm({
     setValue,
     getValues,
     setFocus,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<NotaFormValues>({
     mode: "onTouched",
     shouldFocusError: false,
@@ -179,8 +182,80 @@ export function NotaForm({
   const numero = watch("numero");
   const dataCompra = watch("dataCompra");
   const formaPagto = watch("formaPagto");
+  const numParcelas = watch("numParcelas");
   const ehNF = exigeNumero(tipoDocumento);
   const situacaoPagas = situacaoParcelasPagas(parcelasExistentes, parcelas);
+
+  // Lançamento novo: as parcelas acompanham total, forma, nº de parcelas e data até alguém mexer nelas à mão.
+  const parcelasAutomaticas = useRef(!notaId && !defaultValues?.parcelas?.length);
+  useEffect(() => {
+    if (!parcelasAutomaticas.current) return;
+    const geradas = gerarParcelasForm({ totalCents: moedaParaCents(total), numParcelas, formaPagto, dataCompra });
+    setValue("parcelas", geradas ?? []);
+  }, [total, numParcelas, formaPagto, dataCompra, setValue]);
+
+  // Lançamento novo: ao escolher o fornecedor, repete tipo, pagamento e rateio do último lançamento dele.
+  const [habito, setHabito] = useState<{
+    fornecedorId: string;
+    origem: HabitoFornecedor;
+    aplicado: ValoresDoHabito;
+    anterior: ValoresDoHabito;
+  } | null>(null);
+  const habitoRecusado = useRef<string | null>(null);
+  const livreParaHabito = {
+    tipoDocumento: !dirtyFields.tipoDocumento && !defaultValues?.tipoDocumento,
+    pagamento:
+      !dirtyFields.formaPagto && !dirtyFields.numParcelas && !defaultValues?.formaPagto && !defaultValues?.parcelas?.length,
+    rateio: !dirtyFields.rateios && !defaultValues?.rateios,
+  };
+  const livreRef = useRef(livreParaHabito);
+  useEffect(() => {
+    livreRef.current = livreParaHabito;
+  });
+  useEffect(() => {
+    if (notaId || !fornecedorId || habitoRecusado.current === fornecedorId) return;
+    let cancelado = false;
+    // o que mudar enquanto a resposta não chega é da pessoa: não se toca
+    const foto = () => {
+      const v = getValues();
+      return { tipo: v.tipoDocumento, pagamento: `${v.formaPagto}/${v.numParcelas}`, rateio: JSON.stringify(v.rateios) };
+    };
+    const antes = foto();
+    habitoDoFornecedor(fornecedorId)
+      .then((origem) => {
+        if (cancelado || !origem) return;
+        const agora = foto();
+        const livre = livreRef.current;
+        const aplicado = valoresDoHabito(origem, obras, {
+          tipoDocumento: livre.tipoDocumento && agora.tipo === antes.tipo,
+          pagamento: livre.pagamento && agora.pagamento === antes.pagamento,
+          rateio: livre.rateio && agora.rateio === antes.rateio,
+        });
+        const campos = Object.keys(aplicado) as (keyof ValoresDoHabito)[];
+        if (campos.length === 0) return;
+        const anterior: ValoresDoHabito = {};
+        for (const campo of campos) Object.assign(anterior, { [campo]: getValues(campo) });
+        for (const campo of campos) setValue(campo, aplicado[campo] as never);
+        if (aplicado.tipoDocumento) aoMudarTipoDocumento(aplicado.tipoDocumento);
+        setHabito({ fornecedorId, origem, aplicado, anterior });
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+    // só quando o fornecedor muda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fornecedorId, notaId]);
+
+  function desfazerHabito() {
+    if (!habito) return;
+    habitoRecusado.current = habito.fornecedorId;
+    for (const campo of Object.keys(habito.anterior) as (keyof ValoresDoHabito)[]) {
+      setValue(campo, habito.anterior[campo] as never);
+    }
+    if (habito.anterior.tipoDocumento) aoMudarTipoDocumento(habito.anterior.tipoDocumento);
+    setHabito(null);
+  }
 
   function aoMudarTipoDocumento(novo: NotaFormValues["tipoDocumento"]) {
     const sugerido = tipoItemSugerido(novo);
@@ -289,6 +364,7 @@ export function NotaForm({
       toast.error("Informe o valor total antes de gerar as parcelas");
       return;
     }
+    if (!notaId) parcelasAutomaticas.current = true;
     setValue("parcelas", geradas);
   }
 
@@ -504,6 +580,34 @@ export function NotaForm({
                 <Button type="button" size="sm" disabled={cadastrandoSugerido} onClick={cadastrarSugerido}>
                   <Plus className="size-4" />
                   {cadastrandoSugerido ? "Cadastrando..." : "Cadastrar e usar"}
+                </Button>
+              </div>
+            )}
+
+            {habito && habito.fornecedorId === fornecedorId && (
+              <div
+                role="status"
+                className="flex flex-wrap items-center gap-2 rounded-md border border-estado-andamento-borda bg-estado-andamento p-3 text-sm text-estado-andamento-fg sm:col-span-2 lg:col-span-4"
+              >
+                <Wand2 aria-hidden className="size-4 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  Preenchido como no último lançamento deste fornecedor ({TIPO_DOCUMENTO_LABELS[habito.origem.tipoDocumento]}{" "}
+                  {habito.origem.numero}, {dataCurta(habito.origem.dataCompra)}):{" "}
+                  <b>
+                    {[
+                      habito.aplicado.formaPagto &&
+                        `${FORMA_PAGTO_LABELS[habito.aplicado.formaPagto]} ${habito.aplicado.numParcelas}x`,
+                      habito.aplicado.rateios
+                        ?.map((r) => `${obras.find((o) => o.id === r.obraId)?.nome ?? "Obra"} ${r.percent}%`)
+                        .join(" + "),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || TIPO_DOCUMENTO_LABELS[habito.origem.tipoDocumento]}
+                  </b>
+                  . Confira antes de salvar.
+                </span>
+                <Button type="button" variant="outline" size="sm" onClick={desfazerHabito}>
+                  Desfazer
                 </Button>
               </div>
             )}
@@ -846,7 +950,9 @@ export function NotaForm({
               titulo="Pagamento"
               resumo={
                 parcelas.length === 0
-                  ? "Falta gerar as parcelas"
+                  ? notaId
+                    ? "Falta gerar as parcelas"
+                    : "Informe o valor total para gerar as parcelas"
                   : `${FORMA_PAGTO_LABELS[formaPagto]} · ${parcelas.length}x · ${formatarMoeda(somaParcelasCents)}`
               }
               preenchida={parcelas.length > 0 && linhaParcelas.situacao === "ok"}
@@ -855,8 +961,9 @@ export function NotaForm({
           </AccordionTrigger>
           <AccordionPanel keepMounted>
             <p className="text-sm text-muted-foreground">
-              Escolha a forma e o número de parcelas e gere os vencimentos. Depois ajuste valor e data de cada
-              uma. Parcelas já pagas continuam pagas se o valor e o vencimento não mudarem.
+              {notaId
+                ? "Escolha a forma e o número de parcelas e gere os vencimentos. Depois ajuste valor e data de cada uma. Parcelas já pagas continuam pagas se o valor e o vencimento não mudarem."
+                : "As parcelas são geradas sozinhas a partir do valor total, da forma e do número de parcelas. Ajuste valor e data de cada uma se precisar."}
             </p>
             <div className="flex flex-wrap items-end gap-3">
               <CampoForm id="formaPagto" rotulo="Forma de pagamento" className="w-44">
@@ -893,7 +1000,10 @@ export function NotaForm({
                       inputMode="decimal"
                       placeholder="0,00"
                       {...atributosDoErro(id("valor"), e?.valor?.message)}
-                      {...register(`parcelas.${i}.valor`, { required: "Informe o valor da parcela." })}
+                      {...register(`parcelas.${i}.valor`, {
+                        required: "Informe o valor da parcela.",
+                        onChange: () => void (parcelasAutomaticas.current = false),
+                      })}
                     />
                   </CampoForm>
                   <CampoForm id={id("vencimento")} rotulo="Vencimento" erro={e?.vencimento?.message}>
@@ -901,7 +1011,10 @@ export function NotaForm({
                       id={id("vencimento")}
                       type="date"
                       {...atributosDoErro(id("vencimento"), e?.vencimento?.message)}
-                      {...register(`parcelas.${i}.vencimento`, { required: "Informe o vencimento." })}
+                      {...register(`parcelas.${i}.vencimento`, {
+                        required: "Informe o vencimento.",
+                        onChange: () => void (parcelasAutomaticas.current = false),
+                      })}
                     />
                   </CampoForm>
                   {situacao && (

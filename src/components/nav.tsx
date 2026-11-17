@@ -7,7 +7,7 @@ import type { Role } from "@prisma/client";
 import { Ellipsis, DraftingCompass } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { dividirBarra, itensPara, naRota, TITULOS } from "@/components/nav-itens";
+import { agrupar, dividirBarra, itensPara, naRota, TITULOS } from "@/components/nav-itens";
 
 const ATIVO = "bg-nav-ativo font-semibold text-primary";
 
@@ -30,29 +30,41 @@ export function Sidebar({
         </span>
         <span className="text-lg font-semibold [font-stretch:112%]">Gestão de Obras</span>
       </div>
-      <ul className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {itensPara(role).map((item) => {
-          const ativo = naRota(pathname, item.href);
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                data-assistente={`menu:${item.href}`}
-                aria-current={ativo ? "page" : undefined}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-md border-l-4 px-3 py-2 text-sm transition-colors",
-                  ativo
-                    ? cn("border-primary", ATIVO)
-                    : "border-transparent font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                )}
-              >
-                <item.icon aria-hidden className="size-4.5 shrink-0" />
-                {item.label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="flex-1 space-y-3 overflow-y-auto p-2 pt-3">
+        {agrupar(itensPara(role)).map(({ grupo, itens }, i) => (
+          <section key={grupo} aria-labelledby={`menu-grupo-${i}`}>
+            <h2
+              id={`menu-grupo-${i}`}
+              className="px-4 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase [font-stretch:100%]"
+            >
+              {grupo}
+            </h2>
+            <ul className="flex flex-col gap-0.5">
+              {itens.map((item) => {
+                const ativo = naRota(pathname, item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      data-assistente={`menu:${item.href}`}
+                      aria-current={ativo ? "page" : undefined}
+                      className={cn(
+                        "flex min-h-9 items-center gap-3 rounded-md border-l-4 px-3 py-1 text-sm transition-colors",
+                        ativo
+                          ? cn("border-primary", ATIVO)
+                          : "border-transparent font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                      )}
+                    >
+                      <item.icon aria-hidden className="size-4.5 shrink-0" />
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
       <div className="shrink-0 border-t p-4">
         <p className="truncate text-sm font-semibold">{usuario.nome}</p>
         <p className="text-sm text-muted-foreground">{usuario.papel}</p>
@@ -153,28 +165,35 @@ export function BottomNav({ role }: { role: Role }) {
           className="top-auto bottom-0 left-0 max-w-none translate-x-0 translate-y-0 gap-3 rounded-b-none rounded-t-xl pb-[calc(1rem+env(safe-area-inset-bottom))] data-open:zoom-in-100 data-open:slide-in-from-bottom data-closed:zoom-out-100 data-closed:slide-out-to-bottom sm:max-w-none"
         >
           <DialogTitle className="text-base">Mais telas</DialogTitle>
-          <ul className="grid grid-cols-2 gap-2">
-            {mais.map((item) => {
-              const ativo = naRota(pathname, item.href);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setAberto(false)}
-                    data-assistente={`menu:${item.href}`}
-                    aria-current={ativo ? "page" : undefined}
-                    className={cn(
-                      "flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm",
-                      ativo ? cn("border-primary", ATIVO) : "bg-card font-medium hover:bg-accent/60",
-                    )}
-                  >
-                    <item.icon aria-hidden className="size-4.5 shrink-0" />
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="max-h-[70svh] space-y-3 overflow-y-auto">
+            {agrupar(mais).map(({ grupo, itens }) => (
+              <section key={grupo} aria-label={grupo}>
+                <p className="pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{grupo}</p>
+                <ul className="grid grid-cols-2 gap-2">
+                  {itens.map((item) => {
+                    const ativo = naRota(pathname, item.href);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={() => setAberto(false)}
+                          data-assistente={`menu:${item.href}`}
+                          aria-current={ativo ? "page" : undefined}
+                          className={cn(
+                            "flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm",
+                            ativo ? cn("border-primary", ATIVO) : "bg-card font-medium hover:bg-accent/60",
+                          )}
+                        >
+                          <item.icon aria-hidden className="size-4.5 shrink-0" />
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </nav>

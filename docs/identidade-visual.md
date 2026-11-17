@@ -69,10 +69,20 @@ Uma família só, **Archivo** variável, e a largura (`font-stretch`) separa os 
   - `TabelaDoGrafico`: os mesmos números em tabela recolhida, o caminho para leitor de tela.
 
 ## Casca (menu e cabeçalho)
-- Cabeçalho fixo com o nome da seção atual (`TituloDaPagina`), botão de tema, Minha conta e Sair.
-- Menu lateral (desktop): item ativo com fundo `nav-ativo`, marca lateral e `aria-current="page"`; nome e papel do usuário no rodapé.
-- Barra inferior (celular): 4 itens + "Mais" com as demais telas, em folha que sobe da base. Perfil com até 4 telas (campo) não mostra "Mais". Rótulos completos, em até 2 linhas. Quais itens ficam na barra: campo `fixo` em `src/components/nav-itens.ts`.
+- Cabeçalho fixo com o nome da seção atual (`TituloDaPagina`), busca, botão de tema, Minha conta e Sair.
+- **Busca global** (`BuscaGlobal`, `src/components/busca-global.tsx`): abre pelo campo do cabeçalho ou com Ctrl+K / ⌘K. Sem digitar, mostra ações ("Novo lançamento", "Novo RDO") e telas do papel; a partir de 2 letras busca obras, fornecedores, lançamentos e materiais (`busca/actions.ts`). CAMPO só recebe obras liberadas. Setas escolhem, Enter abre, Esc fecha. O que não depende do banco fica em `busca-global-model.ts`, com teste.
+- Menu lateral (desktop): telas em seções (Visão geral, Obra, Financeiro, Cadastros, Administração; campo `grupo` em `nav-itens.ts`, seção vazia para o papel não aparece). Item ativo com fundo `nav-ativo`, marca lateral e `aria-current="page"`; nome e papel do usuário no rodapé.
+- Barra inferior (celular): 4 itens + "Mais" com as demais telas nas mesmas seções, em folha que sobe da base. Perfil com até 4 telas (campo) não mostra "Mais". Rótulos completos, em até 2 linhas. Quais itens ficam na barra: campo `fixo` em `src/components/nav-itens.ts`.
 - Permissões por papel ficam em `nav-itens.ts` (`papeis`) e têm teste em `src/components/__tests__/nav-itens.test.ts`.
+
+## Lista de obras
+Cada cartão responde "como está esta obra?" sem abrir: avanço físico (`ReguaCota` na cor da situação, com a marca do previsto), gasto sobre o orçado (vermelho quando estoura; só para quem vê o financeiro), há quanto tempo foi o último RDO e o atalho "Novo RDO" já com a obra escolhida. O cartão inteiro é o link da obra (`::before` do título cobre o cartão); o atalho fica por cima.
+
+## Menos digitação
+O que o sistema já sabe não se pede de novo. Toda sugestão é visível, vem com "Desfazer" (ou some ao editar) e nunca passa por cima do que a pessoa ou a leitura do documento já definiu.
+- **Lançamento novo, fornecedor conhecido:** ao escolher o fornecedor, tipo de documento, forma de pagamento, número de parcelas e rateio repetem o último lançamento dele (`habitoDoFornecedor` + `valoresDoHabito`, com teste). Um aviso azul diz de onde veio e oferece "Desfazer".
+- **Parcelas automáticas:** no lançamento novo, as parcelas acompanham valor total, forma, número de parcelas e data. Param de acompanhar quando alguém edita uma parcela à mão; "Gerar parcelas" religa. Na edição nada muda: parcelas só mudam por ação explícita.
+- **RDO novo:** com a obra escolhida e a equipe ainda vazia, o aviso "Último RDO (data): N pessoas · N equipamentos" traz o botão "Repetir equipe" (`ultimoRdoDaObra`).
 
 ## Formulário de campo (RDO)
 Pensado para uma mão, sol forte e luva. O padrão vale para qualquer formulário longo que se preenche na obra.
