@@ -33,6 +33,9 @@ describe("avancoObraHoje: limites da situação", () => {
     // "a" já venceu em 30/nov, mas "b" vai até 31/dez e o realizado acompanha o previsto
     const r = avancoObraHoje([a, b], [med("a", "2026-11-30", 10_000), med("b", "2026-12-01", 7_174)], "2026-12-05");
     expect(r).toEqual({ previstoBp: 8_587, realizadoBp: 8_587, desvioBp: 0, idp: 10_000, situacao: "EM_DIA" });
+    // a ordem das etapas no plano não importa
+    const invertido = avancoObraHoje([b, a], [med("a", "2026-11-30", 10_000), med("b", "2026-12-01", 7_174)], "2026-12-05");
+    expect(invertido.situacao).toBe("EM_DIA");
   });
 
   it("passado o fim da última etapa, mesmo com pouco atraso, é Atrasada", () => {

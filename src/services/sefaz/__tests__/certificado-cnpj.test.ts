@@ -58,6 +58,21 @@ describe("lerCertificadoPem: titular, emissor e cadeia", () => {
   });
 });
 
+describe("lerCertificadoPem: mensagens de recusa", () => {
+  it("diz o que falta e quando a senha não abre a chave", () => {
+    const pem = gerarPemDeTeste();
+    const [chave] = pem.split("-----BEGIN CERTIFICATE-----");
+    const certificado = pem.slice(pem.indexOf("-----BEGIN CERTIFICATE-----"));
+    const falta = { ok: false, erro: "O certificado precisa ter a chave privada e o certificado." };
+    expect(lerCertificadoPem(certificado)).toEqual(falta);
+    expect(lerCertificadoPem(chave)).toEqual(falta);
+    expect(lerCertificadoPem(gerarPemDeTeste({ senha: "segredo" }), "errada")).toEqual({
+      ok: false,
+      erro: "Não foi possível abrir a chave privada do certificado (senha errada ou formato inválido).",
+    });
+  });
+});
+
 describe("carregarCertificado: senha e cache", () => {
   it("usa SEFAZ_CERT_SENHA para abrir a chave cifrada", () => {
     const cifrado = gerarPemDeTeste({ senha: "segredo" });
