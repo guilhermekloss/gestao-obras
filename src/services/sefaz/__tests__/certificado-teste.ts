@@ -6,7 +6,7 @@ import path from "node:path";
 // Certificado autoassinado no formato do e-CNPJ ICP-Brasil (CN "RAZAO:CNPJ" e otherName 2.16.76.1.3.3).
 // Gerado na hora pelo openssl: chave privada não fica no repositório.
 export function gerarPemDeTeste(
-  opcoes: { cnpj?: string; senha?: string; servidorLocal?: boolean; ecpf?: boolean } = {},
+  opcoes: { cnpj?: string; senha?: string; servidorLocal?: boolean; ecpf?: boolean; cn?: string; semOid?: boolean } = {},
 ): string {
   const cnpj = opcoes.cnpj ?? "11222333000181";
   const dir = mkdtempSync(path.join(tmpdir(), "a1-teste-"));
@@ -23,10 +23,11 @@ export function gerarPemDeTeste(
         "C=BR",
         "O=ICP-Brasil",
         // e-CPF: CN "NOME:CPF" e sem o OID do CNPJ
-        opcoes.ecpf ? "CN=FULANO DE TAL:12345678909" : `CN=CONSTRUTORA TESTE LTDA:${cnpj}`,
+        // cn: CN livre, para testar a leitura do CNPJ pelo OID separada da leitura pelo CN
+        opcoes.cn !== undefined ? `CN=${opcoes.cn}` : opcoes.ecpf ? "CN=FULANO DE TAL:12345678909" : `CN=CONSTRUTORA TESTE LTDA:${cnpj}`,
         "[v3]",
         // servidorLocal: certificado de um servidor HTTPS falso em localhost (teste do TLS mútuo)
-        opcoes.servidorLocal
+        opcoes.servidorLocal || opcoes.semOid
           ? "subjectAltName=DNS:localhost,IP:127.0.0.1"
           : opcoes.ecpf
             ? "subjectAltName=otherName:2.16.76.1.3.1;PRINTABLESTRING:0101199012345678909"
