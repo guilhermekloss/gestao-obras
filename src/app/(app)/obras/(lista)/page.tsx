@@ -100,7 +100,7 @@ export default async function ObrasPage() {
                   <div className="min-w-0">
                     <CardTitle className="text-lg">
                       {/* o cartão inteiro leva à obra (::before cobre o cartão); o atalho do rodapé fica por cima */}
-                      <Link href={`/obras/${obra.id}`} className="before:absolute before:inset-0 before:rounded-xl">
+                      <Link href={`/obras/${obra.id}`} className="before:absolute before:inset-0 before:z-[1] before:rounded-xl">
                         {obra.nome}
                       </Link>
                     </CardTitle>
