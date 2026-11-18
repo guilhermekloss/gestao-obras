@@ -9,7 +9,9 @@ const config = {
     "!src/services/**/__tests__/**",
     "!src/services/leitor-nativo/tipos.ts",
     "!src/services/leitor-nativo/extracao/{tesseract,pdf,imagem,vision,caminhos}.ts",
-    "!src/services/{fornecedores,obras,materiais-db}.ts",
+    "!src/services/{fornecedores,obras,materiais-db,linha-base-db}.ts",
+    // só encadeia extração, interpretação e log: a lógica está nos módulos que ele chama
+    "!src/services/leitor-nativo/index.ts",
   ],
   // Symlinks para diretórios (ex.: .claude/skills) quebram a cópia do sandbox.
   ignorePatterns: [".claude", ".agents"],
