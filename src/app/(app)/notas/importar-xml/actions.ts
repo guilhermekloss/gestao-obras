@@ -132,6 +132,7 @@ export const importarNfe = acaoDeEscrita(
           anexoUrl,
           anexoNome: d.nomeArquivo || `NFe${nfe.chave}.xml`,
           chaveNfe: nfe.chave,
+          crtEmitente: nfe.crtEmitente,
           itens: nfe.itens.map((item, i) => {
             const escolha = d.materiais[i];
             return {
@@ -145,6 +146,10 @@ export const importarNfe = acaoDeEscrita(
               unitCents: item.unitCents,
               descontoCents: item.descontoCents,
               totalCents: item.totalCents,
+              // fiscais só daqui (XML lido no servidor): o client manda apenas tipos e materiais
+              ncm: item.ncm,
+              nbs: null,
+              ibsCbs: item.ibsCbs ?? null,
             };
           }),
           rateios: d.rateios,

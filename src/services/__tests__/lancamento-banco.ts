@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { registrarLancamento } from "../lancamento";
+import type { ItemFiscalGravado, registrarLancamento } from "../lancamento";
 
 export type Lancamento = Parameters<typeof registrarLancamento>[0];
 
@@ -38,7 +38,12 @@ export function novoBanco() {
       update: vi.fn(async (_: object) => ({})),
       createMany: vi.fn(async (_: object) => ({})),
     },
-    itemNota: { deleteMany: vi.fn(async (_: object) => ({})), createMany: vi.fn(async (_: object) => ({})) },
+    itemNota: {
+      // itens já gravados (a edição herda deles os dados fiscais)
+      findMany: vi.fn(async (_: object) => [] as ItemFiscalGravado[]),
+      deleteMany: vi.fn(async (_: object) => ({})),
+      createMany: vi.fn(async (_: object) => ({})),
+    },
     rateioNota: { deleteMany: vi.fn(async (_: object) => ({})), createMany: vi.fn(async (_: object) => ({})) },
     $transaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(db),
   };

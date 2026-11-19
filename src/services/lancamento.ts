@@ -15,6 +15,7 @@ import { criarFornecedorValidado, validarDocumentoFornecedor } from "./fornecedo
 import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
 import { buscarMaterialPorNome, criarMaterialValidado, registrarApelidos } from "./materiais-db";
 import { normalizarUnidade } from "./materiais";
+import type { TributacaoIbsCbs } from "./tributacao/ibs-cbs";
 
 // Todo lançamento (form, leitura, XML, planilha) passa por aqui: as regras e a gravação moram num lugar só.
 
@@ -38,6 +39,11 @@ export type ItemDoLancamento = {
   descontoCents: number;
   // ausente = qtde × unitário − desconto
   totalCents?: number;
+  // Dados fiscais: só do documento reprocessado no servidor (XML), nunca do formulário.
+  // Os três ausentes na edição = o item de mesma descrição mantém os gravados (herdarDadosFiscais).
+  ncm?: string | null;
+  nbs?: string | null;
+  ibsCbs?: TributacaoIbsCbs | null;
 };
 
 export type Lancamento = {
@@ -53,6 +59,8 @@ export type Lancamento = {
   anexoNome?: string;
   // só vale na criação; a edição preserva a chave gravada
   chaveNfe?: string;
+  // CRT do emitente, do XML; ausente na edição = mantém o gravado
+  crtEmitente?: string | null;
   itens: ItemDoLancamento[];
   rateios: { obraId: string; etapaId?: string; fracaoBp: number }[];
   parcelas: { numero: number; valorCents: number; vencimento: string; pagaEm?: Date | null }[];
@@ -188,6 +196,99 @@ function recusaDeUnicidade(erro: unknown, l: Lancamento, numero: string): Recusa
   return null;
 }
 
+type DecimalGravado = { toString(): string } | null;
+
+/** Item como está no banco: só o que a edição precisa para não perder os dados fiscais. */
+export type ItemFiscalGravado = {
+  descricao: string;
+  ncm: string | null;
+  nbs: string | null;
+  cst: string | null;
+  cClassTrib: string | null;
+  ibsCbsBaseCents: number | null;
+  pCbs: DecimalGravado;
+  pIbsUf: DecimalGravado;
+  pIbsMun: DecimalGravado;
+  pRedCbs: DecimalGravado;
+  pRedIbs: DecimalGravado;
+  cbsCents: number | null;
+  ibsUfCents: number | null;
+  ibsMunCents: number | null;
+  ibsCbsDiferidoCents: number | null;
+  cCredPres: string | null;
+  credPresCents: number | null;
+};
+
+const SELECAO_FISCAL = {
+  descricao: true,
+  ncm: true,
+  nbs: true,
+  cst: true,
+  cClassTrib: true,
+  ibsCbsBaseCents: true,
+  pCbs: true,
+  pIbsUf: true,
+  pIbsMun: true,
+  pRedCbs: true,
+  pRedIbs: true,
+  cbsCents: true,
+  ibsUfCents: true,
+  ibsMunCents: true,
+  ibsCbsDiferidoCents: true,
+  cCredPres: true,
+  credPresCents: true,
+} as const satisfies Record<keyof ItemFiscalGravado, true>;
+
+function tributacaoGravada(g: ItemFiscalGravado): TributacaoIbsCbs | null {
+  if (!g.cst || !g.cClassTrib) return null;
+  const decimal = (v: DecimalGravado) => (v === null ? null : v.toString());
+  const { descricao: _descricao, ncm: _ncm, nbs: _nbs, ...valores } = g;
+  return {
+    ...valores,
+    cst: g.cst,
+    cClassTrib: g.cClassTrib,
+    pCbs: decimal(g.pCbs),
+    pIbsUf: decimal(g.pIbsUf),
+    pIbsMun: decimal(g.pIbsMun),
+    pRedCbs: decimal(g.pRedCbs),
+    pRedIbs: decimal(g.pRedIbs),
+  };
+}
+
+// A edição pelo formulário não traz NCM nem IBS/CBS: o item de mesma descrição herda o que o documento trouxe
+// (na ordem, para itens repetidos). Item novo ou com descrição trocada fica sem dados fiscais.
+export function herdarDadosFiscais(itens: ItemDoLancamento[], gravados: ItemFiscalGravado[]): ItemDoLancamento[] {
+  const fila = new Map<string, ItemFiscalGravado[]>();
+  for (const g of gravados) fila.set(g.descricao.trim(), [...(fila.get(g.descricao.trim()) ?? []), g]);
+  return itens.map((item) => {
+    if (item.ncm !== undefined || item.nbs !== undefined || item.ibsCbs !== undefined) return item;
+    const g = fila.get(item.descricao.trim())?.shift();
+    return g ? { ...item, ncm: g.ncm, nbs: g.nbs, ibsCbs: tributacaoGravada(g) } : item;
+  });
+}
+
+function colunasFiscais(item: ItemDoLancamento) {
+  const t = item.ibsCbs;
+  return {
+    ncm: item.ncm ?? null,
+    nbs: item.nbs ?? null,
+    cst: t?.cst ?? null,
+    cClassTrib: t?.cClassTrib ?? null,
+    ibsCbsBaseCents: t?.ibsCbsBaseCents ?? null,
+    pCbs: t?.pCbs ?? null,
+    pIbsUf: t?.pIbsUf ?? null,
+    pIbsMun: t?.pIbsMun ?? null,
+    pRedCbs: t?.pRedCbs ?? null,
+    pRedIbs: t?.pRedIbs ?? null,
+    cbsCents: t?.cbsCents ?? null,
+    ibsUfCents: t?.ibsUfCents ?? null,
+    ibsMunCents: t?.ibsMunCents ?? null,
+    ibsCbsDiferidoCents: t?.ibsCbsDiferidoCents ?? null,
+    cCredPres: t?.cCredPres ?? null,
+    credPresCents: t?.credPresCents ?? null,
+  };
+}
+
 function totalDoItem(i: ItemDoLancamento): number {
   return i.totalCents ?? calcularTotalItem(i.qtde, i.unitCents, i.descontoCents);
 }
@@ -241,10 +342,14 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
     obs: l.obs || null,
     anexoUrl: l.anexoUrl || null,
     anexoNome: l.anexoNome || null,
+    ...(l.crtEmitente !== undefined ? { crtEmitente: l.crtEmitente } : {}),
   };
 
   let notaId = l.id;
+  let itens = l.itens;
   if (notaId) {
+    const gravados = await tx.itemNota.findMany({ where: { notaId }, select: SELECAO_FISCAL, orderBy: { id: "asc" } });
+    itens = herdarDadosFiscais(l.itens, gravados);
     await tx.itemNota.deleteMany({ where: { notaId } });
     await tx.rateioNota.deleteMany({ where: { notaId } });
     await tx.notaFiscal.update({ where: { id: notaId }, data: dadosNota });
@@ -273,10 +378,10 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
   });
 
   const materialIds: (string | null)[] = [];
-  for (const item of l.itens) materialIds.push(await resolverMaterial(tx, item));
+  for (const item of itens) materialIds.push(await resolverMaterial(tx, item));
 
   await tx.itemNota.createMany({
-    data: l.itens.map((item, i) => ({
+    data: itens.map((item, i) => ({
       notaId: idDaNota,
       materialId: materialIds[i],
       descricao: item.descricao,
@@ -286,6 +391,7 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
       unitCents: item.unitCents,
       descontoCents: item.descontoCents,
       totalCents: totalDoItem(item),
+      ...colunasFiscais(item),
     })),
   });
 
