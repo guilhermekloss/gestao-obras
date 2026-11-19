@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { EditarFornecedorDialog } from "../fornecedor-dialogs";
 import { DependenciaBadge } from "../dependencia-badge";
+import { RegimeFornecedorBadge } from "../regime-badge";
+import { AvisoRegimeCredito } from "@/components/aviso-regime-credito";
 import { calcularDependencia, PESOS } from "@/services/dependencia";
+import { carregarCreditoDoFornecedor, carregarCrtPorFornecedor } from "@/services/tributacao/custo-efetivo-db";
+import { regimeDoCrt } from "@/services/tributacao/custo-efetivo";
 import { BP_TOTAL } from "@/services/rateio";
 import { acumular } from "@/services/custos";
 import { normalizarDescricao } from "@/services/materiais";
@@ -30,10 +34,10 @@ export default async function FornecedorDetalhePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigirPapel("ADMIN", "ESCRITORIO");
+  const user = await exigirPapel("ADMIN", "ESCRITORIO");
   const { id } = await params;
 
-  const [fornecedor, dependencia] = await Promise.all([
+  const [fornecedor, dependencia, crts, credito] = await Promise.all([
     prisma.fornecedor.findUnique({
       where: { id },
       include: {
@@ -48,6 +52,8 @@ export default async function FornecedorDetalhePage({
       },
     }),
     calcularDependencia(),
+    carregarCrtPorFornecedor([id]),
+    carregarCreditoDoFornecedor(id),
   ]);
   if (!fornecedor) notFound();
 
@@ -117,6 +123,7 @@ export default async function FornecedorDetalhePage({
             <ArrowLeft className="size-4" />
           </Button>
           <h1 className="text-2xl md:text-3xl">{fornecedor.nome}</h1>
+          {dep && <RegimeFornecedorBadge regime={regimeDoCrt(crts.get(id))} />}
           {dep && <DependenciaBadge nivel={dep.nivel} score={dep.score} />}
         </div>
         <EditarFornecedorDialog
@@ -142,7 +149,7 @@ export default async function FornecedorDetalhePage({
         </p>
       ) : (
         <>
-          <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-5">
             <InfoCard titulo="Gasto total" valor={formatarMoeda(dep.gastoCents)} destaque />
             <InfoCard
               titulo="% do gasto da empresa"
@@ -151,9 +158,23 @@ export default async function FornecedorDetalhePage({
             />
             <InfoCard titulo="Lançamentos" valor={String(dep.numNotas)} />
             <InfoCard
+              titulo={`Crédito de IBS/CBS (${credito.meses} meses)`}
+              valor={credito.modo === "NOMINAL_PERIODO_TESTE" ? "Ainda sem crédito" : formatarMoeda(credito.creditoCents)}
+            />
+            <InfoCard
               titulo="Última compra"
               valor={dep.ultimaCompra ? formatarData(dep.ultimaCompra) : "—"}
             />
+          </div>
+
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <AvisoRegimeCredito regime={credito.regimeEmpresa} admin={user.role === "ADMIN"} />
+            {credito.modo === "NOMINAL_PERIODO_TESTE" && (
+              <p>Compras de antes de 2027 não geram crédito de IBS/CBS: o custo ainda é o preço da nota.</p>
+            )}
+            {credito.itensClassificacaoPendente > 0 && (
+              <p>{credito.itensClassificacaoPendente} item(ns) com classificação tributária não reconhecida estão com crédito zerado até alguém conferir.</p>
+            )}
           </div>
 
           <Card>
