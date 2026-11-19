@@ -113,7 +113,8 @@ export function PreviaItens({
   catalogo,
   onVinculo,
 }: {
-  nfe: Nfe;
+  // NF-e ou NFS-e: só os itens (a NFS-e traz o NBS) e o total
+  nfe: { itens: (Nfe["itens"][number] & { nbs?: string | null })[]; totalCents: number };
   tipos: TipoItem[];
   onTipo: (indice: number, tipo: TipoItem) => void;
   // um por item: ligação ao catálogo de materiais (a escolha é do usuário quando não há ligação exata)
@@ -121,7 +122,7 @@ export function PreviaItens({
   catalogo: MaterialCatalogo[];
   onVinculo: (indice: number, vinculo: VinculoMaterial) => void;
 }) {
-  const colunas: ColunaDados<{ item: Nfe["itens"][number]; i: number }>[] = [
+  const colunas: ColunaDados<{ item: (typeof nfe.itens)[number]; i: number }>[] = [
     {
       id: "descricao",
       titulo: "Descrição",
@@ -131,6 +132,7 @@ export function PreviaItens({
         <>
           <p className={item.origem === "PRODUTO" ? "font-medium" : "italic"}>{item.descricao}</p>
           {item.ncm && <p className="text-xs font-normal text-muted-foreground">NCM {item.ncm}</p>}
+          {item.nbs && <p className="text-xs font-normal text-muted-foreground">NBS {item.nbs}</p>}
         </>
       ),
     },
@@ -185,7 +187,7 @@ export function PreviaItens({
         outras despesas) aparecem como itens próprios, para a soma fechar com o total da nota.
       </p>
       <ListaDeDados
-        legenda="Itens da NF-e"
+        legenda="Itens da nota"
         linhas={nfe.itens.map((item, i) => ({ item, i }))}
         chave={({ i }) => String(i)}
         colunas={colunas}

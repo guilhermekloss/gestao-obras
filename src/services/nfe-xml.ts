@@ -116,7 +116,7 @@ export function mapearFormaPagto(tPag: string | undefined): FormaPagto {
   return (tPag && T_PAG[tPag.padStart(2, "0")]) || "BOLETO";
 }
 
-type No = Record<string, unknown>;
+export type No = Record<string, unknown>;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -128,38 +128,38 @@ const parser = new XMLParser({
   trimValues: true,
 });
 
-function no(v: unknown): No | undefined {
+export function no(v: unknown): No | undefined {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as No) : undefined;
 }
 
-function lista(v: unknown): No[] {
+export function lista(v: unknown): No[] {
   if (v === undefined || v === null) return [];
   return (Array.isArray(v) ? v : [v]).map(no).filter((x): x is No => x !== undefined);
 }
 
-function texto(n: No | undefined, campo: string): string | undefined {
+export function texto(n: No | undefined, campo: string): string | undefined {
   const v = n?.[campo];
   if (typeof v === "string") return v.trim() || undefined;
   if (typeof v === "number") return String(v);
   return undefined;
 }
 
-function centavos(n: No | undefined, campo: string): number {
+export function centavos(n: No | undefined, campo: string): number {
   return decimalParaInteiro(texto(n, campo), 2) ?? 0;
 }
 
 // Ausente = nulo (não zero): no IBS/CBS, "sem o campo" e "R$ 0,00" dizem coisas diferentes.
-function centavosOuNulo(n: No | undefined, campo: string): number | null {
+export function centavosOuNulo(n: No | undefined, campo: string): number | null {
   return decimalParaInteiro(texto(n, campo), 2);
 }
 
-function somaOuNulo(valores: (number | null)[]): number | null {
+export function somaOuNulo(valores: (number | null)[]): number | null {
   const presentes = valores.filter((v): v is number => v !== null);
   return presentes.length > 0 ? presentes.reduce((a, v) => a + v, 0) : null;
 }
 
 // Alíquota em % como texto exato ("0.9000" vira "0.9"), sem passar por ponto flutuante.
-function percentual(n: No | undefined, campo: string): string | null {
+export function percentual(n: No | undefined, campo: string): string | null {
   const v = texto(n, campo);
   if (!v || !/^\d{1,3}(?:\.\d{1,4})?$/.test(v)) return null;
   return v.replace(/^0+(?=\d)/, "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
@@ -244,23 +244,33 @@ export const DESCRICAO_IBS_CBS_POR_FORA = "IBS/CBS destacados na nota (cobrados 
 
 const NAO_E_NFE = "O arquivo não é o XML de uma NF-e (esperado <nfeProc> ou <NFe> com <infNFe>).";
 
-export function parseNfeXml(xml: string): ResultadoNfe {
+/** Maior XML fiscal aceito, em caracteres (o corpo da server action tem limite de 1 MB). */
+export const MAX_CARACTERES_XML = 1_000_000;
+
+// Entrada não confiável: limite de tamanho, sem DOCTYPE (documento fiscal nunca traz; recusar evita XXE e
+// expansão de entidades) e validação antes de montar a árvore. Comum à NF-e e à NFS-e.
+export function lerArvoreXml(xml: string, naoReconhecido: string): { ok: true; raiz: No } | { ok: false; erro: string } {
+  if (xml.length > MAX_CARACTERES_XML) return { ok: false, erro: "Arquivo grande demais para importar (máximo 1 MB)." };
   const conteudo = xml.replace(/^﻿/, "").trim();
   if (!conteudo) return { ok: false, erro: "Arquivo vazio." };
-  // NF-e nunca traz DOCTYPE; recusar evita XXE/expansão de entidades.
-  if (/<!DOCTYPE/i.test(conteudo)) return { ok: false, erro: NAO_E_NFE };
+  if (/<!DOCTYPE/i.test(conteudo)) return { ok: false, erro: naoReconhecido };
 
   const validacao = XMLValidator.validate(conteudo);
   if (validacao !== true) {
     return { ok: false, erro: `XML inválido (linha ${validacao.err.line}): ${validacao.err.msg}` };
   }
 
-  let raiz: No;
   try {
-    raiz = parser.parse(conteudo) as No;
+    return { ok: true, raiz: parser.parse(conteudo) as No };
   } catch (e) {
     return { ok: false, erro: `XML inválido: ${e instanceof Error ? e.message : "erro de leitura"}` };
   }
+}
+
+export function parseNfeXml(xml: string): ResultadoNfe {
+  const arvore = lerArvoreXml(xml, NAO_E_NFE);
+  if (!arvore.ok) return arvore;
+  const raiz = arvore.raiz;
 
   const nfeNo = no(no(raiz.nfeProc)?.NFe) ?? no(raiz.NFe);
   const inf = no(nfeNo?.infNFe);

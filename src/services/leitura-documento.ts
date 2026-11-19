@@ -122,6 +122,16 @@ export function chaveAcessoValida(chave: string): boolean {
   return d.length === 44 && dvModulo11(d.slice(0, 43)) === Number(d[43]);
 }
 
+// NFS-e nacional: 50 dígitos. Só o formato: a chave vem do XML assinado, conferida com emitente e número no leitor.
+export function chaveNfseValida(chave: string): boolean {
+  return /^\d{50}$/.test(chave);
+}
+
+/** Chave que pode ir para NotaFiscal.chaveNfe: NF-e (44, com DV) ou NFS-e nacional (50). */
+export function chaveDocumentoValida(chave: string): boolean {
+  return chaveAcessoValida(chave) || chaveNfseValida(chave);
+}
+
 // Leiaute da chave: cUF(2) AAMM(4) CNPJ(14) mod(2) série(3) nNF(9) tpEmis(1) cNF(8) DV(1).
 export function dadosDaChave(chave: string) {
   const d = digitos(chave);

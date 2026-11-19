@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { TipoItem } from "@prisma/client";
@@ -25,11 +25,12 @@ import {
 import { cn } from "@/lib/utils";
 import { BP_TOTAL, dividirIgualmente, validarRateio } from "@/services/rateio";
 import { validarParcelas } from "@/services/parcelas";
-import { parcelasDaNfe, parseNfeXml, type Nfe } from "@/services/nfe-xml";
+import { dadosImportaveis, mensagemNotaJaImportada, parseDocumentoXml, type DocumentoXml } from "@/services/documento-xml";
 import { errosDeVinculos, vinculoInicial, type MaterialCatalogo, type VinculoMaterial } from "@/services/materiais";
 import { vinculosParaAction } from "../nova/conferencia-model";
 import { consultarSituacaoImportacao, importarNfe, sugerirMateriais, type SituacaoImportacao } from "./actions";
 import { AvisoNotaExistente, PreviaCabecalho, PreviaItens, formatarDataXml } from "./previa-nfe";
+import { PreviaNfse } from "./previa-nfse";
 import { linhasDeConferencia } from "../conferencia-lancamento";
 import { AvisoCno } from "../aviso-cno";
 import { AlertTriangle, FileCode2, ListChecks, Percent, Plus, Trash2, Upload, Wallet, Wand2 } from "lucide-react";
@@ -74,7 +75,9 @@ export function ImportarXmlForm({
 
   const [arquivo, setArquivo] = useState<{ nome: string; xml: string } | null>(null);
   const [erroArquivo, setErroArquivo] = useState<string | null>(null);
-  const [nfe, setNfe] = useState<Nfe | null>(null);
+  // NF-e ou NFS-e, conforme o conteúdo; `nfe` é a parte comum que vai para o lançamento
+  const [doc, setDoc] = useState<DocumentoXml | null>(null);
+  const nfe = useMemo(() => (doc ? dadosImportaveis(doc) : null), [doc]);
   const [situacao, setSituacao] = useState<SituacaoImportacao | null>(null);
   const [existente, setExistente] = useState<{ id: string; mensagem: string } | null>(null);
 
@@ -99,7 +102,7 @@ export function ImportarXmlForm({
   function limpar() {
     rateioTocado.current = false;
     setArquivo(null);
-    setNfe(null);
+    setDoc(null);
     setSituacao(null);
     setExistente(null);
     setTipos([]);
@@ -131,19 +134,19 @@ export function ImportarXmlForm({
     setLendo(true);
     try {
       const xml = await file.text();
-      const lido = parseNfeXml(xml);
+      const lido = parseDocumentoXml(xml);
       if (!lido.ok) {
         setErroArquivo(lido.erro);
         return;
       }
-      const n = lido.nfe;
+      const n = dadosImportaveis(lido.doc);
       setArquivo({ nome: file.name, xml });
-      setNfe(n);
+      setDoc(lido.doc);
       setTipos(n.itens.map((i) => i.tipoSugerido));
       setVinculos(n.itens.map((i) => vinculoInicial(undefined, i.tipoSugerido)));
       setParcelas(
-        parcelasDaNfe(n).map((p, i) => ({
-          rotulo: n.duplicatas[i]?.numero ?? `${p.numero}ª`,
+        n.parcelas.map((p) => ({
+          rotulo: p.rotulo ?? "",
           valor: centsParaEditavel(p.valorCents),
           vencimento: p.vencimento,
         })),
@@ -162,7 +165,7 @@ export function ImportarXmlForm({
       if (s.notaExistente) {
         setExistente({
           id: s.notaExistente.id,
-          mensagem: `Esta NF-e já foi importada (NF ${s.notaExistente.numero}).`,
+          mensagem: mensagemNotaJaImportada(n.chave, s.notaExistente.numero),
         });
       }
     } catch (e) {
@@ -323,7 +326,11 @@ export function ImportarXmlForm({
 
       {nfe && (
         <>
-          <PreviaCabecalho nfe={nfe} situacao={situacao} />
+          {doc?.tipo === "NFSE" ? (
+            <PreviaNfse nfse={doc.nfse} situacao={situacao} />
+          ) : (
+            doc && <PreviaCabecalho nfe={doc.nfe} situacao={situacao} />
+          )}
 
           {nfe.avisos.length > 0 && (
             <ul className="space-y-1 rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
@@ -499,9 +506,13 @@ export function ImportarXmlForm({
               </AccordionTrigger>
               <AccordionPanel keepMounted>
                 <p className="text-sm text-muted-foreground">
-                  {nfe.duplicatas.length === 0
-                    ? `O XML não traz duplicatas: a nota entra com uma parcela única, vencendo na emissão (${formatarDataXml(nfe.dataEmissao)}).`
-                    : "Vêm das duplicatas (boletos) do XML."}{" "}
+                  {nfe.tipoDocumento === "NFSE"
+                    ? nfe.parcelas.length > 1
+                      ? "A NFS-e não traz vencimentos: o valor líquido vai ao prestador na emissão e cada retenção vira uma guia (ISS no dia 10 e federais no dia 20 do mês seguinte à competência; confira os prazos)."
+                      : `A NFS-e não traz vencimentos: a nota entra com uma parcela única, vencendo na emissão (${formatarDataXml(nfe.dataEmissao)}).`
+                    : nfe.parcelas.every((p) => !p.rotulo)
+                      ? `O XML não traz duplicatas: a nota entra com uma parcela única, vencendo na emissão (${formatarDataXml(nfe.dataEmissao)}).`
+                      : "Vêm das duplicatas (boletos) do XML."}{" "}
                   Ajuste valores e datas se precisar. A soma deve fechar com o total da nota.
                 </p>
                 {parcelas.map((p, i) => {
@@ -510,10 +521,8 @@ export function ImportarXmlForm({
                     <div key={i} className="grid grid-cols-2 items-start gap-3 rounded-xl border p-3 sm:grid-cols-[8rem_1fr_1fr]">
                       <p className="col-span-2 font-semibold [font-stretch:112%] sm:col-span-1 sm:mt-8">
                         Parcela {i + 1}
-                        {nfe.duplicatas[i] && (
-                          <span className="block text-sm font-normal text-muted-foreground">
-                            Duplicata {p.rotulo}
-                          </span>
+                        {p.rotulo && (
+                          <span className="block text-sm font-normal text-muted-foreground">{p.rotulo}</span>
                         )}
                       </p>
                       <CampoForm id={id("valor")} rotulo="Valor (R$)" erro={erroValor(p)}>
@@ -583,9 +592,10 @@ export function ImportarXmlForm({
         <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
           <Label className="text-foreground">Como funciona</Label>
           <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>Aceita o XML da NF-e autorizada (com ou sem o protocolo de autorização).</li>
+            <li>Aceita o XML da NF-e autorizada (com ou sem o protocolo de autorização) e o da NFS-e do padrão nacional.</li>
             <li>O fornecedor é localizado pelo CNPJ; se não existir, é cadastrado automaticamente.</li>
-            <li>A mesma NF-e (chave de acesso) não pode ser importada duas vezes.</li>
+            <li>A mesma nota (chave de acesso) não pode ser importada duas vezes.</li>
+            <li>Na NFS-e, o custo é o valor do serviço; as retenções (ISS, INSS, IRRF...) viram parcelas de guia.</li>
             <li>O XML fica anexado à nota.</li>
           </ul>
         </div>

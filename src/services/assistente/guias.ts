@@ -101,7 +101,7 @@ export const GUIAS: Guia[] = [
       "Registrar cada compra ou despesa da empresa, com os itens, a divisão entre obras e as parcelas.",
     passoAPasso: [
       "Em Lançamentos, clique em \"Novo lançamento\".",
-      "Se tem a nota em mãos, clique em \"Tirar foto\" ou \"Enviar arquivo\" (foto, PDF ou XML da NF-e).",
+      "Se tem a nota em mãos, clique em \"Tirar foto\" ou \"Enviar arquivo\" (foto, PDF ou XML da NF-e ou da NFS-e).",
       "Confira os dados no pop-up \"Conferir dados da nota\" e clique em \"Confirmar e lançar\".",
       "Para ajustar mais coisas, clique em \"Editar no formulário completo\". Para uma segunda leitura, clique em \"Analisar com IA\".",
       "Sem arquivo, preencha as seções Documento, Itens, Rateio entre obras e Pagamento.",
