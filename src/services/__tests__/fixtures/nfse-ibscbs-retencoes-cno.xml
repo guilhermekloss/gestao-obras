@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fictícia: baseada no exemplo de NFS-e nacional da Receita (calculadora RTC, licença MIT), com dados trocados.
+     Empreitada de obra com ISS retido pelo tomador, INSS, IRRF e CSRF retidos, CNO no grupo de obra e IBS/CBS de 2026. -->
+<NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse">
+  <infNFSe Id="NFS35503082211222333000181000000000123426101234567894">
+    <xLocEmi>São Paulo</xLocEmi>
+    <xLocPrestacao>São Paulo</xLocPrestacao>
+    <nNFSe>1234</nNFSe>
+    <cLocIncid>3550308</cLocIncid>
+    <xLocIncid>São Paulo</xLocIncid>
+    <xTribNac>Execução, por administração, empreitada ou subempreitada, de obras de construção civil.</xTribNac>
+    <xNBS>Serviços de construção de edificações residenciais de um e dois pavimentos</xNBS>
+    <verAplic>EmissorWeb_1.4.0</verAplic>
+    <ambGer>2</ambGer>
+    <tpEmis>1</tpEmis>
+    <procEmi>2</procEmi>
+    <cStat>100</cStat>
+    <dhProc>2026-10-20T10:15:42-03:00</dhProc>
+    <nDFSe>8812</nDFSe>
+    <emit>
+      <CNPJ>11222333000181</CNPJ>
+      <IM>4455667</IM>
+      <xNome>EMPREITEIRA BOA OBRA LTDA</xNome>
+      <enderNac>
+        <xLgr>RUA DAS BETONEIRAS</xLgr>
+        <nro>45</nro>
+        <xBairro>VILA OPERARIA</xBairro>
+        <cMun>3550308</cMun>
+        <UF>SP</UF>
+        <CEP>01001000</CEP>
+      </enderNac>
+      <fone>11988887777</fone>
+      <email>financeiro@boaobra.example</email>
+    </emit>
+    <valores>
+      <vBC>10000.00</vBC>
+      <pAliqAplic>5.00</pAliqAplic>
+      <vISSQN>500.00</vISSQN>
+      <vTotalRet>2215.00</vTotalRet>
+      <vLiq>7785.00</vLiq>
+    </valores>
+    <IBSCBS>
+      <cLocalidadeIncid>3550308</cLocalidadeIncid>
+      <xLocalidadeIncid>São Paulo</xLocalidadeIncid>
+      <pRedutor>0.00</pRedutor>
+      <valores>
+        <vBC>9500.00</vBC>
+        <vCalcReeRepRes>0.00</vCalcReeRepRes>
+        <uf>
+          <pIBSUF>0.10</pIBSUF>
+          <pAliqEfetUF>0.10</pAliqEfetUF>
+        </uf>
+        <mun>
+          <pIBSMun>0.00</pIBSMun>
+          <pAliqEfetMun>0.00</pAliqEfetMun>
+        </mun>
+        <fed>
+          <pCBS>0.90</pCBS>
+          <pAliqEfetCBS>0.90</pAliqEfetCBS>
+        </fed>
+      </valores>
+      <totCIBS>
+        <vTotNF>7785.00</vTotNF>
+        <gIBS>
+          <vIBSTot>9.50</vIBSTot>
+          <gIBSUFTot>
+            <vIBSUF>9.50</vIBSUF>
+          </gIBSUFTot>
+          <gIBSMunTot>
+            <vIBSMun>0.00</vIBSMun>
+          </gIBSMunTot>
+        </gIBS>
+        <gCBS>
+          <vCBS>85.50</vCBS>
+        </gCBS>
+      </totCIBS>
+    </IBSCBS>
+    <DPS versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse">
+      <infDPS Id="DPS355030821122233300018100001000000000000321">
+        <tpAmb>1</tpAmb>
+        <dhEmi>2026-10-20T10:14:58-03:00</dhEmi>
+        <verAplic>EmissorWeb_1.4.0</verAplic>
+        <serie>1</serie>
+        <nDPS>321</nDPS>
+        <dCompet>2026-10-15</dCompet>
+        <tpEmit>1</tpEmit>
+        <cLocEmi>3550308</cLocEmi>
+        <prest>
+          <CNPJ>11222333000181</CNPJ>
+          <IM>4455667</IM>
+          <regTrib>
+            <opSimpNac>1</opSimpNac>
+            <regEspTrib>0</regEspTrib>
+          </regTrib>
+        </prest>
+        <toma>
+          <CNPJ>12345678000195</CNPJ>
+          <xNome>CONSTRUTORA EXEMPLO LTDA</xNome>
+          <end>
+            <endNac>
+              <cMun>3550308</cMun>
+              <CEP>04567000</CEP>
+            </endNac>
+            <xLgr>AVENIDA DO CANTEIRO</xLgr>
+            <nro>1000</nro>
+            <xCpl>CONJ 12</xCpl>
+            <xBairro>CENTRO</xBairro>
+          </end>
+          <email>notas@construtora.example</email>
+        </toma>
+        <serv>
+          <locPrest>
+            <cLocPrestacao>3550308</cLocPrestacao>
+          </locPrest>
+          <cServ>
+            <cTribNac>070201</cTribNac>
+            <xDescServ>Mão de obra de alvenaria e reboco — 2ª medição do contrato 15/2026, bloco B</xDescServ>
+            <cNBS>101011100</cNBS>
+            <cIntContrib>ALV-02</cIntContrib>
+          </cServ>
+          <obra>
+            <cObra>512345678901</cObra>
+          </obra>
+          <infoCompl>
+            <xInfComp>Retenção de 11% de INSS conforme IN RFB 2.110/2022. Medição de outubro.</xInfComp>
+          </infoCompl>
+        </serv>
+        <valores>
+          <vServPrest>
+            <vServ>10000.00</vServ>
+          </vServPrest>
+          <trib>
+            <tribMun>
+              <tribISSQN>1</tribISSQN>
+              <tpRetISSQN>2</tpRetISSQN>
+            </tribMun>
+            <tribFed>
+              <vRetCP>1100.00</vRetCP>
+              <vRetIRRF>150.00</vRetIRRF>
+              <vRetCSLL>465.00</vRetCSLL>
+            </tribFed>
+            <totTrib>
+              <indTotTrib>0</indTotTrib>
+            </totTrib>
+          </trib>
+        </valores>
+        <IBSCBS>
+          <finNFSe>0</finNFSe>
+          <indFinal>0</indFinal>
+          <cIndOp>030101</cIndOp>
+          <indDest>0</indDest>
+          <valores>
+            <trib>
+              <gIBSCBS>
+                <CST>000</CST>
+                <cClassTrib>000001</cClassTrib>
+              </gIBSCBS>
+            </trib>
+          </valores>
+        </IBSCBS>
+      </infDPS>
+    </DPS>
+  </infNFSe>
+  <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+    <SignedInfo>
+      <CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#WithComments" />
+      <SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" />
+      <Reference URI="#NFS35503082211222333000181000000000123426101234567894">
+        <DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256" />
+        <DigestValue>AAAA</DigestValue>
+      </Reference>
+    </SignedInfo>
+    <SignatureValue>AAAA</SignatureValue>
+  </Signature>
+</NFSe>

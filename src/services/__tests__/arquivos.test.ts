@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extensaoDoNome, nomeDaUrlArquivo, tipoPeloConteudo, urlArquivoValida } from "../arquivos";
+import { extensaoDoNome, nomeDaUrlArquivo, nomeDaUrlXml, tipoPeloConteudo, urlArquivoValida } from "../arquivos";
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 
@@ -29,5 +29,20 @@ describe("nomes e URLs de arquivo", () => {
     expect(urlArquivoValida("https://exemplo.com/1760000000000-a1b2c3d4e5f6.jpg")).toBe(false);
     expect(urlArquivoValida("/api/fotos/1760000000000-a1b2c3d4e5f6.jpg?x=1")).toBe(false);
     expect(urlArquivoValida("")).toBe(false);
+  });
+});
+
+describe("nomeDaUrlXml", () => {
+  it("só o XML guardado pelo import, no endereço do app", () => {
+    expect(nomeDaUrlXml("/api/fotos/1760000000000-a1b2c3d4e5f6.xml")).toBe("1760000000000-a1b2c3d4e5f6.xml");
+    expect(nomeDaUrlXml("/api/fotos/1760000000000-a1b2c3d4e5f6.pdf")).toBeNull();
+    expect(nomeDaUrlXml("/api/fotos/../segredo.xml")).toBeNull();
+    expect(nomeDaUrlXml("https://exemplo.com/api/fotos/1760000000000-a1b2c3d4e5f6.xml")).toBeNull();
+    expect(nomeDaUrlXml("/api/fotos/1760000000000-a1b2c3d4e5f6.xml?x=1")).toBeNull();
+  });
+
+  it("XML não é servido pela rota de arquivos (renderizado no navegador poderia executar script)", () => {
+    expect(nomeDaUrlArquivo("/api/fotos/1760000000000-a1b2c3d4e5f6.xml")).toBeNull();
+    expect(extensaoDoNome("1760000000000-a1b2c3d4e5f6.xml")).toBeNull();
   });
 });

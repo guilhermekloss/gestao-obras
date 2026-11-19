@@ -91,7 +91,7 @@ export function NovoLancamento({
       return;
     }
     if (!ehFotoOuPdf(file)) {
-      toast.error("Envie uma foto, um PDF ou o XML da NF-e.");
+      toast.error("Envie uma foto, um PDF ou o XML da NF-e ou da NFS-e.");
       return;
     }
 
@@ -339,8 +339,8 @@ export function NovoLancamento({
               <p className="font-medium">Tem a nota em mãos? Envie e o sistema preenche para você.</p>
               <p className="text-sm text-muted-foreground">
                 {leituraAutomatica
-                  ? "Foto da nota, PDF (DANFE, NFS-e, recibo, boleto) ou o XML da NF-e. Você confere os dados e confirma."
-                  : "XML da NF-e é lido automaticamente; foto e PDF ficam anexados ao lançamento."}
+                  ? "Foto da nota, PDF (DANFE, NFS-e, recibo, boleto) ou o XML da NF-e ou da NFS-e. Você confere os dados e confirma."
+                  : "XML da NF-e e da NFS-e é lido automaticamente; foto e PDF ficam anexados ao lançamento."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

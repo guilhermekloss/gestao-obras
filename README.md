@@ -46,7 +46,7 @@ Em construtora pequena e média, o custo da obra costuma viver em planilhas: uma
 
 **Custo e financeiro**
 - Lançamento de NF, recibo, folha e guia com **rateio entre obras** e parcelas a pagar. Lançamento sem NF ganha número automático, para que todo custo entre na obra.
-- **Leitura automática da nota** por foto, PDF ou XML da NF-e: texto do PDF, código de barras/QR e OCR local. Uma tela de conferência mostra os dados ao lado do documento e só grava depois da confirmação. IA (Gemini) é opcional, para releitura quando a confiança é baixa.
+- **Leitura automática da nota** por foto, PDF ou XML da NF-e e da NFS-e: texto do PDF, código de barras/QR e OCR local. Uma tela de conferência mostra os dados ao lado do documento e só grava depois da confirmação. IA (Gemini) é opcional, para releitura quando a confiança é baixa.
 - **Captura automática de NF-e na Sefaz** com o certificado A1 da empresa: as notas emitidas contra o CNPJ aparecem sem ninguém digitar.
 - Contas a pagar por urgência e fluxo mensal.
 - Catálogo de materiais que se liga sozinho aos itens das notas pela descrição.

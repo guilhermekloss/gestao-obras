@@ -10,7 +10,7 @@ import {
   type ParcelaExistente,
 } from "./parcelas";
 import { erroEtapasDoRateio } from "./obras";
-import { chaveAcessoValida, normalizarNumeroNf } from "./leitura-documento";
+import { chaveDocumentoValida, normalizarNumeroNf } from "./leitura-documento";
 import { criarFornecedorValidado, validarDocumentoFornecedor } from "./fornecedores";
 import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
 import { buscarMaterialPorNome, criarMaterialValidado, registrarApelidos } from "./materiais-db";
@@ -99,9 +99,15 @@ function mensagemNumeroRepetido(tipo: TipoDocumento, numero: string): string {
 
 const MSG_OBRA_REPETIDA = "A mesma obra aparece mais de uma vez no rateio. Junte as linhas em uma só.";
 
-// NF sem zeros à esquerda, como o nNF do XML: a duplicata (fornecedor + número) depende disso.
+// NF e NFS-e sem zeros à esquerda, como o nNF/nNFSe do XML: a duplicata (fornecedor + número) depende disso
+// (a mesma nota lida da foto como "000228" e depois importada do XML como "228").
 export function numeroDoLancamento(tipo: TipoDocumento, numero: string): string {
-  return tipo === "NF" ? normalizarNumeroNf(numero) : numero.trim();
+  return exigeNumero(tipo) ? normalizarNumeroNf(numero) : numero.trim();
+}
+
+// A chave de 50 posições é da NFS-e nacional; a de 44, da NF-e.
+function rotuloDaChave(chave: string): { documento: string; sigla: string } {
+  return chave.length === 50 ? { documento: "NFS-e", sigla: "NFS-e" } : { documento: "NF-e", sigla: "NF" };
 }
 
 // Só os dígitos do CNPJ/CPF: "12.345.678/0001-95" e "12345678000195" são o mesmo fornecedor.
@@ -176,10 +182,11 @@ async function recusaDeDuplicidade(db: Db, l: Lancamento, numero: string, digita
 
   const chave = l.id ? undefined : l.chaveNfe;
   if (chave) {
-    if (!chaveAcessoValida(chave)) return { ok: false, erro: "Chave de acesso inválida" };
+    if (!chaveDocumentoValida(chave)) return { ok: false, erro: "Chave de acesso inválida" };
     const mesma = await db.notaFiscal.findUnique({ where: { chaveNfe: chave }, select: { id: true, numero: true } });
     if (mesma) {
-      return { ok: false, erro: `Esta NF-e já foi lançada (NF ${mesma.numero}).`, notaExistenteId: mesma.id };
+      const r = rotuloDaChave(chave);
+      return { ok: false, erro: `Esta ${r.documento} já foi lançada (${r.sigla} ${mesma.numero}).`, notaExistenteId: mesma.id };
     }
   }
   return null;
@@ -189,7 +196,9 @@ async function recusaDeDuplicidade(db: Db, l: Lancamento, numero: string, digita
 function recusaDeUnicidade(erro: unknown, l: Lancamento, numero: string): Recusa | null {
   if (!(erro instanceof Prisma.PrismaClientKnownRequestError) || erro.code !== "P2002") return null;
   const alvo = String(erro.meta?.target ?? "");
-  if (alvo.includes("chaveNfe")) return { ok: false, erro: "Esta NF-e acabou de ser lançada por outra pessoa." };
+  if (alvo.includes("chaveNfe")) {
+    return { ok: false, erro: `Esta ${rotuloDaChave(l.chaveNfe ?? "").documento} acabou de ser lançada por outra pessoa.` };
+  }
   if (alvo.includes("fornecedorId")) return { ok: false, erro: mensagemNumeroRepetido(l.tipoDocumento, numero) };
   if (alvo.includes("obraId")) return { ok: false, erro: MSG_OBRA_REPETIDA };
   if (alvo.includes("cnpj")) return { ok: false, erro: "Já existe um fornecedor com este CNPJ/CPF." };
