@@ -9,6 +9,7 @@ import {
   liquidoDoItem,
   modoDoCusto,
   somarCustosLiquidos,
+  type ContextoCustoLiquido,
   type NotaParaCustoLiquido,
 } from "../custo-liquido";
 
@@ -24,7 +25,7 @@ const permitida: ClassificacaoParaCredito = {
   creditoPresumidoAdquirente: false,
 };
 const vedada: ClassificacaoParaCredito = { ...permitida, codigo: "410999", apropriaCreditoCbs: false, apropriaCreditoIbs: false };
-const ctx = { regimeEmpresa: "REGULAR" as const, classificacoes: [permitida, vedada] };
+const ctx: ContextoCustoLiquido = { regimeEmpresa: "REGULAR", classificacoes: [permitida, vedada] };
 
 // item de R$ 1.000,00 com R$ 100,00 de CBS e R$ 10,00 de IBS (UF)
 const item = (extra: Partial<NotaParaCustoLiquido["itens"][number]> = {}) => ({

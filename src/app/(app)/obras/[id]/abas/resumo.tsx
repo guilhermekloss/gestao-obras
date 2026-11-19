@@ -15,6 +15,9 @@ import { ChartGantt, NotebookPen, Plus, Trash2 } from "lucide-react";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { dataDoRdo } from "@/services/rdo";
 import { podeEditarCadastros, veFinanceiro } from "@/services/acesso";
+import { carregarCreditoIbsCbs } from "@/services/tributacao/custo-liquido-db";
+import { aplicarCredito, avisosDoCredito, haCredito } from "@/services/tributacao/custo-liquido";
+import { AvisosCreditoIbsCbs } from "@/components/credito-ibs-cbs";
 import type { AbaObraProps } from "./tipos";
 import { MoverEtapaBotoes, RenomearEtapaDialog } from "./etapa-acoes";
 
@@ -29,7 +32,7 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
   });
 
   const hoje = startOfDay(new Date());
-  const [realizado, avancos, ultimosRdos, proximasParcelas] = await Promise.all([
+  const [realizado, avancos, ultimosRdos, proximasParcelas, credito] = await Promise.all([
     veValores ? realizadoPorEtapa(id) : Promise.resolve(new Map<string | null, number>()),
     // avanço de hoje, como na aba Cronograma: medição datada no futuro não conta
     avancoPorEtapa(id, { ate: dataParaInput(new Date()) }),
@@ -51,9 +54,14 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
           include: { nota: { include: { fornecedor: { select: { nome: true } } } } },
         })
       : Promise.resolve([]),
+    // CAMPO não vê valores: o crédito nem é lido
+    veValores ? carregarCreditoIbsCbs(id) : Promise.resolve(null),
   ]);
 
   const custoTotal = [...realizado.values()].reduce((a, b) => a + b, 0);
+  // o líquido só toma o lugar do bruto com regime regular e crédito a recuperar; o bruto fica no detalhe
+  const comCredito = credito ? haCredito(credito.regime, credito.total.creditoCents) : false;
+  const custo = aplicarCredito(custoTotal, credito?.total.creditoCents ?? 0);
   const orcamento = orcamentoTotal(etapas);
   const avancoObra = avancoDaObra(etapas, avancos);
 
@@ -61,7 +69,15 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
     <div className="space-y-6">
       <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
         {veValores && (
-          <InfoCard titulo="Custo acumulado" valor={formatarMoeda(custoTotal)} destaque />
+          <InfoCard
+            titulo={comCredito ? "Custo líquido acumulado" : "Custo acumulado"}
+            valor={formatarMoeda(comCredito ? custo.liquidoCents : custoTotal)}
+            detalhe={comCredito ? `Bruto ${formatarMoeda(custoTotal)}, sem o crédito de IBS/CBS` : undefined}
+            destaque
+          />
+        )}
+        {veValores && comCredito && (
+          <InfoCard titulo="Crédito IBS/CBS a recuperar" valor={formatarMoeda(custo.creditoCents)} />
         )}
         {veValores && (
           <InfoCard
@@ -72,6 +88,14 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
         <InfoCard titulo="Avanço físico" valor={formatarPercentBp(avancoObra)} destaque />
         <InfoCard titulo="Código / CNO" valor={`${obra.codigo}${obra.cno ? ` · ${formatarCno(obra.cno)}` : ""}`} />
       </div>
+
+      {credito && (
+        <AvisosCreditoIbsCbs
+          avisos={avisosDoCredito(credito.regime, credito.total)}
+          podeInformarRegime={role === "ADMIN"}
+          className="-mt-3"
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -248,10 +272,12 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
 function InfoCard({
   titulo,
   valor,
+  detalhe,
   destaque = false,
 }: {
   titulo: string;
   valor: string;
+  detalhe?: string;
   destaque?: boolean;
 }) {
   return (
@@ -259,6 +285,7 @@ function InfoCard({
       <CardContent className="pt-4">
         <p className="text-xs text-muted-foreground">{titulo}</p>
         <p className={destaque ? "mt-1 text-lg font-semibold" : "mt-1 font-medium"}>{valor}</p>
+        {detalhe && <p className="mt-0.5 text-xs text-muted-foreground">{detalhe}</p>}
       </CardContent>
     </Card>
   );
