@@ -10,6 +10,9 @@ import { listarMateriais } from "@/services/materiais-db";
 import { centsParaEditavel, dataParaInput, percentBpParaEditavel } from "@/lib/format";
 import { TIPO_DOCUMENTO_BADGE } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
+import { carregarEmpresa } from "@/services/empresa";
+import { analisarIbsCbsDaNota } from "@/services/tributacao/conferencia-db";
+import { IbsCbsDaNota } from "@/components/ibs-cbs-da-nota";
 import { Trash2, TriangleAlert } from "lucide-react";
 
 export const metadata: Metadata = { title: "Editar lançamento" };
@@ -32,12 +35,15 @@ export default async function EditarNotaPage({
   });
   if (!nota) notFound();
 
-  const [fornecedores, obras, materiais] = await Promise.all([
+  const [fornecedores, obras, materiais, empresa] = await Promise.all([
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, cnpj: true } }),
     // inclui as obras já usadas nesta nota, mesmo concluídas/pausadas depois
     listarObrasParaRateio(nota.rateios.map((r) => r.obraId)),
     listarMateriais(nota.itens.map((i) => i.materialId).filter((m): m is string => !!m)),
+    carregarEmpresa(),
   ]);
+  const ibsCbs = await analisarIbsCbsDaNota(nota, empresa?.regimeIbsCbs ?? "NAO_INFORMADO");
+  const texto = (d: { toString(): string } | null) => (d === null ? null : d.toString());
 
   const defaultValues = {
     fornecedorId: nota.fornecedorId,
@@ -120,6 +126,23 @@ export default async function EditarNotaPage({
         materiais={materiais}
         parcelasExistentes={parcelasExistentes}
       />
+      {(ibsCbs.temDados || ibsCbs.achados.length > 0) && (
+        <IbsCbsDaNota
+          analise={ibsCbs}
+          itens={nota.itens.map((i) => ({
+            descricao: i.descricao,
+            cst: i.cst,
+            cClassTrib: i.cClassTrib,
+            ibsCbsBaseCents: i.ibsCbsBaseCents,
+            pCbs: texto(i.pCbs),
+            pIbsUf: texto(i.pIbsUf),
+            pIbsMun: texto(i.pIbsMun),
+            cbsCents: i.cbsCents,
+            ibsUfCents: i.ibsUfCents,
+            ibsMunCents: i.ibsMunCents,
+          }))}
+        />
+      )}
     </div>
   );
 }
