@@ -124,8 +124,8 @@ Avanço físico + RDO (campo) ────────────────�
 | Etapa do ciclo | Onde | Observação |
 |---|---|---|
 | Obra e etapas | `/obras` | Etapas de 1 nível, datas previstas; renomear e reordenar no Resumo da obra |
-| Orçamento | `/orcamento` | Um valor por etapa; desempenho de custo (valor agregado, IDC, tendência, variação) e desembolso previsto × realizado por mês (pela linha de base oficial, quando existe) |
-| Lançamento com rateio | `/notas` | Itens rateados por obra/etapa; duplicata avisada; importa XML e lê PDF/foto |
+| Orçamento | `/orcamento` | Um valor por etapa; crédito de IBS/CBS e custo líquido (modo líquido); desempenho de custo (valor agregado, IDC, tendência, variação) e desembolso previsto × realizado por mês (pela linha de base oficial, quando existe) |
+| Lançamento com rateio | `/notas` | Itens rateados por obra/etapa; duplicata avisada; importa XML de NF-e e NFS-e e lê PDF/foto; confere o IBS/CBS destacado (só avisos) |
 | Parcelas | dentro do lançamento | Geradas na gravação; preservadas ao editar |
 | Contas a pagar | `/contas` | Abertas, atrasadas, pagas; fluxo mensal |
 | Avanço e RDO | `/cronograma`, `/diario` | Quem está no campo lança; o escritório corrige o avanço lançado |
@@ -160,7 +160,7 @@ O sistema mostra o mesmo dinheiro de duas formas, de propósito:
 
 | Leitura | Pergunta que responde | Conta | Onde |
 |---|---|---|---|
-| **Custo (competência)** | "Quanto a obra custou, e de quê?" | **itens × rateio**, na data da compra | Dashboard, curva ABC, alertas, orçamento |
+| **Custo (competência)** | "Quanto a obra custou, e de quê?" | **itens × rateio**, na data da compra; no modo líquido, menos o crédito de IBS/CBS ([`reforma-tributaria.md`](reforma-tributaria.md)) | Dashboard, curva ABC, alertas, orçamento |
 | **Fluxo (caixa)** | "Quanto sai, e quando?" | **parcelas × rateio**, no vencimento | Contas a pagar, Fluxo mensal |
 
 Uma compra de R$ 12.000 em 3 parcelas pesa R$ 12.000 no custo do mês da compra e R$ 4.000 em cada
