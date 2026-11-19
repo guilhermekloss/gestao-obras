@@ -8,6 +8,7 @@ import { formatarMoeda, formatarPercentBp, centsParaEditavel } from "@/lib/forma
 import { cn } from "@/lib/utils";
 import type { FaixaConsumo } from "@/services/analises";
 import type { Desempenho } from "@/services/desempenho-custo";
+import type { ModoCusto } from "@/services/tributacao/custo-liquido";
 import { salvarOrcamentos } from "./actions";
 import { ESTILO_FAIXA } from "./faixa";
 
@@ -15,7 +16,11 @@ export type LinhaOrcamento = {
   etapaId: string | null; // null = itens sem etapa
   nome: string;
   previstoCents: number;
+  /** O número principal: líquido do crédito de IBS/CBS no modo líquido, bruto no outro. */
   realizadoCents: number;
+  /** Só com crédito a recuperar na linha: o que aparece embaixo do realizado. */
+  brutoCents?: number;
+  creditoCents?: number;
   consumoBp: number | null;
   faixa: FaixaConsumo;
   desempenho: Desempenho;
@@ -39,10 +44,12 @@ export function OrcamentoForm({
   obraId,
   linhas,
   total,
+  modo = "BRUTO",
 }: {
   obraId: string;
   linhas: LinhaOrcamento[];
   total: TotalOrcamento;
+  modo?: ModoCusto;
 }) {
   const [pendente, startTransition] = useTransition();
 
@@ -66,7 +73,7 @@ export function OrcamentoForm({
         >
           <span>Etapa</span>
           <span className="text-right">Previsto (R$)</span>
-          <span className="text-right">Realizado</span>
+          <span className="text-right">{rotuloRealizado(modo)}</span>
           <span className="text-right">Saldo</span>
           <span className="text-right">Consumo</span>
           <span className="text-right">Avanço físico</span>
@@ -77,10 +84,10 @@ export function OrcamentoForm({
         </div>
 
         {linhas.map((l) => (
-          <Linha key={l.etapaId ?? "sem-etapa"} linha={l} />
+          <Linha key={l.etapaId ?? "sem-etapa"} linha={l} modo={modo} />
         ))}
 
-        <Linha total linha={{ etapaId: null, nome: "Total da obra", ...total }} />
+        <Linha total modo={modo} linha={{ etapaId: null, nome: "Total da obra", ...total }} />
       </div>
 
       <div className="pt-4">
@@ -92,7 +99,11 @@ export function OrcamentoForm({
   );
 }
 
-function Linha({ linha: l, total = false }: { linha: LinhaOrcamento; total?: boolean }) {
+function rotuloRealizado(modo: ModoCusto): string {
+  return modo === "LIQUIDO" ? "Realizado líquido" : "Realizado";
+}
+
+function Linha({ linha: l, total = false, modo }: { linha: LinhaOrcamento; total?: boolean; modo: ModoCusto }) {
   const d = l.desempenho;
   // "Sem etapa definida" não tem orçado nem avanço: só o realizado e a tendência (= realizado) valem
   const semEtapa = !total && l.etapaId === null;
@@ -134,7 +145,16 @@ function Linha({ linha: l, total = false }: { linha: LinhaOrcamento; total?: boo
         ) : (
           <Celula rotulo="Previsto">{total ? formatarMoeda(l.previstoCents) : "—"}</Celula>
         )}
-        <Celula rotulo="Realizado">{formatarMoeda(l.realizadoCents)}</Celula>
+        <Celula rotulo={rotuloRealizado(modo)}>
+          {formatarMoeda(l.realizadoCents)}
+          {l.creditoCents ? (
+            <span className="block text-xs font-normal text-muted-foreground">
+              {modo === "LIQUIDO"
+                ? `bruto ${formatarMoeda(l.brutoCents ?? 0)}`
+                : `crédito IBS/CBS ${formatarMoeda(l.creditoCents)}`}
+            </span>
+          ) : null}
+        </Celula>
         <Celula rotulo="Saldo" className={cn(!semEtapa && saldo < 0 && "font-medium text-destructive")}>
           {semEtapa ? "—" : formatarMoeda(saldo)}
         </Celula>

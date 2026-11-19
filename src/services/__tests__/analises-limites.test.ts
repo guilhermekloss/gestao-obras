@@ -10,11 +10,16 @@ const avancoPorEtapa = vi.fn();
 const medicoesTodas = vi.fn();
 const notasParaAnalise = vi.fn();
 const carregarAlertasDaCaptura = vi.fn();
+const liquidarItensDasNotas = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: { etapa: { findMany: etapaFindMany }, parcela: { findMany: parcelaFindMany }, notaFiscal: { findMany: notaFindMany } },
 }));
 vi.mock("../custos", () => ({ realizadoPorEtapaTodas, realizadoPorObra, avancoPorEtapa, medicoesTodas, notasParaAnalise }));
 vi.mock("../sefaz/painel", () => ({ carregarAlertasDaCaptura }));
+vi.mock("../tributacao/custo-liquido-db", () => ({
+  CAMPOS_TRIBUTARIOS: { cClassTrib: true, cbsCents: true, ibsUfCents: true, ibsMunCents: true },
+  liquidarItensDasNotas,
+}));
 
 const { alertasOrcamento, alertasParcelasVencidas, carregarAlertas, carregarCurvaAbc, curvaAbc } = await import("../analises");
 
@@ -144,6 +149,29 @@ describe("carregarCurvaAbc", () => {
         },
       },
     });
+  });
+
+  it("líquido: sempre a consulta própria, com data e campos tributários, e o total do item vem já sem o crédito", async () => {
+    const dataCompra = new Date(2027, 1, 10, 12);
+    notaFindMany.mockResolvedValue([{ ...notaDoBanco([], "2"), dataCompra }]);
+    liquidarItensDasNotas.mockImplementation(async (notas: { itens: { totalCents: number }[] }[]) =>
+      notas.map((n) => ({ ...n, itens: n.itens.map((i) => ({ ...i, totalCents: i.totalCents - 110 })) })),
+    );
+    const curva = await carregarCurvaAbc({ liquido: true });
+    expect(notasParaAnalise).not.toHaveBeenCalled();
+    expect(liquidarItensDasNotas).toHaveBeenCalledTimes(1);
+    expect(curva.insumos[0]).toMatchObject({ custoCents: 890 });
+    expect(notaFindMany.mock.calls[0][0].select).toMatchObject({
+      dataCompra: true,
+      itens: { select: { totalCents: true, cClassTrib: true, cbsCents: true, ibsUfCents: true, ibsMunCents: true } },
+    });
+  });
+
+  it("sem o modo líquido, nada de tributação é lido nem calculado", async () => {
+    notaFindMany.mockResolvedValue([notaDoBanco([], "2")]);
+    await carregarCurvaAbc({ obraId: "o1" });
+    expect(liquidarItensDasNotas).not.toHaveBeenCalled();
+    expect(notaFindMany.mock.calls[0][0].select.dataCompra).toBeUndefined();
   });
 });
 

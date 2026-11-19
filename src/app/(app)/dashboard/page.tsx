@@ -26,6 +26,9 @@ import { AlertasLista } from "./alertas-lista";
 import { TopInsumos } from "./top-insumos";
 import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { veFinanceiro } from "@/services/acesso";
+import { carregarCreditoIbsCbs } from "@/services/tributacao/custo-liquido-db";
+import { avisosDoCredito } from "@/services/tributacao/custo-liquido";
+import { AvisosCreditoIbsCbs } from "@/components/credito-ibs-cbs";
 import { ChartGantt, ChartNoAxesColumn, ListOrdered, PiggyBank, ReceiptText, Scale } from "lucide-react";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -63,6 +66,7 @@ export default async function DashboardPage({
     medicoes,
     alertas,
     abc,
+    credito,
   ] = await Promise.all([
     prisma.parcela.aggregate({
       where: {
@@ -83,6 +87,7 @@ export default async function DashboardPage({
     medicoesTodas(),
     carregarAlertas(hoje, { paraAdmin: user.role === "ADMIN", obraId }),
     carregarCurvaAbc(obraId ? { obraId } : {}),
+    carregarCreditoIbsCbs(obraId),
   ]);
 
   const porMes = obraId
@@ -97,6 +102,15 @@ export default async function DashboardPage({
     (a, v) => a + v,
     0,
   );
+
+  // só aparece quando as notas já trazem IBS/CBS: antes disso o indicador seria um zero sem assunto
+  const mostrarCredito = credito.total.destacadoCents > 0;
+  const creditoPorObra = obraId
+    ? []
+    : [...credito.porObra]
+        .filter(([, c]) => c.creditoCents > 0)
+        .sort((a, b) => b[1].creditoCents - a[1].creditoCents)
+        .slice(0, 5);
 
   const divergencias = alertas.filter((a) => a.tipo === "NOTA_DIVERGENTE").length;
 
@@ -244,6 +258,31 @@ export default async function DashboardPage({
             <Cota discreta titulo="Obras ativas" valor={String(obrasAtivas)} href="/obras" />
           )}
         </div>
+
+        {mostrarCredito && (
+          <div className="grid items-start gap-x-8 gap-y-3 sm:grid-cols-[3fr_2fr]">
+            <Cota
+              titulo={obraFiltrada ? `Crédito IBS/CBS a recuperar · ${obraFiltrada.nome}` : "Crédito IBS/CBS a recuperar"}
+              valor={formatarMoeda(credito.total.creditoCents)}
+              rodape="Das notas de 2027 em diante, rateado às obras; reduz o custo líquido."
+            />
+            <div className="space-y-2">
+              {creditoPorObra.length > 1 && (
+                <ul className="divide-y text-sm">
+                  {creditoPorObra.map(([id, c]) => (
+                    <li key={id} className="flex items-baseline justify-between gap-3 py-1">
+                      <Link href={`/orcamento?obra=${id}`} className="min-w-0 truncate hover:underline">
+                        {nomeObra.get(id) ?? "Obra"}
+                      </Link>
+                      <span className="num shrink-0">{formatarMoeda(c.creditoCents)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <AvisosCreditoIbsCbs avisos={avisosDoCredito(credito.regime, credito.total)} podeInformarRegime={user.role === "ADMIN"} />
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>

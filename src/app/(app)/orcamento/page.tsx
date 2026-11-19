@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { exigirAcessoObra, exigirPapel } from "@/lib/auth";
 import { avancoPorEtapa, realizadoPorEtapa, realizadoPorMesDaObra } from "@/services/custos";
 import { listarObrasParaFiltro } from "@/services/obras";
+import { carregarCreditoIbsCbs } from "@/services/tributacao/custo-liquido-db";
+import { aplicarCredito, avisosDoCredito, haCredito, modoDoCusto } from "@/services/tributacao/custo-liquido";
+import { AvisosCreditoIbsCbs, ResumoCreditoIbsCbs } from "@/components/credito-ibs-cbs";
 import { consumoBp, faixaConsumo } from "@/services/analises";
 import { diaDoBanco } from "@/services/cronograma";
 import {
@@ -25,6 +28,7 @@ import { OrcamentoForm, type LinhaOrcamento, type TotalOrcamento } from "./orcam
 import { DesembolsoChart } from "./desembolso-chart";
 import { ESTILO_FAIXA } from "./faixa";
 import { cn } from "@/lib/utils";
+import type { ModoCusto } from "@/services/tributacao/custo-liquido";
 
 export const metadata: Metadata = { title: "Orçamento" };
 
@@ -41,10 +45,10 @@ function comFaixa(previstoCents: number, realizadoCents: number, fisicoBp: numbe
 export default async function OrcamentoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ obra?: string }>;
+  searchParams: Promise<{ obra?: string; custo?: string }>;
 }) {
   const usuario = await exigirPapel("ADMIN", "ESCRITORIO");
-  const { obra: obraParam } = await searchParams;
+  const { obra: obraParam, custo: custoParam } = await searchParams;
 
   const obras = await listarObrasParaFiltro(usuario.obrasPermitidas);
   // obra fora da lista (inexistente ou sem acesso) cai na primeira, como no cronograma
@@ -54,9 +58,12 @@ export default async function OrcamentoPage({
   let total: TotalOrcamento = { ...comFaixa(0, 0, 0), desempenho: totalDesempenho([]) };
   let desembolso: Desembolso = { pontos: [], semDatasCents: 0 };
   let origemPrevisto: OrigemPrevisto = null;
+  let credito: Awaited<ReturnType<typeof carregarCreditoIbsCbs>> | null = null;
+  let modo: ModoCusto = "BRUTO";
+  let resumoCredito = { brutoCents: 0, creditoCents: 0, liquidoCents: 0 };
   if (obraId) {
     exigirAcessoObra(usuario, obraId);
-    const [etapas, realizado, avancos, porMes, linhaBase] = await Promise.all([
+    const [etapas, realizadoBruto, avancos, porMes, linhaBase, creditoObra] = await Promise.all([
       prisma.etapa.findMany({
         where: { obraId },
         orderBy: { ordem: "asc" },
@@ -68,26 +75,51 @@ export default async function OrcamentoPage({
       realizadoPorMesDaObra(obraId),
       // acesso à obra já conferido acima
       carregarLinhaBaseOficial(obraId),
+      carregarCreditoIbsCbs(obraId),
     ]);
-    linhas = etapas.map((e) => ({
-      etapaId: e.id,
-      nome: e.nome,
-      ...comFaixa(e.orcamentoCents, realizado.get(e.id) ?? 0, avancos.get(e.id) ?? 0),
-    }));
-    const semEtapa = realizado.get(null) ?? 0;
-    if (semEtapa > 0) {
+    credito = creditoObra;
+    modo = modoDoCusto(credito.regime, credito.total.creditoCents, custoParam);
+    // no modo líquido o realizado de cada etapa já sai sem o crédito: faixa, saldo e desempenho seguem o mesmo número
+    const realizadoDe = (etapaId: string | null) => {
+      const bruto = realizadoBruto.get(etapaId) ?? 0;
+      const c = aplicarCredito(bruto, credito?.porEtapa.get(etapaId)?.creditoCents ?? 0);
+      return {
+        realizado: modo === "LIQUIDO" ? c.liquidoCents : bruto,
+        ...(c.creditoCents > 0 ? { brutoCents: bruto, creditoCents: c.creditoCents } : {}),
+      };
+    };
+    linhas = etapas.map((e) => {
+      const { realizado, ...extra } = realizadoDe(e.id);
+      return {
+        etapaId: e.id,
+        nome: e.nome,
+        ...comFaixa(e.orcamentoCents, realizado, avancos.get(e.id) ?? 0),
+        ...extra,
+      };
+    });
+    // pelo bruto: um rateio sem etapa inteiro coberto pelo crédito ainda aparece
+    if ((realizadoBruto.get(null) ?? 0) > 0) {
+      const { realizado, ...extra } = realizadoDe(null);
       linhas.push({
         etapaId: null,
         nome: "Sem etapa definida",
-        ...comFaixa(0, semEtapa, 0),
+        ...comFaixa(0, realizado, 0),
+        ...extra,
       });
     }
     // o realizado sem etapa também consome o orçamento da obra
     const soma = (f: (l: LinhaOrcamento) => number) => linhas.reduce((a, l) => a + f(l), 0);
     const totalDes = totalDesempenho(linhas.map((l) => l.desempenho));
+    const brutoDe = (l: LinhaOrcamento) => l.brutoCents ?? l.realizadoCents;
+    resumoCredito = {
+      brutoCents: soma(brutoDe),
+      creditoCents: soma((l) => l.creditoCents ?? 0),
+      liquidoCents: soma((l) => aplicarCredito(brutoDe(l), l.creditoCents ?? 0).liquidoCents),
+    };
     total = {
       ...comFaixa(soma((l) => l.previstoCents), soma((l) => l.realizadoCents), totalDes.fisicoBp),
       desempenho: totalDes,
+      ...(resumoCredito.creditoCents > 0 ? { brutoCents: resumoCredito.brutoCents, creditoCents: resumoCredito.creditoCents } : {}),
     };
     const entrada = etapasDoDesembolso(
       etapas.map((e) => ({
@@ -132,11 +164,49 @@ export default async function OrcamentoPage({
         <p className="text-muted-foreground">Esta obra não tem etapas cadastradas.</p>
       ) : (
         <>
+          {credito && (
+            <CreditoDaObra
+              obraId={obraId}
+              credito={credito}
+              resumo={resumoCredito}
+              modo={modo}
+              ehAdmin={usuario.role === "ADMIN"}
+            />
+          )}
           <Legenda />
-          <OrcamentoForm obraId={obraId} linhas={linhas} total={total} />
+          <OrcamentoForm obraId={obraId} linhas={linhas} total={total} modo={modo} />
           <SecaoDesembolso obraId={obraId} desembolso={desembolso} origem={origemPrevisto} />
         </>
       )}
+    </div>
+  );
+}
+
+function CreditoDaObra({
+  obraId,
+  credito,
+  resumo,
+  modo,
+  ehAdmin,
+}: {
+  obraId: string;
+  credito: Awaited<ReturnType<typeof carregarCreditoIbsCbs>>;
+  resumo: { brutoCents: number; creditoCents: number; liquidoCents: number };
+  modo: ModoCusto;
+  ehAdmin: boolean;
+}) {
+  const avisos = avisosDoCredito(credito.regime, credito.total);
+  const comCredito = haCredito(credito.regime, resumo.creditoCents);
+  return (
+    <div className="space-y-2">
+      {comCredito && (
+        <ResumoCreditoIbsCbs
+          {...resumo}
+          modo={modo}
+          hrefAlternar={`/orcamento?obra=${obraId}&custo=${modo === "LIQUIDO" ? "bruto" : "liquido"}`}
+        />
+      )}
+      <AvisosCreditoIbsCbs avisos={avisos} podeInformarRegime={ehAdmin} />
     </div>
   );
 }

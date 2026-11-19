@@ -9,6 +9,7 @@ import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
 import { carregarAlertasDaCaptura } from "./sefaz/painel";
 import { desempenhoCusto, totalDesempenho } from "./desempenho-custo";
+import { CAMPOS_TRIBUTARIOS, liquidarItensDasNotas } from "./tributacao/custo-liquido-db";
 
 export type ClasseAbc = "A" | "B" | "C";
 
@@ -441,12 +442,14 @@ type FiltroAbc = {
   de?: Date;
   ate?: Date;
   tipo?: TipoItem;
+  /** Custo de cada item líquido do crédito de IBS/CBS (regime regular, notas de 2027 em diante). */
+  liquido?: boolean;
 };
 
 // Sem filtro de obra a nota entra inteira, inclusive sem rateio (compra da empresa).
 export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc> {
   // sem filtro nenhum, reaproveita a leitura de notas da requisição (mesmo resultado da consulta abaixo)
-  if (!filtro.obraId && !filtro.de && !filtro.ate && !filtro.tipo) {
+  if (!filtro.obraId && !filtro.de && !filtro.ate && !filtro.tipo && !filtro.liquido) {
     const todas = await notasParaAnalise();
     return curvaAbc(
       todas.map((n) => ({
@@ -466,18 +469,30 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
     };
   }
 
-  const notas = await prisma.notaFiscal.findMany({
+  const notasDoBanco = await prisma.notaFiscal.findMany({
     where,
     select: {
       fornecedorId: true,
+      ...(filtro.liquido ? { dataCompra: true } : {}),
       // sem filtro de obra, "" não casa com nenhum rateio (a fração não é usada)
       rateios: { where: { obraId: filtro.obraId ?? "" }, select: { fracaoBp: true } },
       itens: {
         where: filtro.tipo ? { tipo: filtro.tipo } : undefined,
-        select: { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true },
+        select: {
+          descricao: true,
+          unidade: true,
+          tipo: true,
+          qtde: true,
+          totalCents: true,
+          ...(filtro.liquido ? CAMPOS_TRIBUTARIOS : {}),
+        },
       },
     },
   });
+  // o spread condicional some do tipo inferido: no modo líquido as notas trazem a data e os campos tributários
+  const notas = filtro.liquido
+    ? await liquidarItensDasNotas(notasDoBanco as unknown as Parameters<typeof liquidarItensDasNotas>[0]) as unknown as typeof notasDoBanco
+    : notasDoBanco;
 
   return curvaAbc(
     notas.map((n) => ({
