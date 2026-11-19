@@ -65,6 +65,7 @@ export type ResultadoLancamento =
 
 const ROTULO_DOCUMENTO: Record<TipoDocumento, string> = {
   NF: "a NF",
+  NFSE: "a NFS-e",
   RECIBO: "o recibo",
   FOLHA: "a folha",
   GUIA: "a guia",
@@ -80,8 +81,8 @@ export function descricaoDoLancamento(
 }
 
 function mensagemNumeroRepetido(tipo: TipoDocumento, numero: string): string {
-  if (tipo === "NF") {
-    return `Já existe a NF ${numero} deste fornecedor. Confira se a nota não foi lançada antes.`;
+  if (tipo === "NF" || tipo === "NFSE") {
+    return `Já existe a ${tipo === "NF" ? "NF" : "NFS-e"} ${numero} deste fornecedor. Confira se a nota não foi lançada antes.`;
   }
   return numero
     ? `Já existe um lançamento nº ${numero} deste fornecedor. Use outro número ou deixe em branco para gerar automaticamente.`

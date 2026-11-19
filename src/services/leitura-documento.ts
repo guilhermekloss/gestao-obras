@@ -195,6 +195,7 @@ const TIPO_DOCUMENTO: Record<DocumentoLido["tipo"], TipoDocumento> = {
 
 const TIPO_ITEM_PADRAO: Record<TipoDocumento, TipoItem> = {
   NF: "MATERIAL",
+  NFSE: "SERVICO",
   RECIBO: "SERVICO",
   FOLHA: "SERVICO",
   GUIA: "ENCARGO",

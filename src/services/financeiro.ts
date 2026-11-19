@@ -52,10 +52,11 @@ export function fluxoMensal(parcelas: ParcelaComRateio[]): FluxoMensal {
   return { meses, obras, valores, totalPorMes, totalPorObra };
 }
 
-export const TIPOS_DOCUMENTO = ["NF", "RECIBO", "FOLHA", "GUIA", "OUTRO"] as const satisfies readonly TipoDocumento[];
+export const TIPOS_DOCUMENTO = ["NF", "NFSE", "RECIBO", "FOLHA", "GUIA", "OUTRO"] as const satisfies readonly TipoDocumento[];
 
 export const TIPO_DOCUMENTO_LABELS: Record<TipoDocumento, string> = {
   NF: "Nota fiscal",
+  NFSE: "NFS-e (serviço)",
   RECIBO: "Recibo",
   FOLHA: "Folha de pagamento",
   GUIA: "Guia/imposto",
@@ -64,6 +65,7 @@ export const TIPO_DOCUMENTO_LABELS: Record<TipoDocumento, string> = {
 
 export const TIPO_DOCUMENTO_BADGE: Record<TipoDocumento, string> = {
   NF: "NF",
+  NFSE: "NFS-e",
   RECIBO: "Recibo",
   FOLHA: "Folha",
   GUIA: "Guia",
@@ -79,15 +81,18 @@ export const FORMA_PAGTO_LABELS: Record<FormaPagto, string> = {
   DINHEIRO: "Dinheiro",
 };
 
-export const PREFIXO_DOCUMENTO: Record<Exclude<TipoDocumento, "NF">, string> = {
+/** Documento fiscal: o número vem do documento e é obrigatório. */
+export type TipoComNumero = "NF" | "NFSE";
+
+export const PREFIXO_DOCUMENTO: Record<Exclude<TipoDocumento, TipoComNumero>, string> = {
   RECIBO: "REC",
   FOLHA: "FOL",
   GUIA: "GUIA",
   OUTRO: "DOC",
 };
 
-export function exigeNumero(tipo: TipoDocumento): tipo is "NF" {
-  return tipo === "NF";
+export function exigeNumero(tipo: TipoDocumento): tipo is TipoComNumero {
+  return tipo === "NF" || tipo === "NFSE";
 }
 
 export function parseTipoDocumento(valor: string | undefined): TipoDocumento | undefined {
@@ -97,7 +102,7 @@ export function parseTipoDocumento(valor: string | undefined): TipoDocumento | u
 // Maior número + 1 (não a contagem): excluir um do meio não repete número em uso.
 // Por fornecedor porque a unicidade no banco é (fornecedorId, numero).
 export function gerarNumeroDocumento(
-  tipo: Exclude<TipoDocumento, "NF">,
+  tipo: Exclude<TipoDocumento, TipoComNumero>,
   numerosDoFornecedor: string[],
 ): string {
   const prefixo = PREFIXO_DOCUMENTO[tipo];

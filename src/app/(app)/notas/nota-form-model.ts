@@ -153,6 +153,7 @@ export function tipoItemSugerido(tipo: TipoDocumento): TipoItem {
   switch (tipo) {
     case "GUIA":
       return "ENCARGO";
+    case "NFSE":
     case "RECIBO":
     case "FOLHA":
       return "SERVICO";
