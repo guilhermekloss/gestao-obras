@@ -10,7 +10,6 @@ import { formatarData, formatarMoeda } from "@/lib/format";
 import { formatarDocumento, type Nfe } from "@/services/nfe-xml";
 import { formatarCno } from "@/services/cno";
 import type { SituacaoImportacao } from "./actions";
-import { ConferenciaDaPrevia } from "./conferencia-previa";
 import { AlertTriangle, CheckCircle2, ExternalLink, UserPlus } from "lucide-react";
 
 const TIPOS: { value: TipoItem; label: string }[] = [
@@ -187,7 +186,6 @@ export function PreviaItens({
         relatórios, e o material do catálogo de cada item. Frete e impostos cobrados por fora (IPI, ST, seguro,
         outras despesas) aparecem como itens próprios, para a soma fechar com o total da nota.
       </p>
-      <ConferenciaDaPrevia nfe={nfe} />
       <ListaDeDados
         legenda="Itens da nota"
         linhas={nfe.itens.map((item, i) => ({ item, i }))}

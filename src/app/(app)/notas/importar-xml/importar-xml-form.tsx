@@ -29,6 +29,7 @@ import { dadosImportaveis, mensagemNotaJaImportada, parseDocumentoXml, type Docu
 import { errosDeVinculos, vinculoInicial, type MaterialCatalogo, type VinculoMaterial } from "@/services/materiais";
 import { vinculosParaAction } from "../nova/conferencia-model";
 import { consultarSituacaoImportacao, importarNfe, sugerirMateriais, type SituacaoImportacao } from "./actions";
+import { ConferenciaDaPrevia } from "./conferencia-previa";
 import { AvisoNotaExistente, PreviaCabecalho, PreviaItens, formatarDataXml } from "./previa-nfe";
 import { PreviaNfse } from "./previa-nfse";
 import { linhasDeConferencia } from "../conferencia-lancamento";
@@ -363,6 +364,7 @@ export function ImportarXmlForm({
                 />
               </AccordionTrigger>
               <AccordionPanel keepMounted>
+                {doc && <ConferenciaDaPrevia nfe={doc.tipo === "NFSE" ? doc.nfse : doc.nfe} />}
                 <PreviaItens
                   nfe={nfe}
                   tipos={tipos}

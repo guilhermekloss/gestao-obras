@@ -17,6 +17,8 @@ const notaSchema = z.object({
     .array(
       z.object({
         ncm: z.string().max(20).nullable(),
+        // NFS-e: o serviço vem pelo NBS
+        nbs: z.string().max(20).nullable().optional(),
         ibsCbs: z
           .object({
             cst: z.string().max(10),
@@ -32,6 +34,7 @@ const notaSchema = z.object({
             ibsMunCents: cents,
             ibsCbsDiferidoCents: cents,
           })
+          .nullable()
           .optional(),
       }),
     )

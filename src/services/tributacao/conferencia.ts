@@ -269,11 +269,15 @@ export function conferirTributacao(itens: readonly ItemParaConferir[], ctx: Cont
 }
 
 /** Item lido do XML (ItemNfe) no formato da conferência; sem grupo IBS/CBS, só o NCM. */
-export function itemDaNfe(item: { ncm: string | null; ibsCbs?: Omit<ItemParaConferir, "ncm" | "nbs"> | null }): ItemParaConferir {
+export function itemDaNfe(item: {
+  ncm: string | null;
+  nbs?: string | null;
+  ibsCbs?: Omit<ItemParaConferir, "ncm" | "nbs"> | null;
+}): ItemParaConferir {
   const t = item.ibsCbs;
   return {
     ncm: item.ncm,
-    nbs: null,
+    nbs: item.nbs ?? null,
     cst: t?.cst ?? null,
     cClassTrib: t?.cClassTrib ?? null,
     ibsCbsBaseCents: t?.ibsCbsBaseCents ?? null,

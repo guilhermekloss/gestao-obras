@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { ConferenciaTributaria } from "@/components/conferencia-tributaria";
 import type { Nfe } from "@/services/nfe-xml";
+import type { Nfse } from "@/services/nfse-xml";
 import type { AchadoConferencia } from "@/services/tributacao/conferencia";
 import { conferirTributacaoDaPrevia } from "./conferencia-actions";
 
-/** Conferência do IBS/CBS da nota lida do XML. Falha em silêncio: é só um aviso a mais. */
-export function ConferenciaDaPrevia({ nfe }: { nfe: Nfe }) {
-  const [resultado, setResultado] = useState<{ nfe: Nfe; achados: AchadoConferencia[] } | null>(null);
+type NotaDaPrevia = Nfe | Nfse;
+
+/** Conferência do IBS/CBS da nota lida do XML (NF-e ou NFS-e). Falha em silêncio: é só um aviso a mais. */
+export function ConferenciaDaPrevia({ nfe }: { nfe: NotaDaPrevia }) {
+  const [resultado, setResultado] = useState<{ nfe: NotaDaPrevia; achados: AchadoConferencia[] } | null>(null);
 
   useEffect(() => {
     let cancelado = false;

@@ -13,6 +13,8 @@ import type { ParcelaExistente } from "@/services/parcelas";
 import { carregarEmpresa } from "@/services/empresa";
 import { analisarIbsCbsDaNota } from "@/services/tributacao/conferencia-db";
 import { IbsCbsDaNota } from "@/components/ibs-cbs-da-nota";
+import { nfseDoAnexo } from "@/services/nfse-anexo";
+import { VisualizacaoNfse } from "../visualizacao-nfse";
 import { Trash2, TriangleAlert } from "lucide-react";
 
 export const metadata: Metadata = { title: "Editar lançamento" };
@@ -42,7 +44,11 @@ export default async function EditarNotaPage({
     listarMateriais(nota.itens.map((i) => i.materialId).filter((m): m is string => !!m)),
     carregarEmpresa(),
   ]);
-  const ibsCbs = await analisarIbsCbsDaNota(nota, empresa?.regimeIbsCbs ?? "NAO_INFORMADO");
+  const [ibsCbs, nfse] = await Promise.all([
+    analisarIbsCbsDaNota(nota, empresa?.regimeIbsCbs ?? "NAO_INFORMADO"),
+    // o XML da NFS-e vira a representação do DANFSe na tela, sem PDF no servidor
+    nota.tipoDocumento === "NFSE" ? nfseDoAnexo(nota.anexoUrl) : null,
+  ]);
   const texto = (d: { toString(): string } | null) => (d === null ? null : d.toString());
 
   const defaultValues = {
@@ -103,9 +109,11 @@ export default async function EditarNotaPage({
       </div>
       {nota.chaveNfe && (
         <p className="text-sm text-muted-foreground">
-          Chave NF-e <span className="font-mono break-all">{nota.chaveNfe}</span>
+          Chave {nota.tipoDocumento === "NFSE" ? "NFS-e" : "NF-e"}{" "}
+          <span className="font-mono break-all">{nota.chaveNfe}</span>
         </p>
       )}
+      {nfse && <VisualizacaoNfse nfse={nfse} />}
       {temParcelaPaga && (
         <p
           role="note"
