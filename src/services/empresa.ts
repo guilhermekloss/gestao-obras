@@ -1,10 +1,12 @@
 import { cache } from "react";
 import { z } from "zod";
-import type { Empresa } from "@prisma/client";
+import type { Empresa, RegimeIbsCbs } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { documentoValido } from "./leitura-documento";
 import { formatarDocumento } from "./nfe-xml";
 import { normalizarCnpj } from "./sefaz/xml";
+
+export { REGIME_IBS_CBS_LABELS } from "./tributacao/ibs-cbs";
 
 export const ID_EMPRESA = "principal";
 
@@ -50,6 +52,11 @@ export const empresaSchema = z
   });
 
 export type DadosEmpresa = z.infer<typeof empresaSchema>;
+
+// valor fora da lista não passa: o regime decide se o IBS/CBS das notas vira crédito
+export const regimeIbsCbsSchema = z.enum(["NAO_INFORMADO", "REGULAR", "SIMPLES_NACIONAL"], {
+  error: "Escolha como a empresa apura IBS/CBS",
+}) satisfies z.ZodType<RegimeIbsCbs>;
 
 // lida uma vez por requisição (layout, painel da captura, página Empresa); fora da renderização (actions, rotas) o cache não guarda nada
 export const carregarEmpresa = cache(async (): Promise<Empresa | null> => prisma.empresa.findUnique({ where: { id: ID_EMPRESA } }));

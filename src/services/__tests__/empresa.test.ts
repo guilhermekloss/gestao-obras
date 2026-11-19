@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
-const { cnpjsDe, empresaSchema, UFS } = await import("../empresa");
+const { cnpjsDe, empresaSchema, regimeIbsCbsSchema, REGIME_IBS_CBS_LABELS, UFS } = await import("../empresa");
 
 const base = { razaoSocial: "Construtora Teste Ltda", nomeFantasia: "", cnpj: "11.222.333/0001-81", filiais: "", uf: "PR" };
 
@@ -42,5 +42,16 @@ describe("cnpjsDe", () => {
   it("sem cadastro, vale CNPJS_EMPRESA da instalação", () => {
     expect(cnpjsDe(null, { CNPJS_EMPRESA: "11.222.333/0001-81, 99888777000166" })).toEqual(["11222333000181", "99888777000166"]);
     expect(cnpjsDe(null, {})).toEqual([]);
+  });
+});
+
+describe("regimeIbsCbsSchema", () => {
+  it("aceita só os regimes do enum, todos com rótulo", () => {
+    for (const r of ["NAO_INFORMADO", "REGULAR", "SIMPLES_NACIONAL"] as const) {
+      expect(regimeIbsCbsSchema.parse(r)).toBe(r);
+      expect(REGIME_IBS_CBS_LABELS[r]).toBeTruthy();
+    }
+    expect(regimeIbsCbsSchema.safeParse("LUCRO_REAL").error?.issues[0].message).toBe("Escolha como a empresa apura IBS/CBS");
+    expect(regimeIbsCbsSchema.safeParse(null).success).toBe(false);
   });
 });
