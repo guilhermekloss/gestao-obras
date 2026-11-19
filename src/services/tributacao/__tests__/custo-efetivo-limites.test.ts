@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inputParaData } from "@/lib/format";
+import { DESCRICAO_IBS_CBS_POR_FORA } from "../../nfe-xml";
 import type { ClassificacaoParaCredito } from "../credito";
 import {
   creditoDasCompras,
@@ -239,6 +240,24 @@ describe("custoEfetivoPorFornecedor", () => {
       ctx(),
     );
     expect(g.fornecedores[0]).toMatchObject({ compras: 2, ultimaCompra: "2027-04-01" });
+  });
+});
+
+describe("IBS/CBS por fora", () => {
+  // mesmo preço nominal (R$ 100,00 por 10 un) e mesmo CBS de R$ 10,00: no A ele vem por fora, no B embutido
+  const a = () => compra({ fornecedorId: "a", fornecedorNome: "A", creditoCents: 1_000, ibsCbsPorFora: true });
+  const b = () => compra({ fornecedorId: "b", fornecedorNome: "B", creditoCents: 1_000 });
+
+  it("por fora, o imposto soma ao bruto e o crédito o devolve: efetivo = preço nominal, e o embutido sai mais barato", () => {
+    const [g] = custoEfetivoPorFornecedor([a(), b()], ctx());
+    const [fa, fb] = ["a", "b"].map((id) => g.fornecedores.find((f) => f.fornecedorId === id)!);
+    expect(fa).toMatchObject({ gastoCents: 11_000, creditoCents: 1_000, brutoUnitCents: 1_100, creditoUnitCents: 100, efetivoUnitCents: 1_000 });
+    expect(fb).toMatchObject({ gastoCents: 10_000, creditoCents: 1_000, brutoUnitCents: 1_000, creditoUnitCents: 100, efetivoUnitCents: 900 });
+    expect(g.maisBaratoEfetivoId).toBe("b");
+  });
+  it("a linha acessória do imposto não conta no crédito do fornecedor (o valor já está no produto)", () => {
+    const acessorio = compra({ fornecedorId: "a", descricao: DESCRICAO_IBS_CBS_POR_FORA, qtde: 1, totalCents: 1_000, ibsCbsPorFora: true });
+    expect(creditoDasCompras([{ ...a(), notaId: "n" }, { ...acessorio, notaId: "n" }], ctx())).toMatchObject({ gastoCents: 11_000, creditoCents: 1_000 });
   });
 });
 

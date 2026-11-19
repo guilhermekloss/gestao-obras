@@ -20,6 +20,7 @@ const classif = (o: Partial<ClassificacaoParaConferir> = {}): ClassificacaoParaC
   apropriaCreditoCbs: true,
   apropriaCreditoIbs: true,
   creditoPresumidoAdquirente: false,
+  indReducao: false,
   ...o,
 });
 
@@ -165,7 +166,7 @@ describe("nomenclatura", () => {
 });
 
 describe("redução", () => {
-  const c60 = [classif({ pRedCbs: "60", pRedIbs: "60" })];
+  const c60 = [classif({ pRedCbs: "60", pRedIbs: "60", indReducao: true })];
   const reduzido = { pRedCbs: "60", pRedIbs: "60", cbsCents: 3_600, ibsUfCents: 400 };
   it("igual ao previsto não acusa", () => {
     expect(codigos([item(reduzido)], ctx({ classificacoes: c60 }))).toEqual([]);
@@ -178,9 +179,14 @@ describe("redução", () => {
     expect(a.codigo).toBe("REDUCAO_DIVERGENTE");
     expect(a.mensagem).toContain("CBS");
   });
+  it("imunidade (410029, 100% na carga mas sem indReducao) sem gRed não acusa", () => {
+    const imune = classif({ codigo: "410029", cst: "410", pRedCbs: "100", pRedIbs: "100", indReducao: false });
+    const nota = item({ cst: "410", cClassTrib: "410029", pCbs: null, pIbsUf: null, pIbsMun: null, cbsCents: null, ibsUfCents: null, ibsMunCents: null });
+    expect(codigos([nota], ctx({ classificacoes: [imune] }))).toEqual([]);
+  });
   it("0 e ausente são a mesma coisa; diferença de casas decimais não acusa", () => {
-    expect(codigos([item({ pRedCbs: "0.0000" })], ctx({ classificacoes: [classif({ pRedCbs: "0" })] }))).toEqual([]);
-    expect(codigos([item(reduzido, )], ctx({ classificacoes: [classif({ pRedCbs: "60.0000", pRedIbs: "60.00001" })] }))).toEqual([]);
+    expect(codigos([item({ pRedCbs: "0.0000" })], ctx({ classificacoes: [classif({ pRedCbs: "0", indReducao: true })] }))).toEqual([]);
+    expect(codigos([item(reduzido, )], ctx({ classificacoes: [classif({ pRedCbs: "60.0000", pRedIbs: "60.00001", indReducao: true })] }))).toEqual([]);
   });
 });
 
@@ -195,7 +201,7 @@ describe("base × alíquota", () => {
     expect(a.mensagem).toContain("CBS");
   });
   it("leva a redução em conta", () => {
-    const c = ctx({ classificacoes: [classif({ pRedCbs: "60", pRedIbs: "60" })] });
+    const c = ctx({ classificacoes: [classif({ pRedCbs: "60", pRedIbs: "60", indReducao: true })] });
     expect(codigos([item({ pRedCbs: "60", pRedIbs: "60", cbsCents: 3_600, ibsUfCents: 400 })], c)).toEqual([]);
     // reduziu a alíquota mas destacou como se não tivesse reduzido
     expect(codigos([item({ pRedCbs: "60", pRedIbs: "60" })], c)).toEqual(["VALOR_DIVERGENTE", "VALOR_DIVERGENTE"]);

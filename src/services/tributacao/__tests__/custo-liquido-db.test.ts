@@ -123,4 +123,10 @@ describe("liquidarItensDasNotas", () => {
     expect(n.fornecedorId).toBe("f1");
     expect(n.itens.map((i) => i.totalCents)).toEqual([90_000, 100_000]);
   });
+
+  it("nota com IBS/CBS por fora: o produto fica com total + destacado - crédito e a linha por fora zera", async () => {
+    const porFora = { descricao: "IBS/CBS destacados na nota (cobrados por fora)", totalCents: 10_000, cClassTrib: null, cbsCents: null, ibsUfCents: null, ibsMunCents: null };
+    const [n] = await liquidarItensDasNotas([{ dataCompra: new Date(2027, 2, 10, 12), itens: [{ ...itemDb }, porFora] }]);
+    expect(n.itens.map((i) => i.totalCents)).toEqual([100_000, 0]);
+  });
 });

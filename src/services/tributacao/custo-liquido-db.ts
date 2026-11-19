@@ -6,7 +6,7 @@ import { carregarClassificacoes } from "./classificacao-db";
 import {
   agregarCustoLiquido,
   codigosParaClassificar,
-  liquidoDoItem,
+  liquidosDosItens,
   somarCustosLiquidos,
   type ContextoCustoLiquido,
   type CustoLiquido,
@@ -71,8 +71,8 @@ export async function liquidarItensDasNotas<N extends { dataCompra: Date | strin
   notas: N[],
 ): Promise<N[]> {
   const ctx = await carregarContextoCredito(notas);
-  return notas.map((n) => ({
-    ...n,
-    itens: n.itens.map((i) => ({ ...i, totalCents: liquidoDoItem(i, n.dataCompra, ctx) })),
-  }));
+  return notas.map((n) => {
+    const liquidos = liquidosDosItens(n.itens, n.dataCompra, ctx);
+    return { ...n, itens: n.itens.map((i, k) => ({ ...i, totalCents: liquidos[k] })) };
+  });
 }

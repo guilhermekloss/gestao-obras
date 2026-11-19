@@ -477,7 +477,8 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
       // sem filtro de obra, "" não casa com nenhum rateio (a fração não é usada)
       rateios: { where: { obraId: filtro.obraId ?? "" }, select: { fracaoBp: true } },
       itens: {
-        where: filtro.tipo ? { tipo: filtro.tipo } : undefined,
+        // no modo líquido a nota vem inteira: a linha do IBS/CBS por fora (ENCARGO) precisa estar lá para o líquido dos produtos
+        where: filtro.tipo && !filtro.liquido ? { tipo: filtro.tipo } : undefined,
         select: {
           descricao: true,
           unidade: true,
@@ -493,12 +494,13 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
   const notas = filtro.liquido
     ? await liquidarItensDasNotas(notasDoBanco as unknown as Parameters<typeof liquidarItensDasNotas>[0]) as unknown as typeof notasDoBanco
     : notasDoBanco;
+  const tipo = filtro.tipo;
 
   return curvaAbc(
     notas.map((n) => ({
       fornecedorId: n.fornecedorId,
       fracaoBp: filtro.obraId ? (n.rateios[0]?.fracaoBp ?? 0) : BP_TOTAL,
-      itens: n.itens.map((i) => ({ ...i, qtde: Number(i.qtde) })),
+      itens: n.itens.filter((i) => !tipo || i.tipo === tipo).map((i) => ({ ...i, qtde: Number(i.qtde) })),
     })),
   );
 }

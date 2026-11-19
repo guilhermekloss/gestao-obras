@@ -33,6 +33,8 @@ export type ClassificacaoParaConferir = ClassificacaoParaCredito & {
   descricao: string;
   pRedCbs: string | null;
   pRedIbs: string | null;
+  /** A classificação prevê redução de alíquota; sem ela, o pRed da carga não vale (imunidades trazem 100). */
+  indReducao: boolean;
 };
 
 /** Linha de ClassificacaoNomenclatura com vigências em aaaa-mm-dd. */
@@ -152,10 +154,11 @@ function conferirValores(i: ItemParaConferir, itemIndex: number, achados: Achado
   }
 }
 
+// Imunidade (CST 410) traz pRed 100 na carga mas não tem gRed na nota: só se prevê redução com indReducao.
 function conferirReducao(i: ItemParaConferir, c: ClassificacaoParaConferir, itemIndex: number, achados: AchadoConferencia[]) {
   const pares: [string, string | null, string | null][] = [
-    ["CBS", i.pRedCbs, c.pRedCbs],
-    ["IBS", i.pRedIbs, c.pRedIbs],
+    ["CBS", i.pRedCbs, c.indReducao ? c.pRedCbs : null],
+    ["IBS", i.pRedIbs, c.indReducao ? c.pRedIbs : null],
   ];
   for (const [nome, informado, previsto] of pares) {
     if (Math.abs(numero(informado) - numero(previsto)) <= TOLERANCIA_PERCENTUAL) continue;

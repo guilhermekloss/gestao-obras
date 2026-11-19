@@ -12,7 +12,7 @@ import {
   type CreditoDoFornecedor,
   type GrupoUnidade,
 } from "./custo-efetivo";
-import { crtValido, type CrtEmitente } from "./ibs-cbs";
+import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, type CrtEmitente } from "./ibs-cbs";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -21,13 +21,23 @@ type Opcoes = { meses?: number; agora?: Date; db?: Db };
 const selectItem = {
   id: true,
   qtde: true,
+  descricao: true,
   unidade: true,
   totalCents: true,
   cClassTrib: true,
   cbsCents: true,
   ibsUfCents: true,
   ibsMunCents: true,
-  nota: { select: { id: true, dataCompra: true, crtEmitente: true, fornecedor: { select: { id: true, nome: true } } } },
+  nota: {
+    select: {
+      id: true,
+      dataCompra: true,
+      crtEmitente: true,
+      fornecedor: { select: { id: true, nome: true } },
+      // a nota tem a linha do IBS/CBS por fora? (junto da consulta, mesmo com itens filtrados por material)
+      itens: { where: { descricao: DESCRICAO_IBS_CBS_POR_FORA }, select: { id: true }, take: 1 },
+    },
+  },
 } satisfies Prisma.ItemNotaSelect;
 
 type ItemLido = Prisma.ItemNotaGetPayload<{ select: typeof selectItem }>;
@@ -37,6 +47,8 @@ function paraCompra(i: ItemLido): CompraParaCusto {
     notaId: i.nota.id,
     fornecedorId: i.nota.fornecedor.id,
     fornecedorNome: i.nota.fornecedor.nome,
+    descricao: i.descricao,
+    ibsCbsPorFora: i.nota.itens.length > 0,
     unidade: i.unidade,
     qtde: Number(i.qtde),
     totalCents: i.totalCents,

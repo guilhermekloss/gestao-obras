@@ -3,7 +3,7 @@ import type { FormaPagto, TipoItem } from "@prisma/client";
 import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { extrairCnos, formatarCno } from "./cno";
-import { crtValido, type CrtEmitente, type TotaisIbsCbs, type TributacaoIbsCbs } from "./tributacao/ibs-cbs";
+import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, type CrtEmitente, type TotaisIbsCbs, type TributacaoIbsCbs } from "./tributacao/ibs-cbs";
 
 export type { TotaisIbsCbs, TributacaoIbsCbs } from "./tributacao/ibs-cbs";
 
@@ -222,11 +222,14 @@ function lerTotaisIbsCbs(total: No | undefined): TotaisIbsCbs | null {
  * Valor a pagar da nota. vNF é o total "tradicional"; vNFTot (NT 2025.002) soma o IBS/CBS/IS cobrado por fora.
  * Quando vNFTot passa do vNF, vale ele e a diferença vira um item acessório (a soma dos itens continua fechando).
  * Exceção: se as duplicatas somam o vNF e não o vNFTot, o fornecedor está cobrando o vNF; vale o que bate com elas.
+ * Sem duplicatas, o mesmo vale para a soma dos pagamentos (detPag, sem tPag 90): em 2026 o destaque de teste infla o
+ * vNFTot, mas o pagamento continua no vNF.
  */
 export function totalAPagar(
   vNfCents: number,
   vNfTotCents: number | null,
   somaDuplicatasCents: number | null,
+  somaPagamentosCents: number | null = null,
 ): { totalCents: number; porForaCents: number; aviso: string | null } {
   if (vNfTotCents === null || vNfTotCents <= vNfCents) return { totalCents: vNfCents, porForaCents: 0, aviso: null };
   if (somaDuplicatasCents === vNfCents) {
@@ -236,11 +239,19 @@ export function totalAPagar(
       aviso: `A nota informa ${formatarMoeda(vNfTotCents)} com IBS/CBS por fora (vNFTot), mas as duplicatas somam o vNF (${formatarMoeda(vNfCents)}): foi usado o vNF. Confira com o fornecedor.`,
     };
   }
+  // duplicatas informadas mandam; os pagamentos só desempatam quando não há duplicatas
+  if (somaDuplicatasCents === null && somaPagamentosCents === vNfCents) {
+    return {
+      totalCents: vNfCents,
+      porForaCents: 0,
+      aviso: `A nota informa ${formatarMoeda(vNfTotCents)} com IBS/CBS por fora (vNFTot), mas os pagamentos somam o vNF (${formatarMoeda(vNfCents)}): foi usado o vNF. Confira com o fornecedor.`,
+    };
+  }
   return { totalCents: vNfTotCents, porForaCents: vNfTotCents - vNfCents, aviso: null };
 }
 
-/** Descrição do item acessório com o IBS/CBS cobrado por fora do vNF. */
-export const DESCRICAO_IBS_CBS_POR_FORA = "IBS/CBS destacados na nota (cobrados por fora)";
+// A constante mora em tributacao/ibs-cbs.ts (o custo líquido a reconhece sem importar o parser); reexportada aqui.
+export { DESCRICAO_IBS_CBS_POR_FORA };
 
 const NAO_E_NFE = "O arquivo não é o XML de uma NF-e (esperado <nfeProc> ou <NFe> com <infNFe>).";
 
@@ -359,7 +370,13 @@ export function parseNfeXml(xml: string): ResultadoNfe {
     valorCents: centavos(d, "vDup"),
   }));
   const somaDup = duplicatas.reduce((a, d) => a + d.valorCents, 0);
-  const aPagar = totalAPagar(vNfCents, vNfTotCents, duplicatas.length > 0 ? somaDup : null);
+  // detPag pode repetir: vale o de maior valor; tPag 90 ("sem pagamento") é ignorado
+  const pagamentos = lista(no(inf.pag)?.detPag)
+    .map((p) => ({ tPag: texto(p, "tPag"), valor: centavos(p, "vPag") }))
+    .filter((p) => p.tPag && p.tPag !== "90")
+    .sort((a, b) => b.valor - a.valor);
+  const somaPagamentos = pagamentos.length > 0 ? pagamentos.reduce((a, p) => a + p.valor, 0) : null;
+  const aPagar = totalAPagar(vNfCents, vNfTotCents, duplicatas.length > 0 ? somaDup : null, somaPagamentos);
   const totalCents = aPagar.totalCents;
 
   fecharNoTotal(itens, tot, totalCents, aPagar.porForaCents, avisos);
@@ -371,11 +388,6 @@ export function parseNfeXml(xml: string): ResultadoNfe {
     );
   }
 
-  // detPag pode repetir: vale o de maior valor; tPag 90 ("sem pagamento") é ignorado
-  const pagamentos = lista(no(inf.pag)?.detPag)
-    .map((p) => ({ tPag: texto(p, "tPag"), valor: centavos(p, "vPag") }))
-    .filter((p) => p.tPag && p.tPag !== "90")
-    .sort((a, b) => b.valor - a.valor);
   const formaPagto = mapearFormaPagto(pagamentos[0]?.tPag);
 
   const cnos = cnosDaNfe(inf, dets);

@@ -65,6 +65,9 @@ export function emitenteDoSimples(crt: string | null | undefined): boolean {
   return crt === "1" || crt === "2" || crt === "4";
 }
 
+/** Descrição do item acessório com o IBS/CBS cobrado por fora do vNF (NF-e e NFS-e). */
+export const DESCRICAO_IBS_CBS_POR_FORA = "IBS/CBS destacados na nota (cobrados por fora)";
+
 /** CBS + IBS (UF e município) destacados no item; 0 quando não há destaque. */
 export function ibsCbsDestacadoCents(
   item: { cbsCents?: number | null; ibsUfCents?: number | null; ibsMunCents?: number | null },

@@ -1,4 +1,7 @@
+import { readFileSync } from "fs";
+import path from "path";
 import { describe, expect, it, vi } from "vitest";
+import { DESCRICAO_IBS_CBS_POR_FORA, parseNfeXml } from "../../nfe-xml";
 import type { ClassificacaoParaCredito } from "../credito";
 import {
   agregarCustoLiquido,
@@ -7,6 +10,7 @@ import {
   codigosParaClassificar,
   haCredito,
   liquidoDoItem,
+  liquidosDosItens,
   modoDoCusto,
   somarCustosLiquidos,
   type ContextoCustoLiquido,
@@ -169,6 +173,42 @@ describe("liquidoDoItem", () => {
     expect(liquidoDoItem(item(), "2027-03-10", ctx)).toBe(89_000);
     expect(liquidoDoItem(item(), "2026-03-10", ctx)).toBe(100_000);
     expect(liquidoDoItem(item({ cClassTrib: "410999" }), "2027-03-10", ctx)).toBe(100_000);
+  });
+});
+
+describe("IBS/CBS por fora: líquido por item", () => {
+  // produto de R$ 1.000,00 sem o imposto (R$ 110,00 destacado, todo creditável) + linha acessória do imposto
+  const produto = () => item();
+  const acessorio = () => ({ descricao: DESCRICAO_IBS_CBS_POR_FORA, totalCents: 11_000, cClassTrib: null, cbsCents: null, ibsUfCents: null, ibsMunCents: null });
+
+  it("o imposto pago à parte e recuperado não sobra no produto: total + destacado - crédito; a linha por fora zera", () => {
+    expect(liquidosDosItens([produto(), acessorio()], "2027-03-10", ctx)).toEqual([100_000, 0]);
+  });
+  it("por fora e não creditável (vedado): o imposto é custo do produto", () => {
+    expect(liquidosDosItens([item({ cClassTrib: "410999" }), acessorio()], "2027-03-10", ctx)).toEqual([111_000, 0]);
+  });
+  it("sem linha por fora, o imposto está embutido no total: total - crédito, como antes", () => {
+    expect(liquidosDosItens([produto()], "2027-03-10", ctx)).toEqual([89_000]);
+  });
+
+  it("soma dos líquidos por item = líquido da nota (fixture vNFTot), sem diferença de arredondamento", () => {
+    const r = parseNfeXml(readFileSync(path.join(__dirname, "../../__tests__/fixtures/nfe-ibscbs-crt3-vnftot.xml"), "utf8"));
+    if (!r.ok) throw new Error(r.erro);
+    const itens = r.nfe.itens.map((i) => ({
+      descricao: i.descricao,
+      totalCents: i.totalCents,
+      cClassTrib: i.ibsCbs?.cClassTrib ?? null,
+      cbsCents: i.ibsCbs?.cbsCents ?? null,
+      ibsUfCents: i.ibsCbs?.ibsUfCents ?? null,
+      ibsMunCents: i.ibsCbs?.ibsMunCents ?? null,
+    }));
+    const porItem = liquidosDosItens(itens, "2027-03-12", ctx);
+    const nota = agregarCustoLiquido([{ dataCompra: "2027-03-12", itens, rateios: [{ obraId: "o1", etapaId: null, fracaoBp: 10_000 }] }], ctx, (_, rt) => rt.obraId).get("o1")!;
+    expect(nota).toMatchObject({ brutoCents: 62_116, creditoCents: 3_116, liquidoCents: 59_000 });
+    expect(porItem.reduce((a, v) => a + v, 0)).toBe(nota.liquidoCents);
+    // cimento: vProd 350,00 fica 350,00 (e não 318,84)
+    expect(porItem[0]).toBe(35_000);
+    expect(porItem.at(-1)).toBe(0);
   });
 });
 

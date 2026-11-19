@@ -8,7 +8,7 @@ import {
   type ClassificacaoParaCredito,
   type ItemParaCredito,
 } from "./credito";
-import { crtValido, type CrtEmitente } from "./ibs-cbs";
+import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, ibsCbsDestacadoCents, type CrtEmitente } from "./ibs-cbs";
 
 // Custo efetivo por fornecedor: o preço da nota menos o crédito de IBS/CBS que a construtora aproveita.
 // Premissas:
@@ -52,6 +52,10 @@ export type CompraParaCusto = {
   dataEmissao: Date | string;
   crtEmitente: string | null;
   item: ItemParaCredito;
+  /** Descrição do item; identifica a linha acessória do IBS/CBS por fora. */
+  descricao?: string | null;
+  /** A nota tem IBS/CBS por fora: o total deste item não traz o imposto destacado nele. */
+  ibsCbsPorFora?: boolean;
 };
 
 export type ContextoCustoEfetivo = {
@@ -101,12 +105,16 @@ function avaliar(compras: readonly CompraParaCusto[], ctx: ContextoCustoEfetivo)
       dataEmissao: dia,
       classificacao: classificacaoVigente(ctx.classificacoes, c.item.cClassTrib, dia),
     });
-    const liquido = custoLiquidoCents(c.totalCents, r.creditoCents);
+    // IBS/CBS por fora: o bruto do produto é o desembolso real (total + destacado) e a linha acessória não é material
+    // (o valor dela já está nos produtos). Em ambos os casos crédito = bruto − líquido.
+    const acessorio = c.ibsCbsPorFora && c.descricao === DESCRICAO_IBS_CBS_POR_FORA;
+    const gasto = acessorio ? 0 : c.totalCents + (c.ibsCbsPorFora ? ibsCbsDestacadoCents(c.item) : 0);
+    const liquido = acessorio ? 0 : custoLiquidoCents(gasto, r.creditoCents);
     out.push({
       c,
       dia,
-      gasto: c.totalCents,
-      credito: c.totalCents - liquido,
+      gasto,
+      credito: gasto - liquido,
       liquido,
       classificacaoPendente: r.situacao === "CLASSIFICACAO_DESCONHECIDA",
     });

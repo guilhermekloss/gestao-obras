@@ -12,8 +12,8 @@ const total = (vNF = "300.00", extra = "") => `<total><ICMSTot><vNF>${vNF}</vNF>
 const dup = (...valores: string[]) =>
   `<cobr>${valores.map((v, i) => `<dup><nDup>00${i + 1}</nDup><dVenc>2027-09-15</dVenc><vDup>${v}</vDup></dup>`).join("")}</cobr>`;
 
-function nfe(p: { emit?: string; dets?: string; total?: string; cobr?: string } = {}): Nfe {
-  const inf = `<infNFe Id="NFe${CHAVE}">${IDE}${p.emit ?? emit()}${p.dets ?? det()}${p.total ?? total()}${p.cobr ?? ""}</infNFe>`;
+function nfe(p: { emit?: string; dets?: string; total?: string; cobr?: string; pag?: string } = {}): Nfe {
+  const inf = `<infNFe Id="NFe${CHAVE}">${IDE}${p.emit ?? emit()}${p.dets ?? det()}${p.total ?? total()}${p.cobr ?? ""}${p.pag ?? ""}</infNFe>`;
   const r = parseNfeXml(`<nfeProc><NFe>${inf}</NFe></nfeProc>`);
   if (!r.ok) throw new Error(r.erro);
   return r.nfe;
@@ -23,6 +23,9 @@ const grupo = (corpo: string, cst = "000", cClassTrib = "000001") =>
   `<IBSCBS><CST>${cst}</CST><cClassTrib>${cClassTrib}</cClassTrib>${corpo}</IBSCBS>`;
 const gIBSCBS = (uf: string, mun: string, cbs: string) =>
   `<gIBSCBS><vBC>300.00</vBC><gIBSUF>${uf}</gIBSUF><gIBSMun>${mun}</gIBSMun><vIBS>0</vIBS><gCBS>${cbs}</gCBS></gIBSCBS>`;
+
+const detPag = (...pagamentos: [string, string][]) =>
+  `<pag>${pagamentos.map(([t, v]) => `<detPag><tPag>${t}</tPag><vPag>${v}</vPag></detPag>`).join("")}</pag>`;
 
 describe("totalAPagar", () => {
   it("sem vNFTot, ou vNFTot que não passa do vNF: vale o vNF", () => {
@@ -47,7 +50,34 @@ describe("totalAPagar", () => {
   });
 });
 
+describe("totalAPagar: pagamentos (detPag)", () => {
+  it("sem duplicatas, pagamentos que somam o vNF (e não o vNFTot): vale o vNF, com aviso", () => {
+    const r = totalAPagar(30_000, 32_700, null, 30_000);
+    expect(r).toMatchObject({ totalCents: 30_000, porForaCents: 0 });
+    expect(r.aviso).toMatch(/pagamentos somam o vNF/);
+  });
+  it("pagamentos no vNFTot, ausentes ou fora dos dois: vale o vNFTot", () => {
+    expect(totalAPagar(30_000, 32_700, null, 32_700)).toMatchObject({ totalCents: 32_700, aviso: null });
+    expect(totalAPagar(30_000, 32_700, null, null)).toMatchObject({ totalCents: 32_700, aviso: null });
+    expect(totalAPagar(30_000, 32_700, null, 31_000)).toMatchObject({ totalCents: 32_700, aviso: null });
+  });
+  it("duplicatas informadas mandam: pagamentos no vNF não desarmam o vNFTot que as duplicatas confirmam", () => {
+    expect(totalAPagar(30_000, 32_700, 32_700, 30_000)).toMatchObject({ totalCents: 32_700, aviso: null });
+  });
+});
+
 describe("parseNfeXml: vNFTot", () => {
+  it("2026: vNFTot com destaque de teste, sem cobr e detPag no vNF: total e parcela ficam no vNF, com aviso", () => {
+    const n = nfe({ total: total("300.00", "<vNFTot>327.00</vNFTot>"), pag: detPag(["15", "300.00"]) });
+    expect(n.totalCents).toBe(30_000);
+    expect(n.itens.some((i) => i.descricao === DESCRICAO_IBS_CBS_POR_FORA)).toBe(false);
+    expect(n.avisos).toHaveLength(1);
+    expect(n.avisos[0]).toMatch(/vNFTot/);
+  });
+  it("detPag tPag 90 não conta; detPag no vNFTot mantém o total por fora", () => {
+    const n = nfe({ total: total("300.00", "<vNFTot>327.00</vNFTot>"), pag: detPag(["01", "327.00"], ["90", "300.00"]) });
+    expect(n.totalCents).toBe(32_700);
+  });
   it("duplicata no vNF: total vNF, sem item por fora, só o aviso do vNFTot", () => {
     const n = nfe({ total: total("300.00", "<vNFTot>327.00</vNFTot>"), cobr: dup("300.00") });
     expect(n.totalCents).toBe(30_000);

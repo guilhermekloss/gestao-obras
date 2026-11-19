@@ -12,6 +12,7 @@ const classe = {
 
 const item = (extra: object = {}) => ({
   id: "i",
+  descricao: "CIMENTO",
   qtde: { toString: () => "10" },
   unidade: "UN",
   totalCents: 10_000,
@@ -19,7 +20,7 @@ const item = (extra: object = {}) => ({
   cbsCents: 1_000,
   ibsUfCents: 0,
   ibsMunCents: 0,
-  nota: { id: "n1", dataCompra: inputParaData("2027-03-10"), crtEmitente: "3", fornecedor: { id: "f1", nome: "Alfa" } },
+  nota: { id: "n1", dataCompra: inputParaData("2027-03-10"), crtEmitente: "3", fornecedor: { id: "f1", nome: "Alfa" }, itens: [] },
   ...extra,
 });
 
@@ -39,7 +40,7 @@ const agora = inputParaData("2027-06-15");
 
 describe("carregarCustoEfetivoDoMaterial", () => {
   it("faz uma consulta por tabela, sem N+1, e calcula o efetivo", async () => {
-    const db = banco([item(), item({ id: "j", nota: { id: "n2", dataCompra: inputParaData("2027-04-10"), crtEmitente: null, fornecedor: { id: "f2", nome: "Beta" } } })]);
+    const db = banco([item(), item({ id: "j", nota: { id: "n2", dataCompra: inputParaData("2027-04-10"), crtEmitente: null, fornecedor: { id: "f2", nome: "Beta" }, itens: [] } })]);
     const r = await carregarCustoEfetivoDoMaterial("m1", { agora, db: db as never });
     expect(db.itemNota.findMany).toHaveBeenCalledTimes(1);
     expect(db.empresa.findUnique).toHaveBeenCalledTimes(1);
@@ -51,6 +52,12 @@ describe("carregarCustoEfetivoDoMaterial", () => {
     const regimes = Object.fromEntries(r.grupos[0].fornecedores.map((f) => [f.fornecedorId, f.regime]));
     expect(regimes).toEqual({ f1: "SIMPLES", f2: "NAO_IDENTIFICADO" });
     expect(r.grupos[0].fornecedores.find((f) => f.fornecedorId === "f1")).toMatchObject({ creditoUnitCents: 100, efetivoUnitCents: 900 });
+  });
+
+  it("nota com IBS/CBS por fora (linha acessória na nota): bruto = total + destacado e efetivo = total", async () => {
+    const nota = { id: "n1", dataCompra: inputParaData("2027-03-10"), crtEmitente: "3", fornecedor: { id: "f1", nome: "Alfa" }, itens: [{ id: "x" }] };
+    const r = await carregarCustoEfetivoDoMaterial("m1", { agora, db: banco([item({ nota })]) as never });
+    expect(r.grupos[0].fornecedores[0]).toMatchObject({ gastoCents: 11_000, brutoUnitCents: 1_100, creditoUnitCents: 100, efetivoUnitCents: 1_000 });
   });
 
   it("sem empresa cadastrada vale NAO_INFORMADO (sem crédito)", async () => {

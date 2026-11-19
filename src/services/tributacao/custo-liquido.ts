@@ -9,8 +9,9 @@ import {
   type ItemParaCredito,
   type SituacaoCredito,
 } from "./credito";
+import { DESCRICAO_IBS_CBS_POR_FORA, ibsCbsDestacadoCents } from "./ibs-cbs";
 
-export type ItemParaCustoLiquido = ItemParaCredito & { totalCents: number };
+export type ItemParaCustoLiquido = ItemParaCredito & { totalCents: number; descricao?: string | null };
 
 export type NotaParaCustoLiquido = {
   /** Data de emissão: decide o período de teste (2026) e a vigência da classificação. */
@@ -100,16 +101,32 @@ export function aplicarCredito(brutoCents: number, creditoCents: number): Pick<C
   return { brutoCents, creditoCents: credito, liquidoCents: custoLiquidoCents(brutoCents, credito) };
 }
 
+/** A nota tem a linha acessória do IBS/CBS cobrado por fora (vNFTot > vNF, ou NFS-e). */
+export function temIbsCbsPorFora(itens: readonly { descricao?: string | null }[]): boolean {
+  return itens.some((i) => i.descricao === DESCRICAO_IBS_CBS_POR_FORA);
+}
+
 /**
  * Líquido do item para a curva ABC: total do item menos o crédito dele. A classificação é escolhida pela data da nota.
+ * Nota com IBS/CBS por fora (`porFora`): o total do produto não traz o imposto, que está na linha acessória; o imposto
+ * pago à parte e não recuperado é custo do produto, então líquido = total + destacado − crédito, e a linha acessória
+ * fica em 0 (o valor dela já foi redistribuído nos produtos).
  */
 export function liquidoDoItem(
   item: ItemParaCustoLiquido,
   dataCompra: Date | string,
   ctx: ContextoCustoLiquido,
+  porFora = false,
 ): number {
+  if (porFora && item.descricao === DESCRICAO_IBS_CBS_POR_FORA) return 0;
   const { creditoCents } = creditoDaNota([item], { ...ctx, dataEmissao: dataCompra });
-  return custoLiquidoCents(item.totalCents, creditoCents);
+  return custoLiquidoCents(item.totalCents + (porFora ? ibsCbsDestacadoCents(item) : 0), creditoCents);
+}
+
+/** Líquido de cada item de uma nota, na ordem dada. A soma bate com o líquido da nota de agregarCustoLiquido (só há somas inteiras, sem arredondar). */
+export function liquidosDosItens(itens: readonly ItemParaCustoLiquido[], dataCompra: Date | string, ctx: ContextoCustoLiquido): number[] {
+  const porFora = temIbsCbsPorFora(itens);
+  return itens.map((i) => liquidoDoItem(i, dataCompra, ctx, porFora));
 }
 
 // O realizado bruto continua o número principal: o líquido só toma o lugar dele com regime regular e crédito a recuperar.
