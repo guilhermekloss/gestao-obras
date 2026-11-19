@@ -5,6 +5,7 @@ import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { unitarioCoerente } from "./nfe-xml";
 import { normalizarCno } from "./cno";
+import { exigeNumero } from "./financeiro";
 
 // Só tipos simples, nullable e describe: no JSON Schema da API, regex/min/max não são garantidos.
 // A validação de verdade acontece em normalizarLeitura.
@@ -185,7 +186,7 @@ const DESCRICAO_TIPO: Record<DocumentoLido["tipo"], string> = {
 const TIPO_DOCUMENTO: Record<DocumentoLido["tipo"], TipoDocumento> = {
   NFE: "NF",
   NFCE: "NF",
-  NFSE: "NF",
+  NFSE: "NFSE",
   RECIBO: "RECIBO",
   GUIA: "GUIA",
   BOLETO: "OUTRO",
@@ -234,7 +235,7 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
 
   const avisos: string[] = [];
   const tipoDocumento = TIPO_DOCUMENTO[lido.tipo];
-  const ehNota = tipoDocumento === "NF";
+  const ehNota = exigeNumero(tipoDocumento);
 
   if (lido.legibilidade !== "BOA") {
     avisos.push(

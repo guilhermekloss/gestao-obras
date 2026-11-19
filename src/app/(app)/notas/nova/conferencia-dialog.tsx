@@ -15,7 +15,7 @@ import { formatarMoeda, moedaParaCents, percentBpParaEditavel } from "@/lib/form
 import { BP_TOTAL } from "@/services/rateio";
 import type { ObraDoCno } from "@/services/obras";
 import { AvisoCno } from "../aviso-cno";
-import { FORMA_PAGTO_LABELS, TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO } from "@/services/financeiro";
+import { FORMA_PAGTO_LABELS, TIPO_DOCUMENTO_LABELS, TIPOS_DOCUMENTO, exigeNumero } from "@/services/financeiro";
 import { formatarDocumento } from "@/services/nfe-xml";
 import { MOTIVO_CANDIDATO_LABEL, palavrasDoNome } from "@/services/correspondencia-fornecedor";
 import type { LeituraNormalizada } from "@/services/leitura-documento";
@@ -263,12 +263,12 @@ export function ConferenciaDialog({
                     ))}
                   </SelectNativo>
                 </Campo>
-                <Campo label={v.tipoDocumento === "NF" ? "Nº da nota *" : "Nº do documento"}>
+                <Campo label={exigeNumero(v.tipoDocumento) ? "Nº da nota *" : "Nº do documento"}>
                   <Input
                     aria-label="Número"
                     value={v.numero}
                     onChange={(e) => setValores({ numero: e.target.value })}
-                    className={cn(!v.numero && v.tipoDocumento === "NF" && "border-estado-atencao-borda")}
+                    className={cn(!v.numero && exigeNumero(v.tipoDocumento) && "border-estado-atencao-borda")}
                   />
                 </Campo>
                 <Campo label="Data de emissão *">
