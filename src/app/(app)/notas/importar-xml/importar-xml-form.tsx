@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { TipoItem } from "@prisma/client";
@@ -25,12 +25,13 @@ import {
 import { cn } from "@/lib/utils";
 import { BP_TOTAL, dividirIgualmente, validarRateio } from "@/services/rateio";
 import { validarParcelas } from "@/services/parcelas";
-import { dadosImportaveis, mensagemNotaJaImportada, parseDocumentoXml, type DocumentoXml } from "@/services/documento-xml";
+import { dadosImportaveis, mensagemNotaJaImportada, parseDocumentoXml, type DadosImportaveis, type DocumentoXml } from "@/services/documento-xml";
 import { errosDeVinculos, vinculoInicial, type MaterialCatalogo, type VinculoMaterial } from "@/services/materiais";
 import { vinculosParaAction } from "../nova/conferencia-model";
 import { consultarSituacaoImportacao, importarNfe, sugerirMateriais, type SituacaoImportacao } from "./actions";
 import { ConferenciaDaPrevia } from "./conferencia-previa";
-import { AvisoNotaExistente, PreviaCabecalho, PreviaItens, formatarDataXml } from "./previa-nfe";
+import { AvisoNotaExistente } from "./aviso-nota-existente";
+import { PreviaCabecalho, PreviaItens } from "./previa-nfe";
 import { PreviaNfse } from "./previa-nfse";
 import { linhasDeConferencia } from "../conferencia-lancamento";
 import { AvisoCno } from "../aviso-cno";
@@ -76,9 +77,9 @@ export function ImportarXmlForm({
 
   const [arquivo, setArquivo] = useState<{ nome: string; xml: string } | null>(null);
   const [erroArquivo, setErroArquivo] = useState<string | null>(null);
-  // NF-e ou NFS-e, conforme o conteúdo; `nfe` é a parte comum que vai para o lançamento
-  const [doc, setDoc] = useState<DocumentoXml | null>(null);
-  const nfe = useMemo(() => (doc ? dadosImportaveis(doc) : null), [doc]);
+  // NF-e ou NFS-e, conforme o conteúdo; `dados` é a parte comum que vai para o lançamento
+  const [nota, setNota] = useState<{ doc: DocumentoXml; dados: DadosImportaveis } | null>(null);
+  const dados = nota?.dados ?? null;
   const [situacao, setSituacao] = useState<SituacaoImportacao | null>(null);
   const [existente, setExistente] = useState<{ id: string; mensagem: string } | null>(null);
 
@@ -103,7 +104,7 @@ export function ImportarXmlForm({
   function limpar() {
     rateioTocado.current = false;
     setArquivo(null);
-    setDoc(null);
+    setNota(null);
     setSituacao(null);
     setExistente(null);
     setTipos([]);
@@ -142,7 +143,7 @@ export function ImportarXmlForm({
       }
       const n = dadosImportaveis(lido.doc);
       setArquivo({ nome: file.name, xml });
-      setDoc(lido.doc);
+      setNota({ doc: lido.doc, dados: n });
       setTipos(n.itens.map((i) => i.tipoSugerido));
       setVinculos(n.itens.map((i) => vinculoInicial(undefined, i.tipoSugerido)));
       setParcelas(
@@ -197,10 +198,10 @@ export function ImportarXmlForm({
   const somaRateioBp = rateios.reduce((acc, r) => acc + bpDaLinha(r), 0);
   const parcelasCents = parcelas.map((p) => moedaParaCents(p.valor));
   const somaParcelasCents = parcelasCents.reduce((a, v) => a + v, 0);
-  const somaItensCents = nfe?.itens.reduce((acc, i) => acc + i.totalCents, 0) ?? 0;
+  const somaItensCents = dados?.itens.reduce((acc, i) => acc + i.totalCents, 0) ?? 0;
 
   const conferencia = linhasDeConferencia({
-    totalCents: nfe?.totalCents ?? 0,
+    totalCents: dados?.totalCents ?? 0,
     somaItensCents,
     somaRateioBp,
     parcelas: parcelas.length,
@@ -240,7 +241,7 @@ export function ImportarXmlForm({
   }
 
   function importar() {
-    if (!nfe || !arquivo) return;
+    if (!dados || !arquivo) return;
     setTentouImportar(true);
 
     const rateiosBp = rateios.map((r) => ({
@@ -264,7 +265,7 @@ export function ImportarXmlForm({
     }
     if (
       parcelas.some((p) => !p.valor.trim() || !p.vencimento) ||
-      !validarParcelas(parcelasPayload, nfe.totalCents).ok
+      !validarParcelas(parcelasPayload, dados.totalCents).ok
     ) {
       falhas.push("parcelas");
     }
@@ -296,10 +297,16 @@ export function ImportarXmlForm({
     });
   }
 
+  const previa =
+    nota?.doc.tipo === "NFSE" ? (
+      <PreviaNfse nfse={nota.doc.nfse} situacao={situacao} />
+    ) : nota?.doc.tipo === "NFE" ? (
+      <PreviaCabecalho nfe={nota.doc.nfe} situacao={situacao} />
+    ) : null;
   const nomesDasObras = rateios.map((r) => obras.find((o) => o.id === r.obraId)?.nome).filter(Boolean);
 
   return (
-    <div ref={formRef} className={cn("space-y-4", nfe && "pb-24 md:pb-0")}>
+    <div ref={formRef} className={cn("space-y-4", dados && "pb-24 md:pb-0")}>
       <Card>
         <CardHeader>
           <CardTitle>Arquivo XML</CardTitle>
@@ -325,17 +332,13 @@ export function ImportarXmlForm({
 
       {existente && <AvisoNotaExistente notaId={existente.id} mensagem={existente.mensagem} />}
 
-      {nfe && (
+      {dados && (
         <>
-          {doc?.tipo === "NFSE" ? (
-            <PreviaNfse nfse={doc.nfse} situacao={situacao} />
-          ) : (
-            doc && <PreviaCabecalho nfe={doc.nfe} situacao={situacao} />
-          )}
+          {previa}
 
-          {nfe.avisos.length > 0 && (
+          {dados.avisos.length > 0 && (
             <ul className="space-y-1 rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
-              {nfe.avisos.map((a, i) => (
+              {dados.avisos.map((a, i) => (
                 <li key={i} className="flex gap-2">
                   <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {a}
                 </li>
@@ -344,7 +347,7 @@ export function ImportarXmlForm({
           )}
 
           <ResumoLancamento
-            total={formatarMoeda(nfe.totalCents)}
+            total={formatarMoeda(dados.totalCents)}
             linhas={conferencia}
             pendentesExtras={errosVinculos.length > 0 ? 1 : 0}
             onIr={(id) => irParaSecao(id as SecaoXml)}
@@ -357,16 +360,16 @@ export function ImportarXmlForm({
                   compacto
                   icone={ListChecks}
                   titulo="Itens"
-                  resumo={`${nfe.itens.length} ${nfe.itens.length === 1 ? "item" : "itens"} · ${formatarMoeda(somaItensCents)}`}
+                  resumo={`${dados.itens.length} ${dados.itens.length === 1 ? "item" : "itens"} · ${formatarMoeda(somaItensCents)}`}
                   preenchida={errosDeVinculos(vinculos).length === 0}
-                  aviso={somaItensCents !== nfe.totalCents}
+                  aviso={somaItensCents !== dados.totalCents}
                   erro={secaoComErro.itens}
                 />
               </AccordionTrigger>
               <AccordionPanel keepMounted>
-                {doc && <ConferenciaDaPrevia nfe={doc.tipo === "NFSE" ? doc.nfse : doc.nfe} />}
+                <ConferenciaDaPrevia key={dados.chave} dados={dados} />
                 <PreviaItens
-                  nfe={nfe}
+                  nfe={dados}
                   tipos={tipos}
                   onTipo={(i, tipo) => {
                     setTipos((prev) => prev.map((t, j) => (j === i ? tipo : t)));
@@ -412,9 +415,9 @@ export function ImportarXmlForm({
                   Divide o valor da nota entre uma ou mais obras, em percentual. A soma precisa fechar 100%.
                   Informe a etapa se o custo for de um estágio específico.
                 </p>
-                {nfe.cno && situacao && (
+                {dados.cno && situacao && (
                   <AvisoCno
-                    cno={nfe.cno}
+                    cno={dados.cno}
                     obrasDoCno={situacao.obrasDoCno}
                     obraEscolhida={rateios.length === 1 ? obras.find((o) => o.id === rateios[0].obraId) : undefined}
                     onUsarObra={usarObra}
@@ -508,13 +511,7 @@ export function ImportarXmlForm({
               </AccordionTrigger>
               <AccordionPanel keepMounted>
                 <p className="text-sm text-muted-foreground">
-                  {nfe.tipoDocumento === "NFSE"
-                    ? nfe.parcelas.length > 1
-                      ? "A NFS-e não traz vencimentos: o valor líquido vai ao prestador na emissão e cada retenção vira uma guia (ISS no dia 10 e federais no dia 20 do mês seguinte à competência; confira os prazos)."
-                      : `A NFS-e não traz vencimentos: a nota entra com uma parcela única, vencendo na emissão (${formatarDataXml(nfe.dataEmissao)}).`
-                    : nfe.parcelas.every((p) => !p.rotulo)
-                      ? `O XML não traz duplicatas: a nota entra com uma parcela única, vencendo na emissão (${formatarDataXml(nfe.dataEmissao)}).`
-                      : "Vêm das duplicatas (boletos) do XML."}{" "}
+                  {dados.explicacaoParcelas}{" "}
                   Ajuste valores e datas se precisar. A soma deve fechar com o total da nota.
                 </p>
                 {parcelas.map((p, i) => {
@@ -590,7 +587,7 @@ export function ImportarXmlForm({
         </>
       )}
 
-      {!nfe && !erroArquivo && (
+      {!dados && !erroArquivo && (
         <div className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
           <Label className="text-foreground">Como funciona</Label>
           <ul className="mt-2 list-disc space-y-1 pl-5">

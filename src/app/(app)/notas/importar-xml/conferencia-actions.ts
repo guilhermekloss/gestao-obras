@@ -9,7 +9,7 @@ const cents = z.number().int().nullable();
 const decimal = z.string().max(20).nullable();
 const total = z.number().int();
 
-// só o que a conferência lê: a prévia manda a nota já lida no client, e o que sobra é descartado
+// só o que a conferência lê: a prévia manda esse recorte da nota já lida no client
 const notaSchema = z.object({
   dataEmissao: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   crtEmitente: z.string().max(1).nullable(),
@@ -52,6 +52,8 @@ const notaSchema = z.object({
     })
     .nullable(),
 });
+
+export type NotaParaConferir = z.input<typeof notaSchema>;
 
 /** Avisos de IBS/CBS da nota da prévia. Só avisa: erro de leitura ou de banco não impede a importação. */
 export async function conferirTributacaoDaPrevia(nota: unknown): Promise<AchadoConferencia[]> {

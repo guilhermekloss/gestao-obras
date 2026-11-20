@@ -44,7 +44,6 @@ describe("parseNfseXml: empreitada com retenções, CNO e IBS/CBS de 2026", () =
     // não optante pelo Simples = regime normal
     expect(nfse.regime.opSimpNac).toBe("1");
     expect(nfse.crtEmitente).toBe("3");
-    expect(nfse.destinatario).toBe("12345678000195");
     expect(nfse.tomador).toMatchObject({ nome: "CONSTRUTORA EXEMPLO LTDA", endereco: "AVENIDA DO CANTEIRO, 1000, CONJ 12, CENTRO" });
   });
 
@@ -97,9 +96,9 @@ describe("parseNfseXml: empreitada com retenções, CNO e IBS/CBS de 2026", () =
   it("parcelas: líquido ao prestador na emissão, guia do ISS no dia 10 e DARF no dia 20 do mês seguinte", () => {
     expect(nfse.aPagarPrestadorCents).toBe(778_500);
     expect(nfse.parcelas).toEqual([
-      { numero: 1, valorCents: 778_500, vencimento: "2026-10-20", rotulo: "Prestador (valor líquido)" },
-      { numero: 2, valorCents: 50_000, vencimento: "2026-11-10", rotulo: "Guia do ISS retido" },
-      { numero: 3, valorCents: 171_500, vencimento: "2026-11-20", rotulo: "DARF das retenções federais" },
+      { tipo: "PRESTADOR", numero: 1, valorCents: 778_500, vencimento: "2026-10-20", rotulo: "Prestador (valor líquido)" },
+      { tipo: "ISS", numero: 2, valorCents: 50_000, vencimento: "2026-11-10", rotulo: "Guia do ISS retido" },
+      { tipo: "FEDERAIS", numero: 3, valorCents: 171_500, vencimento: "2026-11-20", rotulo: "DARF das retenções federais" },
     ]);
     expect(somaParcelas(nfse)).toBe(nfse.totalCents);
   });
@@ -114,7 +113,7 @@ describe("parseNfseXml: empreitada com retenções, CNO e IBS/CBS de 2026", () =
   });
 
   it("IBS/CBS: classificação da DPS, valores apurados pela Sefin, no formato do item da NF-e", () => {
-    expect(nfse.ibsCbs).toEqual({
+    expect(nfse.itens[0].ibsCbs).toEqual({
       cst: "000",
       cClassTrib: "000001",
       ibsCbsBaseCents: 950_000,
@@ -130,9 +129,7 @@ describe("parseNfseXml: empreitada com retenções, CNO e IBS/CBS de 2026", () =
       cCredPres: null,
       credPresCents: null,
     });
-    expect(nfse.itens[0].ibsCbs).toEqual(nfse.ibsCbs);
     expect(nfse.ibsCbsNfse).toMatchObject({ indicadorOperacao: "030101", localidade: "São Paulo", vTotNfCents: 778_500 });
-    expect(nfse.totaisIbsCbs).toMatchObject({ ibsCbsBaseCents: 950_000, cbsCents: 8_550, ibsUfCents: 950 });
   });
 
   it("observação gravada na nota lista as guias", () => {
@@ -155,15 +152,13 @@ describe("parseNfseXml: Simples Nacional, desconto e CNO no texto livre (sem IBS
     expect(nfse.totalCents).toBe(140_000);
     expect(nfse.retencoes.totalCents).toBe(0);
     expect(nfse.parcelas).toEqual([
-      { numero: 1, valorCents: 140_000, vencimento: "2026-09-03", rotulo: "Prestador (valor líquido)" },
+      { tipo: "PRESTADOR", numero: 1, valorCents: 140_000, vencimento: "2026-09-03", rotulo: "Prestador (valor líquido)" },
     ]);
     expect(nfse.avisos).toEqual([]);
   });
 
   it("sem os grupos de IBS/CBS os campos ficam nulos", () => {
-    expect(nfse.ibsCbs).toBeNull();
     expect(nfse.ibsCbsNfse).toBeNull();
-    expect(nfse.totaisIbsCbs).toBeNull();
     expect(nfse.itens[0].ibsCbs).toBeUndefined();
   });
 

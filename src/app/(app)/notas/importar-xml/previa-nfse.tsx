@@ -1,8 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatarMoeda } from "@/lib/format";
+import { formatarDocumento, formatarMoeda } from "@/lib/format";
 import { formatarCno } from "@/services/cno";
-import { formatarDocumento } from "@/services/nfe-xml";
 import type { Nfse } from "@/services/nfse-xml";
 import { CRT_LABELS } from "@/services/tributacao/ibs-cbs";
 import type { SituacaoImportacao } from "./actions";

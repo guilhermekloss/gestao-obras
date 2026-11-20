@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatarMoeda } from "@/lib/format";
-import { DESCRICAO_IBS_CBS_POR_FORA, parseNfeXml, totalAPagar, type Nfe } from "../nfe-xml";
+import { parseNfeXml, totalAPagar, type Nfe } from "../nfe-xml";
+import { DESCRICAO_IBS_CBS_POR_FORA } from "../tributacao/ibs-cbs";
 import { somaItens } from "../rateio";
 
 const CHAVE = "35260811222333000181550010000123451000012345";

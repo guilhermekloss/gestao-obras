@@ -4,11 +4,11 @@ import type { FormaPagto, TipoItem } from "@prisma/client";
 import { parcelasDaNfe, parseNfeXml, type ItemNfe, type Nfe } from "./nfe-xml";
 import { observacaoDaNfse, pareceNfse, parseNfseXml, type Nfse } from "./nfse-xml";
 import type { FornecedorDoLancamento, Lancamento } from "./lancamento";
-import type { CrtEmitente } from "./tributacao/ibs-cbs";
+import { formatarData } from "@/lib/format";
+import { chaveNfseValida } from "./leitura-documento";
+import type { CrtEmitente, TotaisIbsCbs } from "./tributacao/ibs-cbs";
 
 export type DocumentoXml = { tipo: "NFE"; nfe: Nfe } | { tipo: "NFSE"; nfse: Nfse };
-
-export type ItemImportavel = ItemNfe & { nbs: string | null };
 
 /** O que o import grava, igual para NF-e e NFS-e. */
 export type DadosImportaveis = {
@@ -20,12 +20,17 @@ export type DadosImportaveis = {
   dataEmissao: string;
   emitente: { documento: string; tipoDocumento: "CNPJ" | "CPF"; razaoSocial: string; fone: string | null };
   cno: string | null;
-  itens: ItemImportavel[];
+  /** Com o que a conferência do IBS/CBS lê: NCM, NBS e o grupo IBS/CBS de cada item. */
+  itens: ItemNfe[];
   totalCents: number;
   formaPagto: FormaPagto;
   crtEmitente: CrtEmitente | null;
+  /** Totais de IBS/CBS declarados pela nota para a conferência; a NFS-e não os traz (nulo). */
+  totaisIbsCbs: TotaisIbsCbs | null;
   /** Parcelas sugeridas; `rotulo` diz de onde vêm (duplicata, guia...). */
   parcelas: { numero: number; valorCents: number; vencimento: string; rotulo: string | null }[];
+  /** De onde vêm as parcelas, para a seção "Parcelas" da prévia. */
+  explicacaoParcelas: string;
   obs: string;
   nomeArquivo: string;
   avisos: string[];
@@ -49,6 +54,11 @@ export function parseDocumentoXml(xml: string): Resultado {
   };
 }
 
+// sem passar por fuso horário
+function dataDoXml(data: string): string {
+  return formatarData(`${data}T12:00:00`);
+}
+
 export function dadosImportaveis(doc: DocumentoXml): DadosImportaveis {
   if (doc.tipo === "NFSE") {
     const n = doc.nfse;
@@ -69,7 +79,12 @@ export function dadosImportaveis(doc: DocumentoXml): DadosImportaveis {
       totalCents: n.totalCents,
       formaPagto: n.formaPagto,
       crtEmitente: n.crtEmitente,
+      totaisIbsCbs: null,
       parcelas: n.parcelas,
+      explicacaoParcelas:
+        n.parcelas.length > 1
+          ? "A NFS-e não traz vencimentos: o valor líquido vai ao prestador na emissão e cada retenção vira uma guia (ISS no dia 10 e federais no dia 20 do mês seguinte à competência; confira os prazos)."
+          : `A NFS-e não traz vencimentos: a nota entra com uma parcela única, vencendo na emissão (${dataDoXml(n.dataEmissao)}).`,
       obs: observacaoDaNfse(n),
       nomeArquivo: `NFSe${n.chave}.xml`,
       avisos: n.avisos,
@@ -84,10 +99,15 @@ export function dadosImportaveis(doc: DocumentoXml): DadosImportaveis {
     dataEmissao: n.dataEmissao,
     emitente: n.emitente,
     cno: n.cno,
-    itens: n.itens.map((i) => ({ ...i, nbs: null })),
+    itens: n.itens,
     totalCents: n.totalCents,
     formaPagto: n.formaPagto,
     crtEmitente: n.crtEmitente,
+    totaisIbsCbs: n.totaisIbsCbs,
+    explicacaoParcelas:
+      n.duplicatas.length === 0
+        ? `O XML não traz duplicatas: a nota entra com uma parcela única, vencendo na emissão (${dataDoXml(n.dataEmissao)}).`
+        : "Vêm das duplicatas (boletos) do XML.",
     parcelas: parcelasDaNfe(n).map((p, i) => ({
       ...p,
       rotulo: n.duplicatas[i] ? `Duplicata ${n.duplicatas[i].numero}` : null,
@@ -100,7 +120,7 @@ export function dadosImportaveis(doc: DocumentoXml): DadosImportaveis {
 
 /** Aviso de nota já lançada com a mesma chave; a de 50 posições é de NFS-e. */
 export function mensagemNotaJaImportada(chave: string, numero: string): string {
-  return chave.length === 50 ? `Esta NFS-e já foi lançada (NFS-e ${numero}).` : `Esta NF-e já foi lançada (NF ${numero}).`;
+  return chaveNfseValida(chave) ? `Esta NFS-e já foi lançada (NFS-e ${numero}).` : `Esta NF-e já foi lançada (NF ${numero}).`;
 }
 
 export type EscolhaMaterialXml =
@@ -147,7 +167,7 @@ export function lancamentoDoXml(
         descontoCents: item.descontoCents,
         totalCents: item.totalCents,
         ncm: item.ncm,
-        nbs: item.nbs,
+        nbs: item.nbs ?? null,
         ibsCbs: item.ibsCbs ?? null,
       };
     }),

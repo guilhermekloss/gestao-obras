@@ -9,7 +9,6 @@ import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { extrairCnos, formatarCno, normalizarCno } from "./cno";
 import {
-  DESCRICAO_IBS_CBS_POR_FORA,
   centavosOuNulo,
   lerArvoreXml,
   no,
@@ -19,12 +18,7 @@ import {
   type ItemNfe,
   type No,
 } from "./nfe-xml";
-import type { CrtEmitente, TotaisIbsCbs, TributacaoIbsCbs } from "./tributacao/ibs-cbs";
-
-export type ItemNfse = ItemNfe & {
-  /** Código NBS do serviço (cServ/cNBS). */
-  nbs: string | null;
-};
+import { DESCRICAO_IBS_CBS_POR_FORA, type CrtEmitente, type TributacaoIbsCbs } from "./tributacao/ibs-cbs";
 
 /** Pessoa como aparece no DANFSe (prestador ou tomador). */
 export type PessoaNfse = {
@@ -46,7 +40,6 @@ export type EmitenteNfse = PessoaNfse & {
   documento: string;
   tipoDocumento: "CNPJ" | "CPF";
   razaoSocial: string;
-  nomeFantasia: string | null;
 };
 
 /** Situação do prestador perante o Simples (prest/regTrib), como veio na DPS. */
@@ -73,6 +66,8 @@ export type RetencoesNfse = {
 };
 
 export type ParcelaNfse = {
+  /** Quem recebe: o prestador, a guia do ISS retido ou o DARF das federais. */
+  tipo: "PRESTADOR" | "ISS" | "FEDERAIS";
   numero: number;
   valorCents: number;
   vencimento: string;
@@ -97,15 +92,12 @@ export type Nfse = {
   emitente: EmitenteNfse;
   regime: RegimePrestadorNfse;
   tomador: PessoaNfse | null;
-  /** CNPJ/CPF do tomador, só dígitos (o "destinatário" da NF-e). */
-  destinatario: string | null;
   servico: {
     codigoTributacaoNacional: string | null;
     codigoTributacaoMunicipal: string | null;
     /** xTribNac / xTribMun: descrição do código de tributação. */
     descricaoTributacao: string | null;
     nbs: string | null;
-    descricaoNbs: string | null;
     descricao: string;
     localPrestacao: string | null;
     municipioIncidencia: string | null;
@@ -142,8 +134,6 @@ export type Nfse = {
     tipoRetencaoPisCofins: string | null;
   };
   retencoes: RetencoesNfse;
-  /** IBS/CBS no formato do item da NF-e (CST/cClassTrib da DPS, valores apurados pela Sefin). */
-  ibsCbs: TributacaoIbsCbs | null;
   /** Dados do IBS/CBS só da NFS-e, para o DANFSe. */
   ibsCbsNfse: {
     indicadorOperacao: string | null;
@@ -155,10 +145,10 @@ export type Nfse = {
     /** vTotNF: líquido + IBS/CBS por fora (igual ao líquido em 2026). */
     vTotNfCents: number | null;
   } | null;
-  totaisIbsCbs: TotaisIbsCbs | null;
   crtEmitente: CrtEmitente | null;
   cno: string | null;
-  itens: ItemNfse[];
+  /** O serviço (com o IBS/CBS da DPS e o NBS) e, se houver, o IBS/CBS por fora. */
+  itens: ItemNfe[];
   /** Total da nota = custo: serviço − descontos + IBS/CBS por fora. Igual à soma dos itens e das parcelas. */
   totalCents: number;
   /** O que vai ao prestador: líquido + IBS/CBS por fora (vTotNF). */
@@ -274,20 +264,6 @@ function lerIbsCbsNfse(gerado: No | undefined, declarado: No | undefined): Tribu
   };
 }
 
-function totaisDoItem(t: TributacaoIbsCbs | null): TotaisIbsCbs | null {
-  if (!t) return null;
-  return {
-    ibsCbsBaseCents: t.ibsCbsBaseCents ?? 0,
-    cbsCents: t.cbsCents ?? 0,
-    ibsUfCents: t.ibsUfCents ?? 0,
-    ibsMunCents: t.ibsMunCents ?? 0,
-    ibsCbsDiferidoCents: t.ibsCbsDiferidoCents ?? 0,
-    credPresCents: t.credPresCents ?? 0,
-    cbsMonoCents: 0,
-    ibsMonoCents: 0,
-  };
-}
-
 // A NFS-e tem um serviço só; o CNO vem no grupo de obra e, quando não vem, costuma estar no texto livre.
 function cnosDaNfse(obra: No | undefined, textos: (string | undefined)[], avisos: string[]): string[] {
   const codigo = texto(obra, "cObra");
@@ -333,7 +309,6 @@ export function parseNfseXml(xml: string): ResultadoNfse {
     documento: (cnpj ?? cpf)!.replace(/\D/g, ""),
     tipoDocumento: cnpj ? "CNPJ" : "CPF",
     razaoSocial,
-    nomeFantasia: texto(emit, "xFant") ?? null,
   };
 
   const avisos: string[] = [];
@@ -443,7 +418,7 @@ export function parseNfseXml(xml: string): ResultadoNfse {
   const porForaCents = vTotNfCents !== null && vTotNfCents > liquidoXml ? vTotNfCents - liquidoXml : 0;
   const valoresIbsCbs = no(gerado?.valores);
 
-  const itens: ItemNfse[] = [
+  const itens: ItemNfe[] = [
     {
       descricao: truncar(descricaoCompleta, MAX_DESCRICAO_ITEM),
       // código interno do prestador: faz o papel do cProd da NF-e no vínculo com o catálogo
@@ -484,31 +459,7 @@ export function parseNfseXml(xml: string): ResultadoNfse {
   const totalCents = aPagarPrestadorCents + retidoCents;
 
   const competencia = dataDe(texto(dps, "dCompet"));
-  const baseGuias = competencia ?? dataEmissao;
-  const parcelas: ParcelaNfse[] = [
-    {
-      numero: 1,
-      valorCents: aPagarPrestadorCents,
-      vencimento: dataEmissao,
-      rotulo: porForaCents > 0 ? "Prestador (valor líquido + IBS/CBS)" : "Prestador (valor líquido)",
-    },
-  ];
-  if (retencoes.issCents > 0) {
-    parcelas.push({
-      numero: parcelas.length + 1,
-      valorCents: retencoes.issCents,
-      vencimento: diaDoMesSeguinte(baseGuias, DIA_GUIA_ISS),
-      rotulo: "Guia do ISS retido",
-    });
-  }
-  if (retencoes.federaisCents > 0) {
-    parcelas.push({
-      numero: parcelas.length + 1,
-      valorCents: retencoes.federaisCents,
-      vencimento: diaDoMesSeguinte(baseGuias, DIA_GUIA_FEDERAIS),
-      rotulo: "DARF das retenções federais",
-    });
-  }
+  const parcelas = montarParcelas({ aPagarPrestadorCents, porForaCents, retencoes, dataEmissao, baseGuias: competencia ?? dataEmissao });
   if (retencoes.totalCents > 0) avisos.push(avisoDeRetencoes(retencoes, parcelas));
 
   const cnos = cnosDaNfse(obra, [texto(infoCompl, "xInfComp"), xDescServ, texto(infoCompl, "docRef")], avisos);
@@ -530,13 +481,11 @@ export function parseNfseXml(xml: string): ResultadoNfse {
       emitente,
       regime,
       tomador,
-      destinatario: tomador?.documento ?? null,
       servico: {
         codigoTributacaoNacional: texto(cServ, "cTribNac") ?? null,
         codigoTributacaoMunicipal: texto(cServ, "cTribMun") ?? null,
         descricaoTributacao,
         nbs,
-        descricaoNbs: texto(inf, "xNBS") ?? null,
         descricao: descricaoCompleta,
         localPrestacao: texto(inf, "xLocPrestacao") ?? null,
         municipioIncidencia: texto(inf, "xLocIncid") ?? null,
@@ -574,7 +523,6 @@ export function parseNfseXml(xml: string): ResultadoNfse {
         tipoRetencaoPisCofins,
       },
       retencoes,
-      ibsCbs,
       ibsCbsNfse: gerado
         ? {
             indicadorOperacao: texto(declarado, "cIndOp") ?? null,
@@ -586,7 +534,6 @@ export function parseNfseXml(xml: string): ResultadoNfse {
             vTotNfCents,
           }
         : null,
-      totaisIbsCbs: totaisDoItem(ibsCbs),
       crtEmitente: crtDoRegime(regime),
       cno: cnos[0] ?? null,
       itens,
@@ -600,6 +547,44 @@ export function parseNfseXml(xml: string): ResultadoNfse {
   };
 }
 
+// A primeira parcela é o que vai ao prestador, na emissão; cada retenção vira uma guia no mês seguinte à competência.
+function montarParcelas(p: {
+  aPagarPrestadorCents: number;
+  porForaCents: number;
+  retencoes: RetencoesNfse;
+  dataEmissao: string;
+  baseGuias: string;
+}): ParcelaNfse[] {
+  const parcelas: ParcelaNfse[] = [
+    {
+      tipo: "PRESTADOR",
+      numero: 1,
+      valorCents: p.aPagarPrestadorCents,
+      vencimento: p.dataEmissao,
+      rotulo: p.porForaCents > 0 ? "Prestador (valor líquido + IBS/CBS)" : "Prestador (valor líquido)",
+    },
+  ];
+  if (p.retencoes.issCents > 0) {
+    parcelas.push({
+      tipo: "ISS",
+      numero: parcelas.length + 1,
+      valorCents: p.retencoes.issCents,
+      vencimento: diaDoMesSeguinte(p.baseGuias, DIA_GUIA_ISS),
+      rotulo: "Guia do ISS retido",
+    });
+  }
+  if (p.retencoes.federaisCents > 0) {
+    parcelas.push({
+      tipo: "FEDERAIS",
+      numero: parcelas.length + 1,
+      valorCents: p.retencoes.federaisCents,
+      vencimento: diaDoMesSeguinte(p.baseGuias, DIA_GUIA_FEDERAIS),
+      rotulo: "DARF das retenções federais",
+    });
+  }
+  return parcelas;
+}
+
 function detalheFederais(r: RetencoesNfse): string {
   const detalhe = [
     r.inssCents > 0 && `INSS ${formatarMoeda(r.inssCents)}`,
@@ -610,15 +595,13 @@ function detalheFederais(r: RetencoesNfse): string {
 }
 
 function avisoDeRetencoes(r: RetencoesNfse, parcelas: ParcelaNfse[]): string {
-  const onde = (rotulo: string) => {
-    const p = parcelas.find((x) => x.rotulo === rotulo);
+  const onde = (tipo: ParcelaNfse["tipo"]) => {
+    const p = parcelas.find((x) => x.tipo === tipo);
     return p ? ` na parcela ${p.numero}, vencendo em ${p.vencimento.split("-").reverse().join("/")}` : "";
   };
   const partes: string[] = [];
-  if (r.issCents > 0) {
-    partes.push(`ISS retido ${formatarMoeda(r.issCents)}${onde("Guia do ISS retido")} (confira o prazo do município)`);
-  }
-  if (r.federaisCents > 0) partes.push(`${detalheFederais(r)}${onde("DARF das retenções federais")}`);
+  if (r.issCents > 0) partes.push(`ISS retido ${formatarMoeda(r.issCents)}${onde("ISS")} (confira o prazo do município)`);
+  if (r.federaisCents > 0) partes.push(`${detalheFederais(r)}${onde("FEDERAIS")}`);
   return `Retenções que a obra recolhe em guia, não pagas ao prestador: ${partes.join("; ")}. O custo da obra continua sendo o valor do serviço.`;
 }
 

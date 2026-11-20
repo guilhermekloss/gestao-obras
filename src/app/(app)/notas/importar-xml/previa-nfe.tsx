@@ -1,16 +1,16 @@
 import { EscolhaMaterial } from "../escolha-material";
 import type { MaterialCatalogo, VinculoMaterial } from "@/services/materiais";
-import Link from "next/link";
 import type { TipoItem } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectNativo } from "@/components/select-nativo";
 import { ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
-import { formatarData, formatarMoeda } from "@/lib/format";
-import { formatarDocumento, type Nfe } from "@/services/nfe-xml";
+import { formatarData, formatarDocumento, formatarMoeda } from "@/lib/format";
+import type { DadosImportaveis } from "@/services/documento-xml";
+import type { Nfe } from "@/services/nfe-xml";
 import { formatarCno } from "@/services/cno";
 import type { SituacaoImportacao } from "./actions";
-import { AlertTriangle, CheckCircle2, ExternalLink, UserPlus } from "lucide-react";
+import { CheckCircle2, UserPlus } from "lucide-react";
 
 const TIPOS: { value: TipoItem; label: string }[] = [
   { value: "MATERIAL", label: "Material" },
@@ -39,18 +39,6 @@ function formatarQtde(qtde: number): string {
 // sem passar por fuso horário
 export function formatarDataXml(data: string): string {
   return formatarData(`${data}T12:00:00`);
-}
-
-export function AvisoNotaExistente({ notaId, mensagem }: { notaId: string; mensagem: string }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-estado-atencao-borda bg-estado-atencao p-3 text-sm text-estado-atencao-fg">
-      <AlertTriangle className="size-4 shrink-0" />
-      <span>{mensagem}</span>
-      <Link href={`/notas/${notaId}`} className="inline-flex items-center gap-1 font-medium underline underline-offset-2">
-        Abrir a nota <ExternalLink className="size-3.5" />
-      </Link>
-    </div>
-  );
 }
 
 export function PreviaCabecalho({ nfe, situacao }: { nfe: Nfe; situacao: SituacaoImportacao | null }) {
@@ -114,7 +102,7 @@ export function PreviaItens({
   onVinculo,
 }: {
   // NF-e ou NFS-e: só os itens (a NFS-e traz o NBS) e o total
-  nfe: { itens: (Nfe["itens"][number] & { nbs?: string | null })[]; totalCents: number };
+  nfe: Pick<DadosImportaveis, "itens" | "totalCents">;
   tipos: TipoItem[];
   onTipo: (indice: number, tipo: TipoItem) => void;
   // um por item: ligação ao catálogo de materiais (a escolha é do usuário quando não há ligação exata)

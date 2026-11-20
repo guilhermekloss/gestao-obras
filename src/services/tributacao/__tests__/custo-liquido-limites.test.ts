@@ -1,7 +1,8 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { DESCRICAO_IBS_CBS_POR_FORA, parseNfeXml } from "../../nfe-xml";
+import { parseNfeXml } from "../../nfe-xml";
+import { DESCRICAO_IBS_CBS_POR_FORA } from "../ibs-cbs";
 import type { ClassificacaoParaCredito } from "../credito";
 import {
   agregarCustoLiquido,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inputParaData } from "@/lib/format";
-import { DESCRICAO_IBS_CBS_POR_FORA } from "../../nfe-xml";
+import { DESCRICAO_IBS_CBS_POR_FORA } from "../ibs-cbs";
 import type { ClassificacaoParaCredito } from "../credito";
 import {
   creditoDasCompras,

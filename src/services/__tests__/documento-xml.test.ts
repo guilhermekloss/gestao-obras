@@ -84,8 +84,15 @@ describe("dadosImportaveis", () => {
     const d = dadosImportaveis(doc("nfe-1-item.xml"));
     expect(d.tipoDocumento).toBe("NF");
     expect(d.chave).toHaveLength(44);
-    expect(d.itens.every((i) => i.nbs === null)).toBe(true);
+    expect(d.itens.every((i) => !i.nbs)).toBe(true);
+    expect(d.explicacaoParcelas).toMatch(/^O XML não traz duplicatas: .* \(\d{2}\/\d{2}\/\d{4}\)\.$/);
     expect(d.obs).toMatch(/^Importada do XML da NF-e/);
+  });
+
+  it("NFS-e: sem totais de IBS/CBS para conferir e explicação das parcelas pela retenção", () => {
+    const d = dadosImportaveis(doc("nfse-ibscbs-retencoes-cno.xml"));
+    expect(d.totaisIbsCbs).toBeNull();
+    expect(d.explicacaoParcelas).toMatch(/^A NFS-e não traz vencimentos: o valor líquido vai ao prestador/);
   });
 
   it("NF-e com duplicatas: o rótulo traz o número da duplicata", () => {
