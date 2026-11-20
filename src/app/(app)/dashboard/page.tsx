@@ -87,7 +87,8 @@ export default async function DashboardPage({
     medicoesTodas(),
     carregarAlertas(hoje, { paraAdmin: user.role === "ADMIN", obraId }),
     carregarCurvaAbc(obraId ? { obraId } : {}),
-    carregarCreditoIbsCbs(obraId),
+    // da mesma leitura de notas do realizado e dos alertas (notasParaAnalise), também com obra filtrada
+    carregarCreditoIbsCbs(obraId, "todas"),
   ]);
 
   const porMes = obraId

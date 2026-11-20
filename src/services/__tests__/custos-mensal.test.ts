@@ -32,7 +32,8 @@ describe("realizadoPorMesDaObra", () => {
       where: { rateios: { some: { obraId: "o-consulta" } } },
       select: {
         dataCompra: true,
-        itens: { select: { totalCents: true } },
+        // as colunas do crédito de IBS/CBS vêm junto: o crédito da obra sai desta mesma leitura (custo-liquido-db)
+        itens: { select: { totalCents: true, cClassTrib: true, cbsCents: true, ibsUfCents: true, ibsMunCents: true } },
         rateios: { where: { obraId: "o-consulta" }, select: { obraId: true, etapaId: true, fracaoBp: true } },
       },
     });

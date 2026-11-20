@@ -2,7 +2,7 @@ import type { RegimeIbsCbs } from "@prisma/client";
 import { dataParaInput } from "@/lib/format";
 import { indexarClassificacoes, type Classificacoes, type ItemParaCredito } from "./credito";
 import { custoDoItem } from "./custo-liquido";
-import { crtValido, diaDe, INICIO_CREDITO_IBS_CBS, regimeDoCrt, type CrtEmitente, type RegimeFornecedor } from "./ibs-cbs";
+import { crtValido, diaDe, ehLinhaIbsCbsPorFora, INICIO_CREDITO_IBS_CBS, regimeDoCrt, type CrtEmitente, type RegimeFornecedor } from "./ibs-cbs";
 
 // Custo efetivo por fornecedor: o preço da nota menos o crédito de IBS/CBS que a construtora aproveita.
 // Premissas:
@@ -33,6 +33,34 @@ export type CompraParaCusto = {
   /** A nota tem IBS/CBS por fora: o total deste item não traz o imposto destacado nele. */
   ibsCbsPorFora?: boolean;
 };
+
+/** Uma nota de um fornecedor com todos os itens (o que a página do fornecedor já lê). */
+export type NotaParaCusto = {
+  id: string;
+  dataCompra: Date;
+  crtEmitente: string | null;
+  itens: readonly (ItemParaCredito & { descricao: string; unidade: string; qtde: unknown; totalCents: number })[];
+};
+
+/** As compras (linhas de item) de notas já lidas de um fornecedor; a linha acessória marca a nota com IBS/CBS por fora. */
+export function comprasDasNotas(fornecedor: { id: string; nome: string }, notas: readonly NotaParaCusto[]): CompraParaCusto[] {
+  return notas.flatMap((n) => {
+    const ibsCbsPorFora = n.itens.some(ehLinhaIbsCbsPorFora);
+    return n.itens.map((i) => ({
+      notaId: n.id,
+      fornecedorId: fornecedor.id,
+      fornecedorNome: fornecedor.nome,
+      descricao: i.descricao,
+      ibsCbsPorFora,
+      unidade: i.unidade,
+      qtde: Number(i.qtde),
+      totalCents: i.totalCents,
+      dataEmissao: n.dataCompra,
+      crtEmitente: n.crtEmitente,
+      item: i,
+    }));
+  });
+}
 
 export type ContextoCustoEfetivo = {
   regimeEmpresa: RegimeIbsCbs;
@@ -84,17 +112,28 @@ function avaliar(compras: readonly CompraParaCusto[], ctx: ContextoCustoEfetivo)
   return out;
 }
 
-type CrtDatado = { dia: string; crt: CrtEmitente };
+type CrtDatado = { dia: string; crt: CrtEmitente; criadaEm?: number };
 
-// Fica com o CRT da nota mais recente; empate no dia mantém o primeiro visto.
-function maisRecente(melhor: CrtDatado | null, dia: string, crtEmitente: string | null): CrtDatado | null {
+// Fica com o CRT da nota mais recente; empate no dia desempata pela nota lançada por último (createdAt, quando vem),
+// senão mantém o primeiro visto.
+function maisRecente(melhor: CrtDatado | null, dia: string, crtEmitente: string | null, criadaEm?: number): CrtDatado | null {
   const crt = crtValido(crtEmitente);
-  return crt && (!melhor || dia > melhor.dia) ? { dia, crt } : melhor;
+  if (!crt) return melhor;
+  const ganha =
+    !melhor || dia > melhor.dia || (dia === melhor.dia && criadaEm !== undefined && (melhor.criadaEm === undefined || criadaEm > melhor.criadaEm));
+  return ganha ? { dia, crt, criadaEm } : melhor;
 }
 
-/** CRT da nota mais recente que tem CRT; nulo se nenhuma tem. */
-export function crtMaisRecente(notas: readonly { dataEmissao: Date | string; crtEmitente: string | null }[]): CrtEmitente | null {
-  return notas.reduce<CrtDatado | null>((m, n) => maisRecente(m, diaDe(n.dataEmissao), n.crtEmitente), null)?.crt ?? null;
+export type NotaComCrt = { dataEmissao: Date | string; crtEmitente: string | null; createdAt?: Date };
+
+/**
+ * CRT da nota mais recente que tem CRT; nulo se nenhuma tem. Com `createdAt`, o empate no dia vai para a lançada por
+ * último: a mesma ordem da consulta por fornecedor (dataCompra e createdAt decrescentes).
+ */
+export function crtMaisRecente(notas: Iterable<NotaComCrt>): CrtEmitente | null {
+  let melhor: CrtDatado | null = null;
+  for (const n of notas) melhor = maisRecente(melhor, diaDe(n.dataEmissao), n.crtEmitente, n.createdAt?.getTime());
+  return melhor?.crt ?? null;
 }
 
 export type ModoComparacao =

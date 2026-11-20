@@ -12,7 +12,7 @@ import {
   type ItemParaCredito,
   type SituacaoCredito,
 } from "./credito";
-import { ehLinhaIbsCbsPorFora, ibsCbsDestacadoCents } from "./ibs-cbs";
+import { diaDe, ehLinhaIbsCbsPorFora, ibsCbsDestacadoCents, INICIO_CREDITO_IBS_CBS } from "./ibs-cbs";
 
 export type ItemParaCustoLiquido = ItemParaCredito & { totalCents: number; descricao?: string | null };
 
@@ -170,7 +170,10 @@ export function avisosDoCredito(credito: { regime: RegimeIbsCbs; total: Pick<Cus
   };
 }
 
-/** Códigos de classificação que o cálculo vai precisar: só itens com destaque, e só com regime regular (nos demais a classificação não pesa). */
+/**
+ * Códigos de classificação que o cálculo vai precisar: só com regime regular, só notas de 2027 em diante e só itens com
+ * destaque. Nos demais casos creditoDoItem decide antes de olhar a classificação, então nem vale carregá-la.
+ */
 export function codigosParaClassificar(
   notas: readonly { dataCompra: Date | string; itens: readonly ItemParaCredito[] }[],
   regime: RegimeIbsCbs,
@@ -178,6 +181,7 @@ export function codigosParaClassificar(
   if (regime !== "REGULAR") return [];
   const codigos = new Set<string>();
   for (const n of notas) {
+    if (diaDe(n.dataCompra) < INICIO_CREDITO_IBS_CBS) continue;
     for (const i of n.itens) {
       if (i.cClassTrib && ibsCbsDestacadoCents(i) > 0) codigos.add(i.cClassTrib);
     }

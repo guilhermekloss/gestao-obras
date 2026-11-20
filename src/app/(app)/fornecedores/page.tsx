@@ -9,7 +9,6 @@ import { DependenciaBadge } from "./dependencia-badge";
 import { RegimeFornecedorBadge } from "./regime-badge";
 import { excluirFornecedor } from "./actions";
 import { calcularDependencia } from "@/services/dependencia";
-import { carregarCrtPorFornecedor } from "@/services/tributacao/custo-efetivo-db";
 import { regimeDoCrt } from "@/services/tributacao/ibs-cbs";
 import { formatarMoeda } from "@/lib/format";
 import { ChevronRight, Trash2 } from "lucide-react";
@@ -19,13 +18,13 @@ export const metadata: Metadata = { title: "Fornecedores" };
 export default async function FornecedoresPage() {
   const user = await exigirPapel("ADMIN", "ESCRITORIO");
 
-  const [fornecedores, dependencia, crts] = await Promise.all([
+  // o regime (CRT) de cada fornecedor sai da mesma leitura de notas da dependência
+  const [fornecedores, dependencia] = await Promise.all([
     prisma.fornecedor.findMany({
       orderBy: { nome: "asc" },
       include: { _count: { select: { notas: true } } },
     }),
     calcularDependencia(),
-    carregarCrtPorFornecedor(),
   ]);
 
   const linhas = fornecedores
@@ -58,7 +57,7 @@ export default async function FornecedoresPage() {
       id: "regime",
       titulo: "Regime",
       papel: "estado",
-      celula: ({ f, dep }) => (dep ? <RegimeFornecedorBadge regime={regimeDoCrt(crts.get(f.id))} /> : null),
+      celula: ({ dep }) => (dep ? <RegimeFornecedorBadge regime={regimeDoCrt(dep.crt)} /> : null),
     },
     {
       id: "dependencia",

@@ -167,6 +167,20 @@ describe("carregarCurvaAbc", () => {
     });
   });
 
+  it("líquido com tipo: o tipo e a linha do IBS/CBS por fora vêm do banco; a linha por fora só marca a nota e sai da curva", async () => {
+    const dataCompra = new Date(2027, 1, 10, 12);
+    const porFora = { descricao: "IBS/CBS destacados na nota (cobrados por fora)", unidade: "UN", tipo: "ENCARGO", qtde: "1", totalCents: 300 };
+    notaFindMany.mockResolvedValue([{ ...notaDoBanco([], "2"), dataCompra, itens: [...notaDoBanco([], "2").itens, porFora] }]);
+    liquidarItensDasNotas.mockImplementation(async (notas: unknown[]) => notas);
+    const curva = await carregarCurvaAbc({ liquido: true, tipo: "MATERIAL" });
+    expect(notaFindMany.mock.calls[0][0].select.itens.where).toEqual({
+      OR: [{ tipo: "MATERIAL" }, { descricao: "IBS/CBS destacados na nota (cobrados por fora)" }],
+    });
+    // a nota chega ao cálculo do líquido com a linha por fora (é ela que diz que o imposto está fora do total)
+    expect(liquidarItensDasNotas.mock.calls[0][0][0].itens).toHaveLength(2);
+    expect(curva.insumos.map((i) => i.tipo)).toEqual(["MATERIAL"]);
+  });
+
   it("sem o modo líquido, nada de tributação é lido nem calculado", async () => {
     notaFindMany.mockResolvedValue([notaDoBanco([], "2")]);
     await carregarCurvaAbc({ obraId: "o1" });

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type { TipoItem } from "@prisma/client";
 import { normalizarDescricao } from "./materiais";
+import { crtMaisRecente, type NotaComCrt } from "./tributacao/custo-efetivo";
+import type { CrtEmitente } from "./tributacao/ibs-cbs";
 
 export const PESOS = {
   concentracao: 40,
@@ -75,6 +77,8 @@ type MetricasDependencia = Pontuacao & {
   tipos: TipoItem[];
   fatores: FatoresDependencia;
   descricoesExclusivas: Set<string>;
+  /** CRT da nota mais recente que tem CRT (o regime exibido do fornecedor); nulo se nenhuma tem. */
+  crt: CrtEmitente | null;
 };
 
 type Acc = {
@@ -84,6 +88,7 @@ type Acc = {
   obras: Set<string>;
   tipos: Set<TipoItem>;
   gastoPorDescricao: Map<string, number>;
+  notasComCrt: NotaComCrt[];
 };
 
 function novoAcc(): Acc {
@@ -94,10 +99,12 @@ function novoAcc(): Acc {
     obras: new Set(),
     tipos: new Set(),
     gastoPorDescricao: new Map(),
+    notasComCrt: [],
   };
 }
 
-// Descrição "exclusiva" = só um fornecedor já a vendeu (fonte única).
+// Descrição "exclusiva" = só um fornecedor já a vendeu (fonte única). A mesma leitura de notas dá o CRT de cada
+// fornecedor (a lista de fornecedores não precisa de outra consulta para o regime).
 export async function calcularDependencia(
   agora: Date = new Date(),
 ): Promise<Map<string, MetricasDependencia>> {
@@ -106,6 +113,8 @@ export async function calcularDependencia(
       select: {
         fornecedorId: true,
         dataCompra: true,
+        createdAt: true,
+        crtEmitente: true,
         totalCents: true,
         rateios: { select: { obraId: true } },
         itens: {
@@ -134,6 +143,8 @@ export async function calcularDependencia(
     if (!acc.ultimaCompra || nota.dataCompra > acc.ultimaCompra) {
       acc.ultimaCompra = nota.dataCompra;
     }
+
+    if (nota.crtEmitente) acc.notasComCrt.push({ dataEmissao: nota.dataCompra, crtEmitente: nota.crtEmitente, createdAt: nota.createdAt });
 
     for (const r of nota.rateios) acc.obras.add(r.obraId);
 
@@ -184,6 +195,7 @@ export async function calcularDependencia(
       tipos: [...acc.tipos],
       fatores,
       descricoesExclusivas,
+      crt: crtMaisRecente(acc.notasComCrt),
     });
   }
 

@@ -6,8 +6,7 @@ import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { carregarCurvaAbc, type ClasseAbc } from "@/services/analises";
-import { carregarCreditoIbsCbs } from "@/services/tributacao/custo-liquido-db";
-import { modoDoCusto } from "@/services/tributacao/custo-liquido";
+import { carregarModoDoCusto } from "@/services/tributacao/custo-liquido-db";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { SelectNativo } from "@/components/select-nativo";
 import { Badge } from "@/components/ui/badge";
@@ -54,9 +53,9 @@ export default async function CurvaAbcPage({
   const { obra, de, ate, tipo: tipoParam, custo: custoParam } = await searchParams;
   const tipo = TIPOS.find((t) => t.value === tipoParam)?.value;
 
-  const [obras, credito] = await Promise.all([listarObrasParaFiltro(), carregarCreditoIbsCbs(obra || "")]);
-  // a opção só existe com crédito a recuperar; com ele, o líquido é o padrão (como no Orçamento)
-  const { comCredito, modo } = modoDoCusto(credito.regime, credito.total.creditoCents, custoParam);
+  // a opção só existe com crédito a recuperar; com ele, o líquido é o padrão (como no Orçamento). Fora do regime
+  // regular a curva é sempre a bruta e as notas com destaque nem são lidas.
+  const [obras, { comCredito, modo }] = await Promise.all([listarObrasParaFiltro(), carregarModoDoCusto(obra || undefined, custoParam)]);
   const curva = await carregarCurvaAbc({
     obraId: obra || undefined,
     de: dataDoFiltro(de, false),

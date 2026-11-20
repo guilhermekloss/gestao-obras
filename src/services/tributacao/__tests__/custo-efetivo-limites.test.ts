@@ -84,6 +84,25 @@ describe("crtMaisRecente", () => {
     ).toBe("3");
     expect(crtMaisRecente([])).toBeNull();
   });
+
+  it("empate no dia: com createdAt vence a nota lançada por último (a ordem da consulta por fornecedor); sem ele, a primeira vista", () => {
+    const dia = new Date(2027, 4, 1, 12);
+    expect(
+      crtMaisRecente([
+        { dataEmissao: dia, crtEmitente: "3", createdAt: new Date(2027, 4, 2, 9) },
+        { dataEmissao: dia, crtEmitente: "1", createdAt: new Date(2027, 4, 2, 10) },
+        { dataEmissao: dia, crtEmitente: "4", createdAt: new Date(2027, 4, 2, 8) },
+      ]),
+    ).toBe("1");
+    expect(crtMaisRecente([{ dataEmissao: dia, crtEmitente: "3" }, { dataEmissao: dia, crtEmitente: "1" }])).toBe("3");
+    // o dia manda antes do createdAt
+    expect(
+      crtMaisRecente([
+        { dataEmissao: new Date(2027, 4, 2, 12), crtEmitente: "3", createdAt: new Date(2027, 4, 2) },
+        { dataEmissao: dia, crtEmitente: "1", createdAt: new Date(2027, 5, 1) },
+      ]),
+    ).toBe("3");
+  });
 });
 
 describe("custoEfetivoPorFornecedor", () => {

@@ -10,7 +10,7 @@ import { normalizarDescricao } from "./materiais";
 import { carregarAlertasDaCaptura } from "./sefaz/painel";
 import { desempenhoCusto, totalDesempenho } from "./desempenho-custo";
 import { liquidarItensDasNotas } from "./tributacao/custo-liquido-db";
-import { SELECT_CREDITO_IBS_CBS } from "./tributacao/ibs-cbs";
+import { DESCRICAO_IBS_CBS_POR_FORA, SELECT_CREDITO_IBS_CBS } from "./tributacao/ibs-cbs";
 
 export type ClasseAbc = "A" | "B" | "C";
 
@@ -470,32 +470,31 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
     };
   }
 
-  const notasDoBanco = await prisma.notaFiscal.findMany({
-    where,
-    select: {
-      fornecedorId: true,
-      ...(filtro.liquido ? { dataCompra: true } : {}),
-      // sem filtro de obra, "" não casa com nenhum rateio (a fração não é usada)
-      rateios: { where: { obraId: filtro.obraId ?? "" }, select: { fracaoBp: true } },
-      itens: {
-        // no modo líquido a nota vem inteira: a linha do IBS/CBS por fora (ENCARGO) precisa estar lá para o líquido dos produtos
-        where: filtro.tipo && !filtro.liquido ? { tipo: filtro.tipo } : undefined,
-        select: {
-          descricao: true,
-          unidade: true,
-          tipo: true,
-          qtde: true,
-          totalCents: true,
-          ...(filtro.liquido ? SELECT_CREDITO_IBS_CBS : {}),
-        },
-      },
-    },
-  });
-  // o spread condicional some do tipo inferido: no modo líquido as notas trazem a data e os campos tributários
-  const notas = filtro.liquido
-    ? await liquidarItensDasNotas(notasDoBanco as unknown as Parameters<typeof liquidarItensDasNotas>[0]) as unknown as typeof notasDoBanco
-    : notasDoBanco;
   const tipo = filtro.tipo;
+  // sem filtro de obra, "" não casa com nenhum rateio (a fração não é usada)
+  const rateios = { where: { obraId: filtro.obraId ?? "" }, select: { fracaoBp: true } } as const;
+  const selectItem = { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true } as const;
+  const notas = filtro.liquido
+    ? await liquidarItensDasNotas(
+        await prisma.notaFiscal.findMany({
+          where,
+          select: {
+            fornecedorId: true,
+            dataCompra: true,
+            rateios,
+            itens: {
+              // a linha do IBS/CBS por fora vem junto do tipo pedido: ela marca a nota, e o líquido dos produtos depende dela.
+              // O líquido de cada item só depende dele e dessa marca: filtrar os outros itens antes não muda o resultado.
+              where: tipo ? { OR: [{ tipo }, { descricao: DESCRICAO_IBS_CBS_POR_FORA }] } : undefined,
+              select: { ...selectItem, ...SELECT_CREDITO_IBS_CBS },
+            },
+          },
+        }),
+      )
+    : await prisma.notaFiscal.findMany({
+        where,
+        select: { fornecedorId: true, rateios, itens: { where: tipo ? { tipo } : undefined, select: selectItem } },
+      });
 
   return curvaAbc(
     notas.map((n) => ({

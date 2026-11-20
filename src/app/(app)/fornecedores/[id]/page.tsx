@@ -11,7 +11,7 @@ import { DependenciaBadge } from "../dependencia-badge";
 import { RegimeFornecedorBadge } from "../regime-badge";
 import { AvisoRegimeCredito } from "@/components/aviso-regime-credito";
 import { calcularDependencia, PESOS } from "@/services/dependencia";
-import { carregarCreditoDoFornecedor, carregarCrtPorFornecedor } from "@/services/tributacao/custo-efetivo-db";
+import { calcularCreditoDoFornecedor } from "@/services/tributacao/custo-efetivo-db";
 import { regimeDoCrt } from "@/services/tributacao/ibs-cbs";
 import { BP_TOTAL } from "@/services/rateio";
 import { acumular } from "@/services/custos";
@@ -37,7 +37,7 @@ export default async function FornecedorDetalhePage({
   const user = await exigirPapel("ADMIN", "ESCRITORIO");
   const { id } = await params;
 
-  const [fornecedor, dependencia, crts, credito] = await Promise.all([
+  const [fornecedor, dependencia] = await Promise.all([
     prisma.fornecedor.findUnique({
       where: { id },
       include: {
@@ -52,10 +52,10 @@ export default async function FornecedorDetalhePage({
       },
     }),
     calcularDependencia(),
-    carregarCrtPorFornecedor([id]),
-    carregarCreditoDoFornecedor(id),
   ]);
   if (!fornecedor) notFound();
+  // das notas já lidas (todos os itens): sem reler itens; regime da empresa em cache e classificações em memória
+  const credito = await calcularCreditoDoFornecedor(fornecedor, fornecedor.notas);
 
   const dep = dependencia.get(fornecedor.id) ?? null;
 
@@ -123,7 +123,7 @@ export default async function FornecedorDetalhePage({
             <ArrowLeft className="size-4" />
           </Button>
           <h1 className="text-2xl md:text-3xl">{fornecedor.nome}</h1>
-          {dep && <RegimeFornecedorBadge regime={regimeDoCrt(crts.get(id))} />}
+          {dep && <RegimeFornecedorBadge regime={regimeDoCrt(dep.crt)} />}
           {dep && <DependenciaBadge nivel={dep.nivel} score={dep.score} />}
         </div>
         <EditarFornecedorDialog

@@ -1,9 +1,11 @@
-import type { Prisma, RegimeIbsCbs } from "@prisma/client";
+import { Prisma, type RegimeIbsCbs } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { inputParaData } from "@/lib/format";
 import { carregarRegimeIbsCbs } from "@/services/empresa";
 import { carregarClassificacoes } from "./classificacao-db";
+import { codigosParaClassificar } from "./custo-liquido";
 import {
+  comprasDasNotas,
   creditoDasCompras,
   custoEfetivoPorFornecedor,
   inicioDoPeriodo,
@@ -11,6 +13,7 @@ import {
   type CompraParaCusto,
   type CreditoDoFornecedor,
   type GrupoUnidade,
+  type NotaParaCusto,
 } from "./custo-efetivo";
 import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, SELECT_CREDITO_IBS_CBS, type CrtEmitente } from "./ibs-cbs";
 
@@ -56,21 +59,32 @@ function paraCompra(i: ItemLido): CompraParaCusto {
   };
 }
 
-/** CRT da nota mais recente com CRT de cada fornecedor (todos, ou só os `ids`), numa consulta. */
-export async function carregarCrtPorFornecedor(ids?: readonly string[], db: Db = prisma): Promise<Map<string, CrtEmitente>> {
-  if (ids && ids.length === 0) return new Map();
-  const notas = await db.notaFiscal.findMany({
-    where: { crtEmitente: { not: null }, ...(ids ? { fornecedorId: { in: [...ids] } } : {}) },
-    distinct: ["fornecedorId"],
-    orderBy: [{ dataCompra: "desc" }, { createdAt: "desc" }],
-    select: { fornecedorId: true, crtEmitente: true },
-  });
+/**
+ * CRT da nota mais recente com CRT de cada fornecedor dado, numa consulta: DISTINCT ON no Postgres devolve uma linha
+ * por fornecedor (o `distinct` do Prisma traria todas as notas e deduplicaria em memória) e usa o índice
+ * [fornecedorId, dataCompra]. Para a lista inteira de fornecedores, o CRT vem de calcularDependencia (mesma leitura).
+ */
+export async function carregarCrtPorFornecedor(ids: readonly string[], db: Db = prisma): Promise<Map<string, CrtEmitente>> {
+  if (ids.length === 0) return new Map();
+  const notas = await db.$queryRaw<{ fornecedorId: string; crtEmitente: string | null }[]>(Prisma.sql`
+    SELECT DISTINCT ON ("fornecedorId") "fornecedorId", "crtEmitente"
+    FROM "NotaFiscal"
+    WHERE "crtEmitente" IS NOT NULL AND "fornecedorId" IN (${Prisma.join([...new Set(ids)])})
+    ORDER BY "fornecedorId", "dataCompra" DESC, "createdAt" DESC`);
   const mapa = new Map<string, CrtEmitente>();
   for (const n of notas) {
     const crt = crtValido(n.crtEmitente);
     if (crt) mapa.set(n.fornecedorId, crt);
   }
   return mapa;
+}
+
+// A classificação só pesa no regime regular e de 2027 em diante (creditoDoItem sai antes nos outros casos).
+function codigosDasCompras(compras: readonly CompraParaCusto[], regime: RegimeIbsCbs): string[] {
+  return codigosParaClassificar(
+    compras.map((c) => ({ dataCompra: c.dataEmissao, itens: [c.item] })),
+    regime,
+  );
 }
 
 export type CustoEfetivoDoMaterial = {
@@ -81,7 +95,7 @@ export type CustoEfetivoDoMaterial = {
   grupos: GrupoUnidade[];
 };
 
-/** Custo efetivo por fornecedor de um material: 4 consultas fixas, qualquer que seja o número de notas. */
+/** Custo efetivo por fornecedor de um material: consultas fixas (itens, CRT e, com regime regular, classificações), qualquer que seja o número de notas. */
 export async function carregarCustoEfetivoDoMaterial(materialId: string, { meses = MESES_PADRAO, agora = new Date(), db = prisma }: Opcoes = {}): Promise<CustoEfetivoDoMaterial> {
   const desde = inicioDoPeriodo(agora, meses);
   const [itens, regimeEmpresa] = await Promise.all([
@@ -93,10 +107,7 @@ export async function carregarCustoEfetivoDoMaterial(materialId: string, { meses
   ]);
   const compras = itens.map(paraCompra);
   const [classificacoes, crtPorFornecedor] = await Promise.all([
-    carregarClassificacoes(
-      itens.map((i) => i.cClassTrib),
-      db,
-    ),
+    carregarClassificacoes(codigosDasCompras(compras, regimeEmpresa), db),
     carregarCrtPorFornecedor([...new Set(compras.map((c) => c.fornecedorId))], db),
   ]);
   const grupos = custoEfetivoPorFornecedor(compras, { regimeEmpresa, classificacoes, agora, meses, crtPorFornecedor });
@@ -105,20 +116,21 @@ export async function carregarCustoEfetivoDoMaterial(materialId: string, { meses
 
 export type CreditoDoFornecedorCarregado = CreditoDoFornecedor & { regimeEmpresa: RegimeIbsCbs; meses: number; desde: string };
 
-/** Crédito de IBS/CBS que as compras de um fornecedor geraram no período. */
-export async function carregarCreditoDoFornecedor(fornecedorId: string, { meses = MESES_PADRAO, agora = new Date(), db = prisma }: Opcoes = {}): Promise<CreditoDoFornecedorCarregado> {
+/**
+ * Crédito de IBS/CBS que as compras de um fornecedor geraram no período, a partir das notas que a página já leu
+ * (com todos os itens). Sem consulta de notas: o regime vem da leitura da empresa em cache e as classificações do memo.
+ */
+export async function calcularCreditoDoFornecedor(
+  fornecedor: { id: string; nome: string },
+  notas: readonly NotaParaCusto[],
+  { meses = MESES_PADRAO, agora = new Date() }: Omit<Opcoes, "db"> = {},
+): Promise<CreditoDoFornecedorCarregado> {
   const desde = inicioDoPeriodo(agora, meses);
-  const [itens, regimeEmpresa] = await Promise.all([
-    db.itemNota.findMany({
-      where: { nota: { fornecedorId, dataCompra: { gte: inputParaData(desde) } } },
-      select: selectItem,
-    }),
-    carregarRegimeIbsCbs(db),
-  ]);
-  const classificacoes = await carregarClassificacoes(
-    itens.map((i) => i.cClassTrib),
-    db,
-  );
-  const credito = creditoDasCompras(itens.map(paraCompra), { regimeEmpresa, classificacoes, agora, meses });
+  // o mesmo corte da consulta por período (dataCompra ≥ início do dia), antes do corte por dia de avaliar()
+  const inicio = inputParaData(desde).getTime();
+  const compras = comprasDasNotas(fornecedor, notas.filter((n) => n.dataCompra.getTime() >= inicio));
+  const regimeEmpresa = await carregarRegimeIbsCbs();
+  const classificacoes = await carregarClassificacoes(codigosDasCompras(compras, regimeEmpresa));
+  const credito = creditoDasCompras(compras, { regimeEmpresa, classificacoes, agora, meses });
   return { ...credito, regimeEmpresa, meses, desde };
 }

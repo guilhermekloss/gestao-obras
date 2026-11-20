@@ -2,6 +2,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { chaveMes, dataParaInput } from "@/lib/format";
 import { custoRateado } from "./rateio";
+import { SELECT_CREDITO_IBS_CBS } from "./tributacao/ibs-cbs";
 
 export { chaveMes };
 
@@ -27,6 +28,7 @@ export function acumular<N extends NotaComRateio, K>(
 }
 
 // Uma leitura por requisição para todo o dashboard (cache() só memoiza no render); compartilhado, não mutar.
+// Os itens trazem as colunas do crédito de IBS/CBS: o crédito do dashboard sai desta mesma leitura (custo-liquido-db).
 export const notasParaAnalise = cache(async () =>
   prisma.notaFiscal.findMany({
     select: {
@@ -37,7 +39,7 @@ export const notasParaAnalise = cache(async () =>
       dataCompra: true,
       fornecedorId: true,
       fornecedor: { select: { nome: true } },
-      itens: { select: { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true } },
+      itens: { select: { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true, ...SELECT_CREDITO_IBS_CBS } },
       rateios: { select: { obraId: true, etapaId: true, fracaoBp: true } },
     },
   }),
@@ -54,13 +56,14 @@ export async function realizadoPorObra(): Promise<Map<string, number>> {
   return acumular(await notasParaAnalise(), (_, r) => r.obraId);
 }
 
-// Só as notas com rateio na obra, e só os rateios dela; uma leitura por requisição para etapa e mês.
-const notasDaObra = cache(async (obraId: string) =>
+// Só as notas com rateio na obra, e só os rateios dela; uma leitura por requisição para etapa, mês e o crédito de
+// IBS/CBS da obra (custo-liquido-db). Compartilhado, não mutar.
+export const notasDaObra = cache(async (obraId: string) =>
   prisma.notaFiscal.findMany({
     where: { rateios: { some: { obraId } } },
     select: {
       dataCompra: true,
-      itens: { select: { totalCents: true } },
+      itens: { select: { totalCents: true, ...SELECT_CREDITO_IBS_CBS } },
       rateios: { where: { obraId }, select: { obraId: true, etapaId: true, fracaoBp: true } },
     },
   }),
