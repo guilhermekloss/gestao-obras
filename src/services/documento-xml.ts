@@ -5,7 +5,7 @@ import { parcelasDaNfe, parseNfeXml, type ItemNfe, type Nfe } from "./nfe-xml";
 import { observacaoDaNfse, pareceNfse, parseNfseXml, type Nfse } from "./nfse-xml";
 import type { FornecedorDoLancamento, Lancamento } from "./lancamento";
 import { formatarData } from "@/lib/format";
-import { chaveNfseValida } from "./leitura-documento";
+import { rotuloDaChave } from "./leitura-documento";
 import type { CrtEmitente, TotaisIbsCbs } from "./tributacao/ibs-cbs";
 
 export type DocumentoXml = { tipo: "NFE"; nfe: Nfe } | { tipo: "NFSE"; nfse: Nfse };
@@ -120,7 +120,8 @@ export function dadosImportaveis(doc: DocumentoXml): DadosImportaveis {
 
 /** Aviso de nota já lançada com a mesma chave; a de 50 posições é de NFS-e. */
 export function mensagemNotaJaImportada(chave: string, numero: string): string {
-  return chaveNfseValida(chave) ? `Esta NFS-e já foi lançada (NFS-e ${numero}).` : `Esta NF-e já foi lançada (NF ${numero}).`;
+  const { documento, sigla } = rotuloDaChave(chave);
+  return `Esta ${documento} já foi lançada (${sigla} ${numero}).`;
 }
 
 export type EscolhaMaterialXml =
