@@ -90,7 +90,7 @@ As migrations rodam **antes** da nova versão entrar no ar, enquanto a versão a
 ## 6. Dependências (Dependabot)
 
 - **Toda segunda** chega um PR agrupado com as atualizações *minor/patch* do npm. Com o CI verde, o merge é seguro.
-- **Versões *major*** (ex.: TypeScript 7, Vitest 5, Node 26) não são abertas automaticamente, porque costumam exigir ajuste de código. Faça num PR próprio, planejado.
+- **Versões *major*** (ex.: TypeScript 7, Vitest 5, Prisma 8) não são abertas automaticamente, porque costumam exigir ajuste de código. Faça num PR próprio, planejado.
 - **GitHub Actions e a imagem base do Docker** são atualizadas mensalmente. As actions são fixadas por SHA, e o Dependabot atualiza o SHA.
 - O CI barra qualquer dependência de produção com vulnerabilidade **crítica**.
 

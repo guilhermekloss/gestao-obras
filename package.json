@@ -51,7 +51,7 @@
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^22.20.5",
+    "@types/node": "^26.6.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@xmldom/xmldom": "0.8.15",
@@ -63,5 +63,18 @@
     "typescript": "~6.0.3",
     "vitest": "^4.1.12",
     "xml-crypto": "6.3.2"
+  },
+  "allowScripts": {
+    "prisma": true,
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "esbuild": true,
+    "unrs-resolver": true,
+    "protobufjs": false,
+    "tesseract.js": false,
+    "@google/genai": false
+  },
+  "engines": {
+    "node": ">=26"
   }
 }
