@@ -6,7 +6,8 @@ import { exigirAcessoObra, exigirPapel } from "@/lib/auth";
 import { avancoPorEtapa, realizadoPorEtapa, realizadoPorMesDaObra } from "@/services/custos";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { carregarCreditoIbsCbs } from "@/services/tributacao/custo-liquido-db";
-import { aplicarCredito, avisosDoCredito, haCredito, modoDoCusto } from "@/services/tributacao/custo-liquido";
+import { avisosDoCredito, modoDoCusto } from "@/services/tributacao/custo-liquido";
+import { custoLiquidoCents } from "@/services/tributacao/credito";
 import { AvisosCreditoIbsCbs, ResumoCreditoIbsCbs } from "@/components/credito-ibs-cbs";
 import { consumoBp, faixaConsumo } from "@/services/analises";
 import { diaDoBanco } from "@/services/cronograma";
@@ -78,14 +79,14 @@ export default async function OrcamentoPage({
       carregarCreditoIbsCbs(obraId),
     ]);
     credito = creditoObra;
-    modo = modoDoCusto(credito.regime, credito.total.creditoCents, custoParam);
+    modo = modoDoCusto(credito.regime, credito.total.creditoCents, custoParam).modo;
     // no modo líquido o realizado de cada etapa já sai sem o crédito: faixa, saldo e desempenho seguem o mesmo número
     const realizadoDe = (etapaId: string | null) => {
       const bruto = realizadoBruto.get(etapaId) ?? 0;
-      const c = aplicarCredito(bruto, credito?.porEtapa.get(etapaId)?.creditoCents ?? 0);
+      const creditoCents = Math.max(0, credito?.porEtapa.get(etapaId)?.creditoCents ?? 0);
       return {
-        realizado: modo === "LIQUIDO" ? c.liquidoCents : bruto,
-        ...(c.creditoCents > 0 ? { brutoCents: bruto, creditoCents: c.creditoCents } : {}),
+        realizado: modo === "LIQUIDO" ? custoLiquidoCents(bruto, creditoCents) : bruto,
+        ...(creditoCents > 0 ? { brutoCents: bruto, creditoCents } : {}),
       };
     };
     linhas = etapas.map((e) => {
@@ -114,7 +115,7 @@ export default async function OrcamentoPage({
     resumoCredito = {
       brutoCents: soma(brutoDe),
       creditoCents: soma((l) => l.creditoCents ?? 0),
-      liquidoCents: soma((l) => aplicarCredito(brutoDe(l), l.creditoCents ?? 0).liquidoCents),
+      liquidoCents: soma((l) => custoLiquidoCents(brutoDe(l), l.creditoCents ?? 0)),
     };
     total = {
       ...comFaixa(soma((l) => l.previstoCents), soma((l) => l.realizadoCents), totalDes.fisicoBp),
@@ -195,8 +196,8 @@ function CreditoDaObra({
   modo: ModoCusto;
   ehAdmin: boolean;
 }) {
-  const avisos = avisosDoCredito(credito.regime, credito.total);
-  const comCredito = haCredito(credito.regime, resumo.creditoCents);
+  const avisos = avisosDoCredito(credito);
+  const { comCredito } = modoDoCusto(credito.regime, resumo.creditoCents);
   return (
     <div className="space-y-2">
       {comCredito && (

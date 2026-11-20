@@ -1,14 +1,8 @@
 import type { RegimeIbsCbs } from "@prisma/client";
 import { dataParaInput } from "@/lib/format";
-import {
-  classificacaoVigente,
-  creditoDoItem,
-  custoLiquidoCents,
-  INICIO_CREDITO_IBS_CBS,
-  type ClassificacaoParaCredito,
-  type ItemParaCredito,
-} from "./credito";
-import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, ibsCbsDestacadoCents, type CrtEmitente } from "./ibs-cbs";
+import { indexarClassificacoes, type Classificacoes, type ItemParaCredito } from "./credito";
+import { custoDoItem } from "./custo-liquido";
+import { crtValido, diaDe, INICIO_CREDITO_IBS_CBS, regimeDoCrt, type CrtEmitente, type RegimeFornecedor } from "./ibs-cbs";
 
 // Custo efetivo por fornecedor: o preço da nota menos o crédito de IBS/CBS que a construtora aproveita.
 // Premissas:
@@ -21,24 +15,6 @@ import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, ibsCbsDestacadoCents, type CrtEm
 export const MESES_PADRAO = 12;
 /** Períodos oferecidos nas telas. */
 export const PERIODOS_MESES = [6, 12, 24] as const;
-
-export type RegimeFornecedor = "SIMPLES" | "NORMAL" | "MEI" | "NAO_IDENTIFICADO";
-
-export const REGIME_FORNECEDOR_LABELS: Record<RegimeFornecedor, string> = {
-  SIMPLES: "Simples",
-  NORMAL: "Regime normal",
-  MEI: "MEI",
-  NAO_IDENTIFICADO: "Não identificado",
-};
-
-/** CRT 1 e 2 são Simples Nacional; ausente ou inválido (nota antiga, lançamento manual) é não identificado. */
-export function regimeDoCrt(crt: string | null | undefined): RegimeFornecedor {
-  const v = crtValido(crt);
-  if (v === "1" || v === "2") return "SIMPLES";
-  if (v === "3") return "NORMAL";
-  if (v === "4") return "MEI";
-  return "NAO_IDENTIFICADO";
-}
 
 /** Uma linha de item comprado (ItemNota + a nota dele). */
 export type CompraParaCusto = {
@@ -60,7 +36,7 @@ export type CompraParaCusto = {
 
 export type ContextoCustoEfetivo = {
   regimeEmpresa: RegimeIbsCbs;
-  classificacoes: readonly ClassificacaoParaCredito[];
+  classificacoes: Classificacoes;
   agora: Date;
   meses?: number;
   /** CRT mais recente de cada fornecedor (qualquer data); sem ele vale o das compras do período. */
@@ -83,54 +59,42 @@ export function normalizarUnidade(unidade: string): string {
   return u || "UN";
 }
 
-const diaDe = (d: Date | string) => (typeof d === "string" ? d.slice(0, 10) : dataParaInput(d));
-
 type Avaliada = {
   c: CompraParaCusto;
   dia: string;
   gasto: number;
-  credito: number;
   liquido: number;
   classificacaoPendente: boolean;
 };
 
 function avaliar(compras: readonly CompraParaCusto[], ctx: ContextoCustoEfetivo): Avaliada[] {
   const inicio = inicioDoPeriodo(ctx.agora, ctx.meses ?? MESES_PADRAO);
+  const base = { regimeEmpresa: ctx.regimeEmpresa, classificacoes: indexarClassificacoes(ctx.classificacoes) };
   const out: Avaliada[] = [];
   for (const c of compras) {
     const dia = diaDe(c.dataEmissao);
     if (dia < inicio || !(c.qtde > 0)) continue;
-    const r = creditoDoItem(c.item, {
-      regimeEmpresa: ctx.regimeEmpresa,
-      dataEmissao: dia,
-      classificacao: classificacaoVigente(ctx.classificacoes, c.item.cClassTrib, dia),
-    });
-    // IBS/CBS por fora: o bruto do produto é o desembolso real (total + destacado) e a linha acessória não é material
-    // (o valor dela já está nos produtos). Em ambos os casos crédito = bruto − líquido.
-    const acessorio = c.ibsCbsPorFora && c.descricao === DESCRICAO_IBS_CBS_POR_FORA;
-    const gasto = acessorio ? 0 : c.totalCents + (c.ibsCbsPorFora ? ibsCbsDestacadoCents(c.item) : 0);
-    const liquido = acessorio ? 0 : custoLiquidoCents(gasto, r.creditoCents);
-    out.push({
-      c,
-      dia,
-      gasto,
-      credito: gasto - liquido,
-      liquido,
-      classificacaoPendente: r.situacao === "CLASSIFICACAO_DESCONHECIDA",
-    });
+    // a mesma regra do custo líquido da obra, inclusive o IBS/CBS por fora (o crédito é sempre gasto − líquido)
+    const r = custoDoItem(
+      { ...c.item, totalCents: c.totalCents, descricao: c.descricao },
+      { ...base, dataEmissao: dia, porFora: !!c.ibsCbsPorFora },
+    );
+    out.push({ c, dia, gasto: r.brutoCents, liquido: r.liquidoCents, classificacaoPendente: r.situacao === "CLASSIFICACAO_DESCONHECIDA" });
   }
   return out;
 }
 
+type CrtDatado = { dia: string; crt: CrtEmitente };
+
+// Fica com o CRT da nota mais recente; empate no dia mantém o primeiro visto.
+function maisRecente(melhor: CrtDatado | null, dia: string, crtEmitente: string | null): CrtDatado | null {
+  const crt = crtValido(crtEmitente);
+  return crt && (!melhor || dia > melhor.dia) ? { dia, crt } : melhor;
+}
+
 /** CRT da nota mais recente que tem CRT; nulo se nenhuma tem. */
 export function crtMaisRecente(notas: readonly { dataEmissao: Date | string; crtEmitente: string | null }[]): CrtEmitente | null {
-  let melhor: { dia: string; crt: CrtEmitente } | null = null;
-  for (const n of notas) {
-    const crt = crtValido(n.crtEmitente);
-    const dia = diaDe(n.dataEmissao);
-    if (crt && (!melhor || dia > melhor.dia)) melhor = { dia, crt };
-  }
-  return melhor?.crt ?? null;
+  return notas.reduce<CrtDatado | null>((m, n) => maisRecente(m, diaDe(n.dataEmissao), n.crtEmitente), null)?.crt ?? null;
 }
 
 export type ModoComparacao =
@@ -140,6 +104,12 @@ export type ModoComparacao =
   | "SEM_CREDITO_REGIME"
   /** Todas as compras são de antes de 2027: a comparação ainda é nominal. */
   | "NOMINAL_PERIODO_TESTE";
+
+// Sem compras não há o que chamar de nominal: fica efetivo.
+function modoDaComparacao(regimeEmpresa: RegimeIbsCbs, compras: number, comprasAntesDoCredito: number): ModoComparacao {
+  if (regimeEmpresa !== "REGULAR") return "SEM_CREDITO_REGIME";
+  return compras > 0 && comprasAntesDoCredito === compras ? "NOMINAL_PERIODO_TESTE" : "EFETIVO";
+}
 
 export type LinhaFornecedor = {
   fornecedorId: string;
@@ -178,10 +148,10 @@ export type GrupoUnidade = {
 type Acc = {
   fornecedorId: string;
   fornecedorNome: string;
-  rows: Avaliada[];
+  /** CRT da compra mais recente do período (vale quando o contexto não traz o do fornecedor). */
+  crt: CrtDatado | null;
   qtde: number;
   gasto: number;
-  credito: number;
   liquido: number;
   notas: Set<string>;
   notasAntes: Set<string>;
@@ -201,10 +171,9 @@ export function custoEfetivoPorFornecedor(compras: readonly CompraParaCusto[], c
       acc = {
         fornecedorId: a.c.fornecedorId,
         fornecedorNome: a.c.fornecedorNome,
-        rows: [],
+        crt: null,
         qtde: 0,
         gasto: 0,
-        credito: 0,
         liquido: 0,
         notas: new Set(),
         notasAntes: new Set(),
@@ -213,10 +182,9 @@ export function custoEfetivoPorFornecedor(compras: readonly CompraParaCusto[], c
       };
       forns.set(a.c.fornecedorId, acc);
     }
-    acc.rows.push(a);
+    acc.crt = maisRecente(acc.crt, a.dia, a.c.crtEmitente);
     acc.qtde += a.c.qtde;
     acc.gasto += a.gasto;
-    acc.credito += a.credito;
     acc.liquido += a.liquido;
     acc.notas.add(a.c.notaId);
     if (a.dia < INICIO_CREDITO_IBS_CBS) acc.notasAntes.add(a.c.notaId);
@@ -231,7 +199,7 @@ export function custoEfetivoPorFornecedor(compras: readonly CompraParaCusto[], c
     for (const [id, acc] of forns) {
       const crt = ctx.crtPorFornecedor?.has(id)
         ? crtValido(ctx.crtPorFornecedor.get(id))
-        : crtMaisRecente(acc.rows.map((r) => ({ dataEmissao: r.dia, crtEmitente: r.c.crtEmitente })));
+        : (acc.crt?.crt ?? null);
       const bruto = Math.round(acc.gasto / acc.qtde);
       const efetivo = Math.round(acc.liquido / acc.qtde);
       precisos.set(id, { bruto: acc.gasto / acc.qtde, efetivo: acc.liquido / acc.qtde });
@@ -243,7 +211,7 @@ export function custoEfetivoPorFornecedor(compras: readonly CompraParaCusto[], c
         compras: acc.notas.size,
         qtde: acc.qtde,
         gastoCents: acc.gasto,
-        creditoCents: acc.credito,
+        creditoCents: acc.gasto - acc.liquido,
         brutoUnitCents: bruto,
         creditoUnitCents: bruto - efetivo,
         efetivoUnitCents: efetivo,
@@ -261,17 +229,13 @@ export function custoEfetivoPorFornecedor(compras: readonly CompraParaCusto[], c
     const baratoBruto = [...linhas].sort((a, b) => p(a).bruto - p(b).bruto || p(a).efetivo - p(b).efetivo || nome(a, b))[0];
     const barato = linhas[0];
     const inversao = linhas.length > 1 && p(baratoBruto).efetivo > p(barato).efetivo;
-    const modo: ModoComparacao =
-      ctx.regimeEmpresa !== "REGULAR"
-        ? "SEM_CREDITO_REGIME"
-        : linhas.every((l) => l.comprasAntesDoCredito === l.compras)
-          ? "NOMINAL_PERIODO_TESTE"
-          : "EFETIVO";
+    // cada nota é de um fornecedor só: somar as linhas não conta nota duas vezes
+    const n = linhas.reduce((s, l) => s + l.compras, 0);
     grupos.push({
-      n: linhas.reduce((s, l) => s + l.compras, 0),
+      n,
       grupo: {
         unidade,
-        modo,
+        modo: modoDaComparacao(ctx.regimeEmpresa, n, linhas.reduce((s, l) => s + l.comprasAntesDoCredito, 0)),
         fornecedores: linhas,
         maisBaratoBrutoId: baratoBruto.fornecedorId,
         maisBaratoEfetivoId: barato.fornecedorId,
@@ -298,12 +262,13 @@ export function creditoDasCompras(compras: readonly CompraParaCusto[], ctx: Cont
   const avaliadas = avaliar(compras, ctx);
   const notas = new Set(avaliadas.map((a) => a.c.notaId));
   const antes = new Set(avaliadas.filter((a) => a.dia < INICIO_CREDITO_IBS_CBS).map((a) => a.c.notaId));
+  const gastoCents = avaliadas.reduce((s, a) => s + a.gasto, 0);
   return {
-    gastoCents: avaliadas.reduce((s, a) => s + a.gasto, 0),
-    creditoCents: avaliadas.reduce((s, a) => s + a.credito, 0),
+    gastoCents,
+    creditoCents: gastoCents - avaliadas.reduce((s, a) => s + a.liquido, 0),
     compras: notas.size,
     comprasAntesDoCredito: antes.size,
     itensClassificacaoPendente: avaliadas.filter((a) => a.classificacaoPendente).length,
-    modo: ctx.regimeEmpresa !== "REGULAR" ? "SEM_CREDITO_REGIME" : notas.size > 0 && antes.size === notas.size ? "NOMINAL_PERIODO_TESTE" : "EFETIVO",
+    modo: modoDaComparacao(ctx.regimeEmpresa, notas.size, antes.size),
   };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
+const padrao = { classificacaoTributaria: { findMany: vi.fn() }, classificacaoNomenclatura: { findMany: vi.fn() } };
+vi.mock("@/lib/prisma", () => ({ prisma: padrao }));
 const { carregarReferenciasConferencia, analisarIbsCbsDaNota } = await import("../conferencia-db");
 
 const classificacao = {
@@ -74,6 +75,20 @@ describe("carregarReferenciasConferencia", () => {
     expect(await carregarReferenciasConferencia([], db as never)).toEqual({ classificacoes: [], nomenclaturas: [] });
     expect(db.classificacaoTributaria.findMany).not.toHaveBeenCalled();
     expect(db.classificacaoNomenclatura.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("carregarReferenciasConferencia com o prisma padrão (memo)", () => {
+  it("lê as nomenclaturas uma vez e devolve só as dos códigos pedidos", async () => {
+    padrao.classificacaoTributaria.findMany.mockResolvedValue([classificacao]);
+    padrao.classificacaoNomenclatura.findMany.mockResolvedValue([nomenclatura, { ...nomenclatura, codigo: "9999", cClassTrib: "200003" }]);
+    const a = await carregarReferenciasConferencia(["000001"]);
+    const b = await carregarReferenciasConferencia(["200003", "000001"]);
+    expect(a.nomenclaturas.map((n) => n.codigo)).toEqual(["2523"]);
+    expect(b.nomenclaturas.map((n) => n.codigo)).toEqual(["9999", "2523"]);
+    expect(b.nomenclaturas[0]).toMatchObject({ inicioVigencia: "2026-01-01", fimVigencia: "2026-12-31" });
+    expect(padrao.classificacaoNomenclatura.findMany).toHaveBeenCalledTimes(1);
+    expect(padrao.classificacaoTributaria.findMany).toHaveBeenCalledTimes(1);
   });
 });
 

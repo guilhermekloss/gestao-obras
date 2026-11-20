@@ -1,31 +1,31 @@
 // Conferência do IBS/CBS que o fornecedor destacou na nota. Só avisa: nada aqui bloqueia o lançamento.
 // Regras simples e puras, sem recalcular o imposto (isso é com o fornecedor e o contador dele).
 import { formatarMoeda } from "@/lib/format";
-import type { TotaisIbsCbs } from "./ibs-cbs";
-import { classificacaoVigente, type ClassificacaoParaCredito } from "./credito";
+import {
+  colunasIbsCbs,
+  ibsCbsDestacadoCents,
+  ibsCbsDoGravado,
+  INICIO_CREDITO_IBS_CBS,
+  INICIO_IBS_CBS_NA_NOTA,
+  regimeDoCrt,
+  temGrupoIbsCbs,
+  type ColunasIbsCbs,
+  type ColunasIbsCbsGravadas,
+  type TotaisIbsCbs,
+} from "./ibs-cbs";
+import {
+  apropriacaoDaClassificacao,
+  classificacaoVigente,
+  indexarClassificacoes,
+  type ClassificacaoParaCredito,
+  type Classificacoes,
+} from "./credito";
 
-/** Primeiro dia da reforma nos documentos fiscais (ano de teste). */
-export const INICIO_IBS_CBS_NA_NOTA = "2026-01-01";
-/** Primeiro dia em que a falta de destaque custa crédito (ver credito.ts). */
-const INICIO_CREDITO = "2027-01-01";
+/** Colunas de IBS/CBS que a conferência lê (o crédito presumido do emitente não entra). */
+type ColunasConferidas = Omit<ColunasIbsCbs, "cCredPres" | "credPresCents">;
 
 /** Item como a conferência enxerga: colunas de ItemNota, com alíquotas em texto decimal. */
-export type ItemParaConferir = {
-  ncm: string | null;
-  nbs: string | null;
-  cst: string | null;
-  cClassTrib: string | null;
-  ibsCbsBaseCents: number | null;
-  pCbs: string | null;
-  pIbsUf: string | null;
-  pIbsMun: string | null;
-  pRedCbs: string | null;
-  pRedIbs: string | null;
-  cbsCents: number | null;
-  ibsUfCents: number | null;
-  ibsMunCents: number | null;
-  ibsCbsDiferidoCents: number | null;
-};
+export type ItemParaConferir = { ncm: string | null; nbs: string | null } & ColunasConferidas;
 
 /** O que a conferência precisa da ClassificacaoTributaria (ClassificacaoTributariaRef serve). */
 export type ClassificacaoParaConferir = ClassificacaoParaCredito & {
@@ -51,8 +51,8 @@ export type ContextoConferencia = {
   /** Emissão da nota, aaaa-mm-dd. */
   dataEmissao: string;
   crtEmitente: string | null;
-  /** Todas as vigências dos códigos da nota. */
-  classificacoes: readonly ClassificacaoParaConferir[];
+  /** Todas as vigências dos códigos da nota (lista ou índice por código). */
+  classificacoes: Classificacoes<ClassificacaoParaConferir>;
   nomenclaturas: readonly NomenclaturaRef[];
   /** total/IBSCBSTot; nulo quando a nota não traz (ou já foi salva: os totais não são guardados). */
   totais?: TotaisIbsCbs | null;
@@ -81,7 +81,7 @@ export type AchadoConferencia = {
 };
 
 /** Arredondamento do fornecedor: 1 centavo por tributo (e por item nos totais). */
-export const TOLERANCIA_CENTAVOS = 1;
+const TOLERANCIA_CENTAVOS = 1;
 const TOLERANCIA_PERCENTUAL = 0.0001;
 
 function numero(texto: string | null): number {
@@ -124,10 +124,16 @@ function tributosDoItem(i: ItemParaConferir): Tributo[] {
   ];
 }
 
-const temIbsCbs = (i: ItemParaConferir) => !!i.cst || !!i.cClassTrib;
-const destacado = (i: ItemParaConferir) => (i.cbsCents ?? 0) + (i.ibsUfCents ?? 0) + (i.ibsMunCents ?? 0);
+/** Registra um achado já com o item e a severidade. */
+type Anotar = (codigo: CodigoAchado, mensagem: string) => void;
 
-function conferirValores(i: ItemParaConferir, itemIndex: number, achados: AchadoConferencia[]) {
+const anotador =
+  (achados: AchadoConferencia[], itemIndex: number | null, severidade: Severidade = "ATENCAO"): Anotar =>
+  (codigo, mensagem) => {
+    achados.push({ itemIndex, severidade, codigo, mensagem });
+  };
+
+function conferirValores(i: ItemParaConferir, atencao: Anotar) {
   const base = i.ibsCbsBaseCents;
   if (base === null || base <= 0) return;
   // só os tributos com alíquota informada: monofásico e isenção não têm base × alíquota
@@ -135,8 +141,7 @@ function conferirValores(i: ItemParaConferir, itemIndex: number, achados: Achado
   if (tributos.length === 0) return;
   const esperado = (t: Tributo) => (base * numero(t.aliquota) * (1 - numero(t.reducao) / 100)) / 100;
   const diferido = i.ibsCbsDiferidoCents ?? 0;
-  const aviso = (mensagem: string) =>
-    achados.push({ itemIndex, severidade: "ATENCAO", codigo: "VALOR_DIVERGENTE", mensagem });
+  const aviso = (mensagem: string) => atencao("VALOR_DIVERGENTE", mensagem);
 
   if (diferido > 0) {
     // o valor destacado já desconta o diferimento, que vem somado dos três tributos
@@ -155,26 +160,20 @@ function conferirValores(i: ItemParaConferir, itemIndex: number, achados: Achado
 }
 
 // Imunidade (CST 410) traz pRed 100 na carga mas não tem gRed na nota: só se prevê redução com indReducao.
-function conferirReducao(i: ItemParaConferir, c: ClassificacaoParaConferir, itemIndex: number, achados: AchadoConferencia[]) {
+function conferirReducao(i: ItemParaConferir, c: ClassificacaoParaConferir, atencao: Anotar) {
   const pares: [string, string | null, string | null][] = [
     ["CBS", i.pRedCbs, c.indReducao ? c.pRedCbs : null],
     ["IBS", i.pRedIbs, c.indReducao ? c.pRedIbs : null],
   ];
   for (const [nome, informado, previsto] of pares) {
     if (Math.abs(numero(informado) - numero(previsto)) <= TOLERANCIA_PERCENTUAL) continue;
-    achados.push({
-      itemIndex,
-      severidade: "ATENCAO",
-      codigo: "REDUCAO_DIVERGENTE",
-      mensagem: `Redução de ${nome}: a nota informa ${numero(informado)}%, mas esta classificação prevê ${numero(previsto)}%.`,
-    });
+    atencao("REDUCAO_DIVERGENTE", `Redução de ${nome}: a nota informa ${numero(informado)}%, mas esta classificação prevê ${numero(previsto)}%.`);
   }
 }
 
-function conferirNomenclatura(i: ItemParaConferir, c: ClassificacaoParaConferir, ctx: ContextoConferencia, itemIndex: number, achados: AchadoConferencia[]) {
-  const linhas = ctx.nomenclaturas.filter(
-    (l) => l.cClassTrib === c.codigo && l.inicioVigencia <= ctx.dataEmissao && (l.fimVigencia === null || ctx.dataEmissao <= l.fimVigencia),
-  );
+// `daClassificacao`: as linhas de nomenclatura do cClassTrib, de todas as vigências.
+function conferirNomenclatura(i: ItemParaConferir, c: ClassificacaoParaConferir, daClassificacao: readonly NomenclaturaRef[], dataEmissao: string, atencao: Anotar) {
+  const linhas = daClassificacao.filter((l) => l.inicioVigencia <= dataEmissao && (l.fimVigencia === null || dataEmissao <= l.fimVigencia));
   if (linhas.length === 0) return;
   // NCM "00" é o que a nota usa quando não há NCM (serviço): não diz nada
   const ncm = soDigitos(i.ncm);
@@ -186,16 +185,14 @@ function conferirNomenclatura(i: ItemParaConferir, c: ClassificacaoParaConferir,
   // com NCM e NBS, basta um casar; sem nenhum que dê para avaliar, não acusa
   if (veredictos.length === 0 || veredictos.includes(true)) return;
   const qual = usaNcm && nbs ? `NCM ${i.ncm} / NBS ${i.nbs}` : usaNcm ? `NCM ${i.ncm}` : `NBS ${i.nbs}`;
-  achados.push({
-    itemIndex,
-    severidade: "ATENCAO",
-    codigo: "NOMENCLATURA_INCOMPATIVEL",
-    mensagem: `O ${qual} não está entre os produtos ou serviços da classificação ${c.codigo}. O fornecedor pode ter usado a classificação errada.`,
-  });
+  atencao(
+    "NOMENCLATURA_INCOMPATIVEL",
+    `O ${qual} não está entre os produtos ou serviços da classificação ${c.codigo}. O fornecedor pode ter usado a classificação errada.`,
+  );
 }
 
-function conferirTotais(itens: readonly ItemParaConferir[], t: TotaisIbsCbs, achados: AchadoConferencia[]) {
-  const com = itens.filter(temIbsCbs);
+function conferirTotais(itens: readonly ItemParaConferir[], t: TotaisIbsCbs, atencao: Anotar) {
+  const com = itens.filter(temGrupoIbsCbs);
   const soma = (f: (i: ItemParaConferir) => number) => com.reduce((a, i) => a + f(i), 0);
   // 1 centavo por item; o monofásico (combustível) entra nos totais à parte (gMono)
   const tolerancia = Math.max(1, com.length) * TOLERANCIA_CENTAVOS;
@@ -206,68 +203,55 @@ function conferirTotais(itens: readonly ItemParaConferir[], t: TotaisIbsCbs, ach
   ];
   for (const [nome, itensCents, totalCents] of linhas) {
     if (Math.abs(itensCents - totalCents) <= tolerancia) continue;
-    achados.push({
-      itemIndex: null,
-      severidade: "ATENCAO",
-      codigo: "TOTAIS_DIVERGENTES",
-      mensagem: `A soma dos itens (${nome}) dá ${formatarMoeda(itensCents)}, mas o total da nota informa ${formatarMoeda(totalCents)}.`,
-    });
+    atencao("TOTAIS_DIVERGENTES", `A soma dos itens (${nome}) dá ${formatarMoeda(itensCents)}, mas o total da nota informa ${formatarMoeda(totalCents)}.`);
   }
 }
 
 export function conferirTributacao(itens: readonly ItemParaConferir[], ctx: ContextoConferencia): AchadoConferencia[] {
   const achados: AchadoConferencia[] = [];
+  // montados uma vez: cada item busca só as linhas do próprio código
+  const classificacoes = indexarClassificacoes(ctx.classificacoes);
+  const nomenclaturas = Map.groupBy(ctx.nomenclaturas, (l) => l.cClassTrib);
 
   itens.forEach((item, itemIndex) => {
-    if (!temIbsCbs(item)) return;
+    if (!temGrupoIbsCbs(item)) return;
+    const atencao = anotador(achados, itemIndex);
     if (!item.cClassTrib) {
-      achados.push({ itemIndex, severidade: "ATENCAO", codigo: "CLASSIFICACAO_INEXISTENTE", mensagem: "O item tem IBS/CBS, mas a nota não informa a classificação tributária." });
+      atencao("CLASSIFICACAO_INEXISTENTE", "O item tem IBS/CBS, mas a nota não informa a classificação tributária.");
       return;
     }
-    const existe = ctx.classificacoes.some((c) => c.codigo === item.cClassTrib);
-    const c = classificacaoVigente(ctx.classificacoes, item.cClassTrib, ctx.dataEmissao);
+    const c = classificacaoVigente(classificacoes, item.cClassTrib, ctx.dataEmissao);
     if (!c) {
-      achados.push(
-        existe
-          ? { itemIndex, severidade: "ATENCAO", codigo: "CLASSIFICACAO_FORA_DE_VIGENCIA", mensagem: `A classificação ${item.cClassTrib} não valia na data de emissão da nota.` }
-          : { itemIndex, severidade: "ATENCAO", codigo: "CLASSIFICACAO_INEXISTENTE", mensagem: `A classificação ${item.cClassTrib} não existe na tabela da Receita. Confira o código com o fornecedor.` },
-      );
+      if (classificacoes.has(item.cClassTrib))
+        atencao("CLASSIFICACAO_FORA_DE_VIGENCIA", `A classificação ${item.cClassTrib} não valia na data de emissão da nota.`);
+      else
+        atencao("CLASSIFICACAO_INEXISTENTE", `A classificação ${item.cClassTrib} não existe na tabela da Receita. Confira o código com o fornecedor.`);
     } else {
-      if (item.cst && item.cst !== c.cst)
-        achados.push({ itemIndex, severidade: "ATENCAO", codigo: "CST_DIVERGENTE", mensagem: `A nota usa o CST ${item.cst}, mas a classificação ${c.codigo} pede o CST ${c.cst}.` });
-      conferirNomenclatura(item, c, ctx, itemIndex, achados);
-      conferirReducao(item, c, itemIndex, achados);
+      if (item.cst && item.cst !== c.cst) atencao("CST_DIVERGENTE", `A nota usa o CST ${item.cst}, mas a classificação ${c.codigo} pede o CST ${c.cst}.`);
+      conferirNomenclatura(item, c, nomenclaturas.get(c.codigo) ?? [], ctx.dataEmissao, atencao);
+      conferirReducao(item, c, atencao);
 
-      const valor = formatarMoeda(destacado(item));
-      if (destacado(item) > 0 && !c.apropriaCreditoCbs && !c.apropriaCreditoIbs)
-        achados.push({
-          itemIndex,
-          severidade: "INFO",
-          codigo: "CREDITO_VEDADO",
-          mensagem: `Esta classificação não dá crédito: os ${valor} de IBS/CBS deste item não voltam como crédito e ficam no custo.`,
-        });
-      else if (destacado(item) > 0 && c.apropriaCreditoCbs !== c.apropriaCreditoIbs)
-        achados.push({
-          itemIndex,
-          severidade: "INFO",
-          codigo: "CREDITO_PARCIAL",
-          mensagem: `Só ${c.apropriaCreditoCbs ? "a CBS" : "o IBS"} deste item volta como crédito; o resto dos ${valor} fica no custo.`,
-        });
+      const destacado = ibsCbsDestacadoCents(item);
+      const valor = formatarMoeda(destacado);
+      const info = anotador(achados, itemIndex, "INFO");
+      const apropriacao = apropriacaoDaClassificacao(c);
+      if (destacado > 0 && apropriacao === "VEDADO")
+        info("CREDITO_VEDADO", `Esta classificação não dá crédito: os ${valor} de IBS/CBS deste item não voltam como crédito e ficam no custo.`);
+      else if (destacado > 0 && apropriacao === "PARCIAL")
+        info("CREDITO_PARCIAL", `Só ${c.apropriaCreditoCbs ? "a CBS" : "o IBS"} deste item volta como crédito; o resto dos ${valor} fica no custo.`);
     }
-    conferirValores(item, itemIndex, achados);
+    conferirValores(item, atencao);
   });
 
   // regime normal deve destacar desde 2026; sem destaque o comprador não tem crédito
-  if (ctx.crtEmitente === "3" && ctx.dataEmissao >= INICIO_IBS_CBS_NA_NOTA && itens.length > 0 && !itens.some(temIbsCbs))
-    achados.push({
-      itemIndex: null,
-      // 2026 é o ano de teste: a falta ainda não custa crédito
-      severidade: ctx.dataEmissao >= INICIO_CREDITO ? "ATENCAO" : "INFO",
-      codigo: "SEM_DESTAQUE_DO_FORNECEDOR",
-      mensagem: "O fornecedor é do regime normal e a nota não traz IBS/CBS. Sem destaque, não há crédito nesta compra.",
-    });
+  if (regimeDoCrt(ctx.crtEmitente) === "NORMAL" && ctx.dataEmissao >= INICIO_IBS_CBS_NA_NOTA && itens.length > 0 && !itens.some(temGrupoIbsCbs))
+    // 2026 é o ano de teste: a falta ainda não custa crédito
+    anotador(achados, null, ctx.dataEmissao >= INICIO_CREDITO_IBS_CBS ? "ATENCAO" : "INFO")(
+      "SEM_DESTAQUE_DO_FORNECEDOR",
+      "O fornecedor é do regime normal e a nota não traz IBS/CBS. Sem destaque, não há crédito nesta compra.",
+    );
 
-  if (ctx.totais) conferirTotais(itens, ctx.totais, achados);
+  if (ctx.totais) conferirTotais(itens, ctx.totais, anotador(achados, null));
   return achados;
 }
 
@@ -275,54 +259,14 @@ export function conferirTributacao(itens: readonly ItemParaConferir[], ctx: Cont
 export function itemDaNfe(item: {
   ncm: string | null;
   nbs?: string | null;
-  ibsCbs?: Omit<ItemParaConferir, "ncm" | "nbs"> | null;
+  ibsCbs?: Partial<ColunasConferidas> | null;
 }): ItemParaConferir {
-  const t = item.ibsCbs;
-  return {
-    ncm: item.ncm,
-    nbs: item.nbs ?? null,
-    cst: t?.cst ?? null,
-    cClassTrib: t?.cClassTrib ?? null,
-    ibsCbsBaseCents: t?.ibsCbsBaseCents ?? null,
-    pCbs: t?.pCbs ?? null,
-    pIbsUf: t?.pIbsUf ?? null,
-    pIbsMun: t?.pIbsMun ?? null,
-    pRedCbs: t?.pRedCbs ?? null,
-    pRedIbs: t?.pRedIbs ?? null,
-    cbsCents: t?.cbsCents ?? null,
-    ibsUfCents: t?.ibsUfCents ?? null,
-    ibsMunCents: t?.ibsMunCents ?? null,
-    ibsCbsDiferidoCents: t?.ibsCbsDiferidoCents ?? null,
-  };
+  return { ncm: item.ncm, nbs: item.nbs ?? null, ...colunasIbsCbs(item.ibsCbs) };
 }
-
-type Decimal = { toString(): string } | null;
 
 /** ItemNota gravado (alíquotas Decimal do Prisma) no formato da conferência. */
 export function itemDaNota(
-  item: Omit<ItemParaConferir, "pCbs" | "pIbsUf" | "pIbsMun" | "pRedCbs" | "pRedIbs"> & {
-    pCbs: Decimal;
-    pIbsUf: Decimal;
-    pIbsMun: Decimal;
-    pRedCbs: Decimal;
-    pRedIbs: Decimal;
-  },
+  item: { ncm: string | null; nbs: string | null } & Omit<ColunasIbsCbsGravadas, "cCredPres" | "credPresCents">,
 ): ItemParaConferir {
-  const texto = (d: Decimal) => (d === null ? null : d.toString());
-  return {
-    ncm: item.ncm,
-    nbs: item.nbs,
-    cst: item.cst,
-    cClassTrib: item.cClassTrib,
-    ibsCbsBaseCents: item.ibsCbsBaseCents,
-    pCbs: texto(item.pCbs),
-    pIbsUf: texto(item.pIbsUf),
-    pIbsMun: texto(item.pIbsMun),
-    pRedCbs: texto(item.pRedCbs),
-    pRedIbs: texto(item.pRedIbs),
-    cbsCents: item.cbsCents,
-    ibsUfCents: item.ibsUfCents,
-    ibsMunCents: item.ibsMunCents,
-    ibsCbsDiferidoCents: item.ibsCbsDiferidoCents,
-  };
+  return { ncm: item.ncm, nbs: item.nbs, ...ibsCbsDoGravado(item) };
 }

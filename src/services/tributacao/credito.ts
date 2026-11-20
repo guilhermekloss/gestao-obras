@@ -1,6 +1,5 @@
 import type { RegimeIbsCbs } from "@prisma/client";
-import { dataParaInput } from "@/lib/format";
-import { ibsCbsDestacadoCents } from "./ibs-cbs";
+import { diaDe, ibsCbsDestacadoCents, INICIO_CREDITO_IBS_CBS, type ColunasCreditoIbsCbs } from "./ibs-cbs";
 
 // Crédito de IBS/CBS do adquirente (a construtora). Premissas, todas conservadoras:
 // - só a empresa no regime regular credita; Simples e "não informado" não (o tributo fica no custo);
@@ -9,9 +8,6 @@ import { ibsCbsDestacadoCents } from "./ibs-cbs";
 //   quando a classificação tributária (tabela da Receita) permite a apropriação pelo adquirente;
 // - classificação ausente, fora da vigência ou desconhecida: crédito zero até alguém conferir;
 // - crédito presumido do adquirente não vem no documento: só é sinalizado, não somado.
-
-/** Primeiro dia com crédito de IBS/CBS no custo (aaaa-mm-dd). */
-export const INICIO_CREDITO_IBS_CBS = "2027-01-01";
 
 /** O que a regra precisa da ClassificacaoTributaria; vigências em aaaa-mm-dd, fim inclusive. */
 export type ClassificacaoParaCredito = {
@@ -24,12 +20,10 @@ export type ClassificacaoParaCredito = {
 };
 
 /** Colunas de ItemNota usadas no cálculo (o item lido do XML, TributacaoIbsCbs, também serve). */
-export type ItemParaCredito = {
-  cClassTrib: string | null;
-  cbsCents: number | null;
-  ibsUfCents: number | null;
-  ibsMunCents: number | null;
-};
+export type ItemParaCredito = ColunasCreditoIbsCbs;
+
+/** Lista de classificações ou o índice por código (indexarClassificacoes), para muitos itens sem varrer a lista a cada um. */
+export type Classificacoes<C extends ClassificacaoParaCredito = ClassificacaoParaCredito> = readonly C[] | ReadonlyMap<string, readonly C[]>;
 
 export type SituacaoCredito =
   /** CBS e IBS destacados viram crédito. */
@@ -68,27 +62,36 @@ export type ContextoCredito = {
   classificacao?: ClassificacaoParaCredito | null;
 };
 
-function diaDe(data: Date | string): string {
-  return typeof data === "string" ? data.slice(0, 10) : dataParaInput(data);
-}
-
 function vigente(c: ClassificacaoParaCredito, dia: string): boolean {
   return c.inicioVigencia <= dia && (c.fimVigencia === null || dia <= c.fimVigencia);
 }
 
+/** Classificações agrupadas por código; um índice já pronto volta como está. */
+export function indexarClassificacoes<C extends ClassificacaoParaCredito>(classificacoes: Classificacoes<C>): ReadonlyMap<string, readonly C[]> {
+  return "get" in classificacoes ? classificacoes : Map.groupBy(classificacoes, (c) => c.codigo);
+}
+
 /** Classificação do código na data (a de início mais recente, se houver mais de uma); nula se nenhuma vale. */
 export function classificacaoVigente<C extends ClassificacaoParaCredito>(
-  classificacoes: readonly C[],
+  classificacoes: Classificacoes<C>,
   codigo: string | null | undefined,
   data: Date | string,
 ): C | null {
   if (!codigo) return null;
   const dia = diaDe(data);
   let melhor: C | null = null;
-  for (const c of classificacoes) {
+  for (const c of "get" in classificacoes ? (classificacoes.get(codigo) ?? []) : classificacoes) {
     if (c.codigo === codigo && vigente(c, dia) && (!melhor || c.inicioVigencia > melhor.inicioVigencia)) melhor = c;
   }
   return melhor;
+}
+
+/** O que a classificação deixa o adquirente apropriar: os dois tributos, só um deles ou nenhum. */
+export function apropriacaoDaClassificacao(
+  c: Pick<ClassificacaoParaCredito, "apropriaCreditoCbs" | "apropriaCreditoIbs">,
+): Extract<SituacaoCredito, "PERMITIDO" | "PARCIAL" | "VEDADO"> {
+  if (c.apropriaCreditoCbs && c.apropriaCreditoIbs) return "PERMITIDO";
+  return c.apropriaCreditoCbs || c.apropriaCreditoIbs ? "PARCIAL" : "VEDADO";
 }
 
 export function creditoDoItem(item: ItemParaCredito, ctx: ContextoCredito): CreditoDoItem {
@@ -113,10 +116,8 @@ export function creditoDoItem(item: ItemParaCredito, ctx: ContextoCredito): Cred
 
   const cbsCreditoCents = c.apropriaCreditoCbs ? (item.cbsCents ?? 0) : 0;
   const ibsCreditoCents = c.apropriaCreditoIbs ? (item.ibsUfCents ?? 0) + (item.ibsMunCents ?? 0) : 0;
-  const situacao: SituacaoCredito =
-    c.apropriaCreditoCbs && c.apropriaCreditoIbs ? "PERMITIDO" : c.apropriaCreditoCbs || c.apropriaCreditoIbs ? "PARCIAL" : "VEDADO";
   return {
-    situacao,
+    situacao: apropriacaoDaClassificacao(c),
     destacadoCents,
     creditoCents: cbsCreditoCents + ibsCreditoCents,
     cbsCreditoCents,
@@ -128,13 +129,14 @@ export function creditoDoItem(item: ItemParaCredito, ctx: ContextoCredito): Cred
 /** Crédito de todos os itens de um documento, escolhendo a classificação vigente de cada um. */
 export function creditoDaNota(
   itens: readonly ItemParaCredito[],
-  ctx: Omit<ContextoCredito, "classificacao"> & { classificacoes: readonly ClassificacaoParaCredito[] },
+  ctx: Omit<ContextoCredito, "classificacao"> & { classificacoes: Classificacoes },
 ): { creditoCents: number; destacadoCents: number; itens: CreditoDoItem[] } {
+  const indice = indexarClassificacoes(ctx.classificacoes);
   const porItem = itens.map((item) =>
     creditoDoItem(item, {
       regimeEmpresa: ctx.regimeEmpresa,
       dataEmissao: ctx.dataEmissao,
-      classificacao: classificacaoVigente(ctx.classificacoes, item.cClassTrib, ctx.dataEmissao),
+      classificacao: classificacaoVigente(indice, item.cClassTrib, ctx.dataEmissao),
     }),
   );
   return {

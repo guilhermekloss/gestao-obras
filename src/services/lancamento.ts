@@ -10,12 +10,18 @@ import {
   type ParcelaExistente,
 } from "./parcelas";
 import { erroEtapasDoRateio } from "./obras";
-import { chaveDocumentoValida, normalizarNumeroNf } from "./leitura-documento";
+import { chaveDocumentoValida, normalizarNumeroNf, rotuloDaChave } from "./leitura-documento";
 import { criarFornecedorValidado, validarDocumentoFornecedor } from "./fornecedores";
 import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
 import { buscarMaterialPorNome, criarMaterialValidado, registrarApelidos } from "./materiais-db";
 import { normalizarUnidade } from "./materiais";
-import type { TributacaoIbsCbs } from "./tributacao/ibs-cbs";
+import {
+  colunasIbsCbs,
+  ibsCbsDoGravado,
+  SELECT_IBS_CBS,
+  type ColunasIbsCbsGravadas,
+  type TributacaoIbsCbs,
+} from "./tributacao/ibs-cbs";
 
 // Todo lançamento (form, leitura, XML, planilha) passa por aqui: as regras e a gravação moram num lugar só.
 
@@ -103,11 +109,6 @@ const MSG_OBRA_REPETIDA = "A mesma obra aparece mais de uma vez no rateio. Junte
 // (a mesma nota lida da foto como "000228" e depois importada do XML como "228").
 export function numeroDoLancamento(tipo: TipoDocumento, numero: string): string {
   return exigeNumero(tipo) ? normalizarNumeroNf(numero) : numero.trim();
-}
-
-// A chave de 50 posições é da NFS-e nacional; a de 44, da NF-e.
-function rotuloDaChave(chave: string): { documento: string; sigla: string } {
-  return chave.length === 50 ? { documento: "NFS-e", sigla: "NFS-e" } : { documento: "NF-e", sigla: "NF" };
 }
 
 // Só os dígitos do CNPJ/CPF: "12.345.678/0001-95" e "12345678000195" são o mesmo fornecedor.
@@ -205,63 +206,19 @@ function recusaDeUnicidade(erro: unknown, l: Lancamento, numero: string): Recusa
   return null;
 }
 
-type DecimalGravado = { toString(): string } | null;
-
 /** Item como está no banco: só o que a edição precisa para não perder os dados fiscais. */
-export type ItemFiscalGravado = {
-  descricao: string;
-  ncm: string | null;
-  nbs: string | null;
-  cst: string | null;
-  cClassTrib: string | null;
-  ibsCbsBaseCents: number | null;
-  pCbs: DecimalGravado;
-  pIbsUf: DecimalGravado;
-  pIbsMun: DecimalGravado;
-  pRedCbs: DecimalGravado;
-  pRedIbs: DecimalGravado;
-  cbsCents: number | null;
-  ibsUfCents: number | null;
-  ibsMunCents: number | null;
-  ibsCbsDiferidoCents: number | null;
-  cCredPres: string | null;
-  credPresCents: number | null;
-};
+export type ItemFiscalGravado = { descricao: string; ncm: string | null; nbs: string | null } & ColunasIbsCbsGravadas;
 
 const SELECAO_FISCAL = {
   descricao: true,
   ncm: true,
   nbs: true,
-  cst: true,
-  cClassTrib: true,
-  ibsCbsBaseCents: true,
-  pCbs: true,
-  pIbsUf: true,
-  pIbsMun: true,
-  pRedCbs: true,
-  pRedIbs: true,
-  cbsCents: true,
-  ibsUfCents: true,
-  ibsMunCents: true,
-  ibsCbsDiferidoCents: true,
-  cCredPres: true,
-  credPresCents: true,
+  ...SELECT_IBS_CBS,
 } as const satisfies Record<keyof ItemFiscalGravado, true>;
 
 function tributacaoGravada(g: ItemFiscalGravado): TributacaoIbsCbs | null {
   if (!g.cst || !g.cClassTrib) return null;
-  const decimal = (v: DecimalGravado) => (v === null ? null : v.toString());
-  const { descricao: _descricao, ncm: _ncm, nbs: _nbs, ...valores } = g;
-  return {
-    ...valores,
-    cst: g.cst,
-    cClassTrib: g.cClassTrib,
-    pCbs: decimal(g.pCbs),
-    pIbsUf: decimal(g.pIbsUf),
-    pIbsMun: decimal(g.pIbsMun),
-    pRedCbs: decimal(g.pRedCbs),
-    pRedIbs: decimal(g.pRedIbs),
-  };
+  return { ...ibsCbsDoGravado(g), cst: g.cst, cClassTrib: g.cClassTrib };
 }
 
 // A edição pelo formulário não traz NCM nem IBS/CBS: o item de mesma descrição herda o que o documento trouxe
@@ -274,28 +231,6 @@ export function herdarDadosFiscais(itens: ItemDoLancamento[], gravados: ItemFisc
     const g = fila.get(item.descricao.trim())?.shift();
     return g ? { ...item, ncm: g.ncm, nbs: g.nbs, ibsCbs: tributacaoGravada(g) } : item;
   });
-}
-
-function colunasFiscais(item: ItemDoLancamento) {
-  const t = item.ibsCbs;
-  return {
-    ncm: item.ncm ?? null,
-    nbs: item.nbs ?? null,
-    cst: t?.cst ?? null,
-    cClassTrib: t?.cClassTrib ?? null,
-    ibsCbsBaseCents: t?.ibsCbsBaseCents ?? null,
-    pCbs: t?.pCbs ?? null,
-    pIbsUf: t?.pIbsUf ?? null,
-    pIbsMun: t?.pIbsMun ?? null,
-    pRedCbs: t?.pRedCbs ?? null,
-    pRedIbs: t?.pRedIbs ?? null,
-    cbsCents: t?.cbsCents ?? null,
-    ibsUfCents: t?.ibsUfCents ?? null,
-    ibsMunCents: t?.ibsMunCents ?? null,
-    ibsCbsDiferidoCents: t?.ibsCbsDiferidoCents ?? null,
-    cCredPres: t?.cCredPres ?? null,
-    credPresCents: t?.credPresCents ?? null,
-  };
 }
 
 function totalDoItem(i: ItemDoLancamento): number {
@@ -400,7 +335,9 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
       unitCents: item.unitCents,
       descontoCents: item.descontoCents,
       totalCents: totalDoItem(item),
-      ...colunasFiscais(item),
+      ncm: item.ncm ?? null,
+      nbs: item.nbs ?? null,
+      ...colunasIbsCbs(item.ibsCbs),
     })),
   });
 

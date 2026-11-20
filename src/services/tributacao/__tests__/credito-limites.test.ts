@@ -4,10 +4,10 @@ import {
   classificacaoVigente,
   creditoDoItem,
   custoLiquidoCents,
-  INICIO_CREDITO_IBS_CBS,
   type ClassificacaoParaCredito,
   type ContextoCredito,
 } from "../credito";
+import { INICIO_CREDITO_IBS_CBS } from "../ibs-cbs";
 
 const base: ClassificacaoParaCredito = {
   codigo: "000001",

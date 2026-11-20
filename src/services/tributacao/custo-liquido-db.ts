@@ -1,8 +1,9 @@
 import { cache } from "react";
 import type { Prisma, RegimeIbsCbs } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { carregarEmpresa } from "../empresa";
+import { carregarRegimeIbsCbs } from "../empresa";
 import { carregarClassificacoes } from "./classificacao-db";
+import { indexarClassificacoes } from "./credito";
 import {
   agregarCustoLiquido,
   codigosParaClassificar,
@@ -12,29 +13,22 @@ import {
   type CustoLiquido,
   type ItemParaCustoLiquido,
 } from "./custo-liquido";
+import { INICIO_IBS_CBS_NA_NOTA, SELECT_CREDITO_IBS_CBS, type ColunasCreditoIbsCbs } from "./ibs-cbs";
 
 // Só as notas com IBS/CBS destacado entram: sem destaque não há crédito, e o realizado bruto de todas
 // continua vindo de custos.ts. A reforma começou a destacar em 2026, então o corte por data usa o índice de dataCompra.
-const INICIO_DESTAQUE = new Date(2026, 0, 1);
+const INICIO_DESTAQUE = new Date(`${INICIO_IBS_CBS_NA_NOTA}T00:00:00`);
 const COM_DESTAQUE: Prisma.ItemNotaWhereInput = {
   OR: [{ cbsCents: { gt: 0 } }, { ibsUfCents: { gt: 0 } }, { ibsMunCents: { gt: 0 } }],
 };
 
-export const CAMPOS_TRIBUTARIOS = {
-  cClassTrib: true,
-  cbsCents: true,
-  ibsUfCents: true,
-  ibsMunCents: true,
-} as const;
-
-type ItemTributario = Pick<ItemParaCustoLiquido, "cClassTrib" | "cbsCents" | "ibsUfCents" | "ibsMunCents">;
-
-/** Regime da empresa e as classificações dos itens dados (duas leituras no máximo; a segunda só com regime regular e destaque). */
+/** Regime da empresa e as classificações dos itens dados, já indexadas (a segunda leitura só com regime regular e destaque). */
 export async function carregarContextoCredito(
-  notas: readonly { dataCompra: Date | string; itens: readonly ItemTributario[] }[],
+  notas: readonly { dataCompra: Date | string; itens: readonly ColunasCreditoIbsCbs[] }[],
 ): Promise<ContextoCustoLiquido> {
-  const regime: RegimeIbsCbs = (await carregarEmpresa())?.regimeIbsCbs ?? "NAO_INFORMADO";
-  return { regimeEmpresa: regime, classificacoes: await carregarClassificacoes(codigosParaClassificar(notas, regime)) };
+  const regime = await carregarRegimeIbsCbs();
+  const classificacoes = await carregarClassificacoes(codigosParaClassificar(notas, regime));
+  return { regimeEmpresa: regime, classificacoes: indexarClassificacoes(classificacoes) };
 }
 
 export type CreditoIbsCbs = {
@@ -56,7 +50,7 @@ export const carregarCreditoIbsCbs = cache(async (obraId: string = ""): Promise<
     },
     select: {
       dataCompra: true,
-      itens: { select: { totalCents: true, ...CAMPOS_TRIBUTARIOS } },
+      itens: { select: { totalCents: true, ...SELECT_CREDITO_IBS_CBS } },
       rateios: { where: obraId ? { obraId } : undefined, select: { obraId: true, etapaId: true, fracaoBp: true } },
     },
   });
@@ -66,7 +60,7 @@ export const carregarCreditoIbsCbs = cache(async (obraId: string = ""): Promise<
   return { regime: ctx.regimeEmpresa, total: somarCustosLiquidos(porObra.values()), porObra, porEtapa };
 });
 
-/** Itens com o total já líquido do crédito, para a curva ABC. As notas precisam trazer dataCompra e os campos tributários. */
+/** Itens com o total já líquido do crédito, para a curva ABC. As notas precisam trazer dataCompra, a descrição e SELECT_CREDITO_IBS_CBS. */
 export async function liquidarItensDasNotas<N extends { dataCompra: Date | string; itens: ItemParaCustoLiquido[] }>(
   notas: N[],
 ): Promise<N[]> {

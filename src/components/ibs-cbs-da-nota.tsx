@@ -5,20 +5,13 @@ import { StatusBadge, type Estado } from "@/components/status-badge";
 import { formatarMoeda } from "@/lib/format";
 import type { SituacaoCredito } from "@/services/tributacao/credito";
 import type { IbsCbsDaNota } from "@/services/tributacao/conferencia-db";
+import { ibsCbsDestacadoCents, temGrupoIbsCbs, type ColunasIbsCbs } from "@/services/tributacao/ibs-cbs";
 
 /** Colunas de ItemNota mostradas na seção (alíquotas em texto decimal). */
-export type ItemIbsCbs = {
-  descricao: string;
-  cst: string | null;
-  cClassTrib: string | null;
-  ibsCbsBaseCents: number | null;
-  pCbs: string | null;
-  pIbsUf: string | null;
-  pIbsMun: string | null;
-  cbsCents: number | null;
-  ibsUfCents: number | null;
-  ibsMunCents: number | null;
-};
+export type ItemIbsCbs = { descricao: string } & Pick<
+  ColunasIbsCbs,
+  "cst" | "cClassTrib" | "ibsCbsBaseCents" | "pCbs" | "pIbsUf" | "pIbsMun" | "cbsCents" | "ibsUfCents" | "ibsMunCents"
+>;
 
 const SITUACAO: Record<SituacaoCredito, { rotulo: string; estado: Estado }> = {
   PERMITIDO: { rotulo: "Gera crédito", estado: "no-prazo" },
@@ -44,7 +37,7 @@ function aliquotas(i: ItemIbsCbs): string | null {
 
 /** Seção "IBS/CBS" do detalhe da nota: o que o fornecedor destacou, a situação do crédito e os avisos. */
 export function IbsCbsDaNota({ itens, analise }: { itens: ItemIbsCbs[]; analise: IbsCbsDaNota }) {
-  const linhas = itens.map((item, i) => ({ item, i, ...analise.itens[i] })).filter((l) => l.item.cst || l.item.cClassTrib);
+  const linhas = itens.map((item, i) => ({ item, i, ...analise.itens[i] })).filter((l) => temGrupoIbsCbs(l.item));
   const descricoes = itens.map((i) => i.descricao);
 
   const colunas: ColunaDados<(typeof linhas)[number]>[] = [
@@ -76,7 +69,7 @@ export function IbsCbsDaNota({ itens, analise }: { itens: ItemIbsCbs[]; analise:
       numerica: true,
       celula: ({ item }) => (
         <>
-          <p>{formatarMoeda((item.cbsCents ?? 0) + (item.ibsUfCents ?? 0) + (item.ibsMunCents ?? 0))}</p>
+          <p>{formatarMoeda(ibsCbsDestacadoCents(item))}</p>
           <p className="text-xs font-normal text-muted-foreground">
             CBS {formatarMoeda(item.cbsCents ?? 0)} · IBS {formatarMoeda((item.ibsUfCents ?? 0) + (item.ibsMunCents ?? 0))}
           </p>

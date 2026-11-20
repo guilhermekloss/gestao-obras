@@ -12,7 +12,7 @@ import { RegimeFornecedorBadge } from "../regime-badge";
 import { AvisoRegimeCredito } from "@/components/aviso-regime-credito";
 import { calcularDependencia, PESOS } from "@/services/dependencia";
 import { carregarCreditoDoFornecedor, carregarCrtPorFornecedor } from "@/services/tributacao/custo-efetivo-db";
-import { regimeDoCrt } from "@/services/tributacao/custo-efetivo";
+import { regimeDoCrt } from "@/services/tributacao/ibs-cbs";
 import { BP_TOTAL } from "@/services/rateio";
 import { acumular } from "@/services/custos";
 import { normalizarDescricao } from "@/services/materiais";

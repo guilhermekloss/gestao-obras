@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { z } from "zod";
-import type { Empresa, RegimeIbsCbs } from "@prisma/client";
+import type { Empresa, Prisma, RegimeIbsCbs } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { documentoValido } from "./leitura-documento";
 import { formatarDocumento } from "./nfe-xml";
@@ -60,6 +60,13 @@ export const regimeIbsCbsSchema = z.enum(["NAO_INFORMADO", "REGULAR", "SIMPLES_N
 
 // lida uma vez por requisição (layout, painel da captura, página Empresa); fora da renderização (actions, rotas) o cache não guarda nada
 export const carregarEmpresa = cache(async (): Promise<Empresa | null> => prisma.empresa.findUnique({ where: { id: ID_EMPRESA } }));
+
+/** Como a empresa apura IBS/CBS; sem cadastro, não informado. Com o prisma padrão aproveita a leitura em cache da requisição. */
+export async function carregarRegimeIbsCbs(db: Prisma.TransactionClient | typeof prisma = prisma): Promise<RegimeIbsCbs> {
+  const empresa =
+    db === prisma ? await carregarEmpresa() : await db.empresa.findUnique({ where: { id: ID_EMPRESA }, select: { regimeIbsCbs: true } });
+  return empresa?.regimeIbsCbs ?? "NAO_INFORMADO";
+}
 
 /** CNPJs da empresa (matriz primeiro). Sem cadastro, vale a variável CNPJS_EMPRESA da instalação antiga. */
 export function cnpjsDe(empresa: Pick<Empresa, "cnpj" | "filiais"> | null, env: Record<string, string | undefined> = process.env): string[] {

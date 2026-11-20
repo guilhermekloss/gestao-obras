@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
-const { carregarClassificacoes } = await import("../classificacao-db");
+const padraoFindMany = vi.fn();
+vi.mock("@/lib/prisma", () => ({ prisma: { classificacaoTributaria: { findMany: padraoFindMany } } }));
+const { carregarClassificacoes, esquecerClassificacoes, memoDaTabela } = await import("../classificacao-db");
 
 const linha = {
   codigo: "200038",
@@ -48,5 +49,38 @@ describe("carregarClassificacoes", () => {
     const db = banco();
     await carregarClassificacoes(undefined, db as never);
     expect(db.classificacaoTributaria.findMany.mock.calls[0][0]).toMatchObject({ where: undefined });
+  });
+});
+
+describe("carregarClassificacoes com o prisma padrão (memo)", () => {
+  it("lê a tabela inteira uma vez e filtra em memória pelos códigos", async () => {
+    esquecerClassificacoes();
+    padraoFindMany.mockReset().mockResolvedValue([linha, { ...linha, codigo: "000001" }]);
+    expect((await carregarClassificacoes(["000001"])).map((c) => c.codigo)).toEqual(["000001"]);
+    expect((await carregarClassificacoes()).map((c) => c.codigo)).toEqual(["200038", "000001"]);
+    expect(await carregarClassificacoes(["999999"])).toEqual([]);
+    expect(padraoFindMany).toHaveBeenCalledTimes(1);
+    expect(padraoFindMany.mock.calls[0][0]).toMatchObject({ where: undefined });
+  });
+
+  it("leitura que falhou não fica no memo: a próxima tenta de novo", async () => {
+    esquecerClassificacoes();
+    padraoFindMany.mockReset().mockRejectedValueOnce(new Error("banco fora")).mockResolvedValue([linha]);
+    await expect(carregarClassificacoes(["200038"])).rejects.toThrow("banco fora");
+    expect(await carregarClassificacoes(["200038"])).toHaveLength(1);
+    expect(padraoFindMany).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("memoDaTabela", () => {
+  it("chamadas ao mesmo tempo dividem a mesma leitura", async () => {
+    const ler = vi.fn(async () => [1]);
+    const m = memoDaTabela(ler);
+    const [a, b] = await Promise.all([m.obter(), m.obter()]);
+    expect(a).toBe(b);
+    expect(ler).toHaveBeenCalledTimes(1);
+    m.esquecer();
+    await m.obter();
+    expect(ler).toHaveBeenCalledTimes(2);
   });
 });

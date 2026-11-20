@@ -2,13 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const notaFindMany = vi.fn();
 const classificacaoFindMany = vi.fn();
-const carregarEmpresa = vi.fn();
+// o regime vem de carregarEmpresa (empresa.ts), que lê por aqui
+const empresaFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
-  prisma: { notaFiscal: { findMany: notaFindMany }, classificacaoTributaria: { findMany: classificacaoFindMany } },
+  prisma: {
+    notaFiscal: { findMany: notaFindMany },
+    classificacaoTributaria: { findMany: classificacaoFindMany },
+    empresa: { findUnique: empresaFindUnique },
+  },
 }));
-vi.mock("../../empresa", () => ({ carregarEmpresa }));
 
 const { carregarContextoCredito, carregarCreditoIbsCbs, liquidarItensDasNotas } = await import("../custo-liquido-db");
+const { esquecerClassificacoes } = await import("../classificacao-db");
 
 const linhaClassificacao = {
   codigo: "000001",
@@ -37,7 +42,8 @@ const notaDb = (dataCompra: Date, rateios: { obraId: string; etapaId: string | n
 
 beforeEach(() => {
   vi.clearAllMocks();
-  carregarEmpresa.mockResolvedValue({ regimeIbsCbs: "REGULAR" });
+  esquecerClassificacoes();
+  empresaFindUnique.mockResolvedValue({ regimeIbsCbs: "REGULAR" });
   classificacaoFindMany.mockResolvedValue([linhaClassificacao]);
 });
 
@@ -49,8 +55,11 @@ describe("carregarCreditoIbsCbs", () => {
     ]);
     await carregarCreditoIbsCbs();
     expect(notaFindMany).toHaveBeenCalledTimes(1);
+    // a tabela de classificações é lida inteira uma vez e fica em memória (classificacao-db.ts)
     expect(classificacaoFindMany).toHaveBeenCalledTimes(1);
-    expect(classificacaoFindMany.mock.calls[0][0]).toMatchObject({ where: { codigo: { in: ["000001"] } } });
+    expect(classificacaoFindMany.mock.calls[0][0]).toMatchObject({ where: undefined });
+    await carregarCreditoIbsCbs("o-de-novo");
+    expect(classificacaoFindMany).toHaveBeenCalledTimes(1);
     const arg = notaFindMany.mock.calls[0][0];
     expect(arg.where.dataCompra).toEqual({ gte: new Date(2026, 0, 1) });
     expect(arg.where.itens.some.OR).toHaveLength(3);
@@ -84,7 +93,7 @@ describe("carregarCreditoIbsCbs", () => {
   });
 
   it("regime que não creditar nem consulta classificações; o destacado fica na situação do regime", async () => {
-    carregarEmpresa.mockResolvedValue({ regimeIbsCbs: "SIMPLES_NACIONAL" });
+    empresaFindUnique.mockResolvedValue({ regimeIbsCbs: "SIMPLES_NACIONAL" });
     notaFindMany.mockResolvedValue([notaDb(new Date(2027, 2, 10, 12), [{ obraId: "o1", etapaId: null, fracaoBp: 10_000 }])]);
     const r = await carregarCreditoIbsCbs("o-simples");
     expect(classificacaoFindMany).not.toHaveBeenCalled();
@@ -92,7 +101,7 @@ describe("carregarCreditoIbsCbs", () => {
   });
 
   it("sem empresa cadastrada vale regime não informado; sem notas, tudo zero e nenhuma consulta de classificação", async () => {
-    carregarEmpresa.mockResolvedValue(null);
+    empresaFindUnique.mockResolvedValue(null);
     notaFindMany.mockResolvedValue([]);
     const r = await carregarCreditoIbsCbs("o-vazia");
     expect(r.regime).toBe("NAO_INFORMADO");
@@ -109,10 +118,11 @@ describe("carregarCreditoIbsCbs", () => {
 
 describe("carregarContextoCredito", () => {
   it("lê as classificações só dos itens com destaque", async () => {
-    await carregarContextoCredito([
+    classificacaoFindMany.mockResolvedValue(["000001", "200025", "777777"].map((codigo) => ({ ...linhaClassificacao, codigo })));
+    const ctx = await carregarContextoCredito([
       { dataCompra: "2027-01-01", itens: [itemDb, { ...itemDb, cClassTrib: "200025" }, { ...itemDb, cClassTrib: "777777", cbsCents: null, ibsUfCents: null, ibsMunCents: null }] },
     ]);
-    const codigos = classificacaoFindMany.mock.calls[0][0].where.codigo.in as string[];
+    const codigos = [...(ctx.classificacoes as ReadonlyMap<string, unknown>).keys()];
     expect(codigos.sort()).toEqual(["000001", "200025"]);
   });
 });

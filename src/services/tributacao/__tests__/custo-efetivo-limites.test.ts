@@ -8,10 +8,10 @@ import {
   custoEfetivoPorFornecedor,
   inicioDoPeriodo,
   normalizarUnidade,
-  regimeDoCrt,
   type CompraParaCusto,
   type ContextoCustoEfetivo,
 } from "../custo-efetivo";
+import { regimeDoCrt } from "../ibs-cbs";
 
 const classe: ClassificacaoParaCredito = {
   codigo: "000001",

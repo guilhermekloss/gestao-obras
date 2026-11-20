@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { carregarCurvaAbc, type ClasseAbc } from "@/services/analises";
 import { carregarCreditoIbsCbs } from "@/services/tributacao/custo-liquido-db";
-import { haCredito, modoDoCusto } from "@/services/tributacao/custo-liquido";
+import { modoDoCusto } from "@/services/tributacao/custo-liquido";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { SelectNativo } from "@/components/select-nativo";
 import { Badge } from "@/components/ui/badge";
@@ -56,8 +56,7 @@ export default async function CurvaAbcPage({
 
   const [obras, credito] = await Promise.all([listarObrasParaFiltro(), carregarCreditoIbsCbs(obra || "")]);
   // a opção só existe com crédito a recuperar; com ele, o líquido é o padrão (como no Orçamento)
-  const comCredito = haCredito(credito.regime, credito.total.creditoCents);
-  const modo = modoDoCusto(credito.regime, credito.total.creditoCents, custoParam);
+  const { comCredito, modo } = modoDoCusto(credito.regime, credito.total.creditoCents, custoParam);
   const curva = await carregarCurvaAbc({
     obraId: obra || undefined,
     de: dataDoFiltro(de, false),

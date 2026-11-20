@@ -132,6 +132,11 @@ export function chaveDocumentoValida(chave: string): boolean {
   return chaveAcessoValida(chave) || chaveNfseValida(chave);
 }
 
+/** Nome do documento pela chave: a de 50 posições é da NFS-e nacional; a de 44, da NF-e (sigla "NF", como na tela). */
+export function rotuloDaChave(chave: string): { documento: string; sigla: string } {
+  return chave.length === 50 ? { documento: "NFS-e", sigla: "NFS-e" } : { documento: "NF-e", sigla: "NF" };
+}
+
 // Leiaute da chave: cUF(2) AAMM(4) CNPJ(14) mod(2) série(3) nNF(9) tpEmis(1) cNF(8) DV(1).
 export function dadosDaChave(chave: string) {
   const d = digitos(chave);

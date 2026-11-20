@@ -10,7 +10,7 @@ import { RegimeFornecedorBadge } from "./regime-badge";
 import { excluirFornecedor } from "./actions";
 import { calcularDependencia } from "@/services/dependencia";
 import { carregarCrtPorFornecedor } from "@/services/tributacao/custo-efetivo-db";
-import { regimeDoCrt } from "@/services/tributacao/custo-efetivo";
+import { regimeDoCrt } from "@/services/tributacao/ibs-cbs";
 import { formatarMoeda } from "@/lib/format";
 import { ChevronRight, Trash2 } from "lucide-react";
 

@@ -279,7 +279,7 @@ export default async function DashboardPage({
                   ))}
                 </ul>
               )}
-              <AvisosCreditoIbsCbs avisos={avisosDoCredito(credito.regime, credito.total)} podeInformarRegime={user.role === "ADMIN"} />
+              <AvisosCreditoIbsCbs avisos={avisosDoCredito(credito)} podeInformarRegime={user.role === "ADMIN"} />
             </div>
           </div>
         )}

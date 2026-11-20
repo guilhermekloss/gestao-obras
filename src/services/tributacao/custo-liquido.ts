@@ -3,13 +3,16 @@
 import type { RegimeIbsCbs } from "@prisma/client";
 import { custoRateado } from "../rateio";
 import {
+  classificacaoVigente,
   creditoDaNota,
+  creditoDoItem,
   custoLiquidoCents,
-  type ClassificacaoParaCredito,
+  indexarClassificacoes,
+  type Classificacoes,
   type ItemParaCredito,
   type SituacaoCredito,
 } from "./credito";
-import { DESCRICAO_IBS_CBS_POR_FORA, ibsCbsDestacadoCents } from "./ibs-cbs";
+import { ehLinhaIbsCbsPorFora, ibsCbsDestacadoCents } from "./ibs-cbs";
 
 export type ItemParaCustoLiquido = ItemParaCredito & { totalCents: number; descricao?: string | null };
 
@@ -22,7 +25,7 @@ export type NotaParaCustoLiquido = {
 
 export type ContextoCustoLiquido = {
   regimeEmpresa: RegimeIbsCbs;
-  classificacoes: readonly ClassificacaoParaCredito[];
+  classificacoes: Classificacoes;
 };
 
 /** IBS/CBS destacado (já rateado) em cada situação: mostra quanto não virou crédito e por quê. */
@@ -39,8 +42,6 @@ export type CustoLiquido = {
   liquidoCents: number;
   porSituacao: DestacadoPorSituacao;
 };
-
-export const SEM_CUSTO: CustoLiquido = { brutoCents: 0, destacadoCents: 0, creditoCents: 0, liquidoCents: 0, porSituacao: {} };
 
 // Soma bruta, crédito e destacado; o líquido é refeito no fim (e não somado), para o total fechar com a conta de cada parte.
 function fechar(c: Omit<CustoLiquido, "liquidoCents">): CustoLiquido {
@@ -71,10 +72,11 @@ export function agregarCustoLiquido<N extends NotaParaCustoLiquido, K>(
   chaveDe: (nota: N, rateio: N["rateios"][number]) => K,
 ): Map<K, CustoLiquido> {
   const acc = new Map<K, Omit<CustoLiquido, "liquidoCents">>();
+  const classificacoes = indexarClassificacoes(ctx.classificacoes);
   for (const nota of notas) {
     if (nota.rateios.length === 0) continue;
     const brutoNota = nota.itens.reduce((a, i) => a + i.totalCents, 0);
-    const credito = creditoDaNota(nota.itens, { ...ctx, dataEmissao: nota.dataCompra });
+    const credito = creditoDaNota(nota.itens, { ...ctx, classificacoes, dataEmissao: nota.dataCompra });
     const destacadoPorSituacao = new Map<SituacaoCredito, number>();
     for (const c of credito.itens) {
       if (c.destacadoCents > 0) destacadoPorSituacao.set(c.situacao, (destacadoPorSituacao.get(c.situacao) ?? 0) + c.destacadoCents);
@@ -95,50 +97,58 @@ export function agregarCustoLiquido<N extends NotaParaCustoLiquido, K>(
   return new Map([...acc].map(([k, v]) => [k, fechar(v)]));
 }
 
-/** Um realizado bruto (de custos.ts, que vem de todas as notas) com o crédito recuperável dele. */
-export function aplicarCredito(brutoCents: number, creditoCents: number): Pick<CustoLiquido, "brutoCents" | "creditoCents" | "liquidoCents"> {
-  const credito = Math.max(0, creditoCents);
-  return { brutoCents, creditoCents: credito, liquidoCents: custoLiquidoCents(brutoCents, credito) };
-}
+export type CustoDoItem = {
+  /** O desembolso do item: com IBS/CBS por fora, total + destacado; a linha acessória fica em 0. */
+  brutoCents: number;
+  /** O que de fato sai do custo: bruto − líquido (o crédito acima do bruto não conta). */
+  creditoCents: number;
+  /** Bruto menos crédito, nunca negativo. */
+  liquidoCents: number;
+  situacao: SituacaoCredito;
+};
 
-/** A nota tem a linha acessória do IBS/CBS cobrado por fora (vNFTot > vNF, ou NFS-e). */
-export function temIbsCbsPorFora(itens: readonly { descricao?: string | null }[]): boolean {
-  return itens.some((i) => i.descricao === DESCRICAO_IBS_CBS_POR_FORA);
+/**
+ * Custo de um item com o crédito dele (classificação escolhida pela data). Nota com IBS/CBS por fora (`porFora`): o total
+ * do produto não traz o imposto, que está na linha acessória; o imposto pago à parte e não recuperado é custo do produto,
+ * então bruto = total + destacado, e a linha acessória fica em 0 (o valor dela já foi redistribuído nos produtos).
+ */
+export function custoDoItem(
+  item: ItemParaCustoLiquido,
+  ctx: ContextoCustoLiquido & { dataEmissao: Date | string; porFora: boolean },
+): CustoDoItem {
+  const { situacao, creditoCents } = creditoDoItem(item, {
+    regimeEmpresa: ctx.regimeEmpresa,
+    dataEmissao: ctx.dataEmissao,
+    classificacao: classificacaoVigente(ctx.classificacoes, item.cClassTrib, ctx.dataEmissao),
+  });
+  if (ctx.porFora && ehLinhaIbsCbsPorFora(item)) return { brutoCents: 0, creditoCents: 0, liquidoCents: 0, situacao };
+  const brutoCents = item.totalCents + (ctx.porFora ? ibsCbsDestacadoCents(item) : 0);
+  const liquidoCents = custoLiquidoCents(brutoCents, creditoCents);
+  return { brutoCents, creditoCents: brutoCents - liquidoCents, liquidoCents, situacao };
 }
 
 /**
- * Líquido do item para a curva ABC: total do item menos o crédito dele. A classificação é escolhida pela data da nota.
- * Nota com IBS/CBS por fora (`porFora`): o total do produto não traz o imposto, que está na linha acessória; o imposto
- * pago à parte e não recuperado é custo do produto, então líquido = total + destacado − crédito, e a linha acessória
- * fica em 0 (o valor dela já foi redistribuído nos produtos).
+ * Líquido de cada item de uma nota, na ordem dada, para a curva ABC. `porFora` ausente: a nota tem IBS/CBS por fora se
+ * tiver a linha acessória (vNFTot > vNF, ou NFS-e). A soma bate com o líquido da nota de agregarCustoLiquido (só há
+ * somas inteiras, sem arredondar).
  */
-export function liquidoDoItem(
-  item: ItemParaCustoLiquido,
+export function liquidosDosItens(
+  itens: readonly ItemParaCustoLiquido[],
   dataCompra: Date | string,
   ctx: ContextoCustoLiquido,
-  porFora = false,
-): number {
-  if (porFora && item.descricao === DESCRICAO_IBS_CBS_POR_FORA) return 0;
-  const { creditoCents } = creditoDaNota([item], { ...ctx, dataEmissao: dataCompra });
-  return custoLiquidoCents(item.totalCents + (porFora ? ibsCbsDestacadoCents(item) : 0), creditoCents);
-}
-
-/** Líquido de cada item de uma nota, na ordem dada. A soma bate com o líquido da nota de agregarCustoLiquido (só há somas inteiras, sem arredondar). */
-export function liquidosDosItens(itens: readonly ItemParaCustoLiquido[], dataCompra: Date | string, ctx: ContextoCustoLiquido): number[] {
-  const porFora = temIbsCbsPorFora(itens);
-  return itens.map((i) => liquidoDoItem(i, dataCompra, ctx, porFora));
+  porFora: boolean = itens.some(ehLinhaIbsCbsPorFora),
+): number[] {
+  const c = { ...ctx, dataEmissao: dataCompra, porFora };
+  return itens.map((i) => custoDoItem(i, c).liquidoCents);
 }
 
 // O realizado bruto continua o número principal: o líquido só toma o lugar dele com regime regular e crédito a recuperar.
 export type ModoCusto = "BRUTO" | "LIQUIDO";
 
-export function haCredito(regime: RegimeIbsCbs, creditoCents: number): boolean {
-  return regime === "REGULAR" && creditoCents > 0;
-}
-
-/** `preferido` vem da escolha do usuário (?custo=bruto); sem crédito não há o que escolher. */
-export function modoDoCusto(regime: RegimeIbsCbs, creditoCents: number, preferido?: string | null): ModoCusto {
-  return haCredito(regime, creditoCents) && preferido !== "bruto" ? "LIQUIDO" : "BRUTO";
+/** `comCredito`: há o que escolher (regime regular e crédito a recuperar). `preferido` vem do usuário (?custo=bruto). */
+export function modoDoCusto(regime: RegimeIbsCbs, creditoCents: number, preferido?: string | null): { comCredito: boolean; modo: ModoCusto } {
+  const comCredito = regime === "REGULAR" && creditoCents > 0;
+  return { comCredito, modo: comCredito && preferido !== "bruto" ? "LIQUIDO" : "BRUTO" };
 }
 
 export type AvisosCredito = {
@@ -150,10 +160,11 @@ export type AvisosCredito = {
   naoCreditadoCents: number;
 };
 
-export function avisosDoCredito(regime: RegimeIbsCbs, custo: Pick<CustoLiquido, "porSituacao">): AvisosCredito {
-  const s = custo.porSituacao;
+/** Avisos do crédito lido (CreditoIbsCbs de custo-liquido-db, ou só o regime e o total). */
+export function avisosDoCredito(credito: { regime: RegimeIbsCbs; total: Pick<CustoLiquido, "porSituacao"> }): AvisosCredito {
+  const s = credito.total.porSituacao;
   return {
-    pedirRegime: regime === "NAO_INFORMADO" && (s.REGIME_NAO_INFORMADO ?? 0) > 0,
+    pedirRegime: credito.regime === "NAO_INFORMADO" && (s.REGIME_NAO_INFORMADO ?? 0) > 0,
     periodoTesteCents: s.PERIODO_TESTE ?? 0,
     naoCreditadoCents: (s.VEDADO ?? 0) + (s.CLASSIFICACAO_DESCONHECIDA ?? 0),
   };
@@ -168,7 +179,7 @@ export function codigosParaClassificar(
   const codigos = new Set<string>();
   for (const n of notas) {
     for (const i of n.itens) {
-      if (i.cClassTrib && (i.cbsCents ?? 0) + (i.ibsUfCents ?? 0) + (i.ibsMunCents ?? 0) > 0) codigos.add(i.cClassTrib);
+      if (i.cClassTrib && ibsCbsDestacadoCents(i) > 0) codigos.add(i.cClassTrib);
     }
   }
   return [...codigos];

@@ -9,7 +9,8 @@ import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
 import { carregarAlertasDaCaptura } from "./sefaz/painel";
 import { desempenhoCusto, totalDesempenho } from "./desempenho-custo";
-import { CAMPOS_TRIBUTARIOS, liquidarItensDasNotas } from "./tributacao/custo-liquido-db";
+import { liquidarItensDasNotas } from "./tributacao/custo-liquido-db";
+import { SELECT_CREDITO_IBS_CBS } from "./tributacao/ibs-cbs";
 
 export type ClasseAbc = "A" | "B" | "C";
 
@@ -485,7 +486,7 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
           tipo: true,
           qtde: true,
           totalCents: true,
-          ...(filtro.liquido ? CAMPOS_TRIBUTARIOS : {}),
+          ...(filtro.liquido ? SELECT_CREDITO_IBS_CBS : {}),
         },
       },
     },

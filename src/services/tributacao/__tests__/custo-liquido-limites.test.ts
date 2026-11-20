@@ -5,11 +5,9 @@ import { DESCRICAO_IBS_CBS_POR_FORA, parseNfeXml } from "../../nfe-xml";
 import type { ClassificacaoParaCredito } from "../credito";
 import {
   agregarCustoLiquido,
-  aplicarCredito,
   avisosDoCredito,
   codigosParaClassificar,
-  haCredito,
-  liquidoDoItem,
+  custoDoItem,
   liquidosDosItens,
   modoDoCusto,
   somarCustosLiquidos,
@@ -160,19 +158,26 @@ describe("somarCustosLiquidos", () => {
   });
 });
 
-describe("aplicarCredito", () => {
-  it("líquido = bruto - crédito; crédito negativo vira zero; nunca abaixo de zero", () => {
-    expect(aplicarCredito(1_000, 300)).toEqual({ brutoCents: 1_000, creditoCents: 300, liquidoCents: 700 });
-    expect(aplicarCredito(1_000, -5)).toEqual({ brutoCents: 1_000, creditoCents: 0, liquidoCents: 1_000 });
-    expect(aplicarCredito(100, 300).liquidoCents).toBe(0);
-  });
-});
+describe("custoDoItem", () => {
+  const custo = (i: ReturnType<typeof item>, dataEmissao: string, porFora = false) => custoDoItem(i, { ...ctx, dataEmissao, porFora });
 
-describe("liquidoDoItem", () => {
   it("tira o crédito do item pela classificação vigente na data da nota", () => {
-    expect(liquidoDoItem(item(), "2027-03-10", ctx)).toBe(89_000);
-    expect(liquidoDoItem(item(), "2026-03-10", ctx)).toBe(100_000);
-    expect(liquidoDoItem(item({ cClassTrib: "410999" }), "2027-03-10", ctx)).toBe(100_000);
+    expect(custo(item(), "2027-03-10").liquidoCents).toBe(89_000);
+    expect(custo(item(), "2026-03-10").liquidoCents).toBe(100_000);
+    expect(custo(item({ cClassTrib: "410999" }), "2027-03-10").liquidoCents).toBe(100_000);
+  });
+
+  it("crédito = bruto - líquido, nunca acima do bruto (dado inconsistente)", () => {
+    expect(custo(item(), "2027-03-10")).toEqual({ brutoCents: 100_000, creditoCents: 11_000, liquidoCents: 89_000, situacao: "PERMITIDO" });
+    expect(custo(item({ totalCents: 500, cbsCents: 900, ibsUfCents: 0 }), "2027-03-10")).toMatchObject({ brutoCents: 500, creditoCents: 500, liquidoCents: 0 });
+  });
+
+  it("por fora: bruto = total + destacado; a linha acessória fica toda em zero", () => {
+    expect(custo(item(), "2027-03-10", true)).toMatchObject({ brutoCents: 111_000, creditoCents: 11_000, liquidoCents: 100_000 });
+    const acessorio = { descricao: DESCRICAO_IBS_CBS_POR_FORA, totalCents: 11_000, cClassTrib: null, cbsCents: null, ibsUfCents: null, ibsMunCents: null };
+    expect(custo(acessorio, "2027-03-10", true)).toEqual({ brutoCents: 0, creditoCents: 0, liquidoCents: 0, situacao: "SEM_DESTAQUE" });
+    // sem a nota ter IBS/CBS por fora, a mesma descrição é um item comum
+    expect(custo(acessorio, "2027-03-10").liquidoCents).toBe(11_000);
   });
 });
 
@@ -189,6 +194,10 @@ describe("IBS/CBS por fora: líquido por item", () => {
   });
   it("sem linha por fora, o imposto está embutido no total: total - crédito, como antes", () => {
     expect(liquidosDosItens([produto()], "2027-03-10", ctx)).toEqual([89_000]);
+  });
+  it("porFora informado não é detectado de novo", () => {
+    expect(liquidosDosItens([produto()], "2027-03-10", ctx, true)).toEqual([100_000]);
+    expect(liquidosDosItens([produto(), acessorio()], "2027-03-10", ctx, false)).toEqual([89_000, 11_000]);
   });
 
   it("soma dos líquidos por item = líquido da nota (fixture vNFTot), sem diferença de arredondamento", () => {
@@ -214,24 +223,24 @@ describe("IBS/CBS por fora: líquido por item", () => {
 
 describe("modo de exibição e avisos", () => {
   it("o líquido só assume com regime regular e crédito; ?custo=bruto força o bruto", () => {
-    expect(haCredito("REGULAR", 1)).toBe(true);
-    expect(haCredito("REGULAR", 0)).toBe(false);
-    expect(haCredito("SIMPLES_NACIONAL", 500)).toBe(false);
-    expect(modoDoCusto("REGULAR", 500)).toBe("LIQUIDO");
-    expect(modoDoCusto("REGULAR", 500, "bruto")).toBe("BRUTO");
-    expect(modoDoCusto("REGULAR", 500, "qualquer")).toBe("LIQUIDO");
-    expect(modoDoCusto("REGULAR", 0)).toBe("BRUTO");
-    expect(modoDoCusto("NAO_INFORMADO", 500)).toBe("BRUTO");
+    expect(modoDoCusto("REGULAR", 1).comCredito).toBe(true);
+    expect(modoDoCusto("REGULAR", 0).comCredito).toBe(false);
+    expect(modoDoCusto("SIMPLES_NACIONAL", 500).comCredito).toBe(false);
+    expect(modoDoCusto("REGULAR", 500).modo).toBe("LIQUIDO");
+    expect(modoDoCusto("REGULAR", 500, "bruto")).toEqual({ comCredito: true, modo: "BRUTO" });
+    expect(modoDoCusto("REGULAR", 500, "qualquer").modo).toBe("LIQUIDO");
+    expect(modoDoCusto("REGULAR", 0).modo).toBe("BRUTO");
+    expect(modoDoCusto("NAO_INFORMADO", 500).modo).toBe("BRUTO");
   });
 
   it("pede o regime só com regime não informado e destaque de verdade", () => {
-    expect(avisosDoCredito("NAO_INFORMADO", { porSituacao: { REGIME_NAO_INFORMADO: 10 } }).pedirRegime).toBe(true);
-    expect(avisosDoCredito("NAO_INFORMADO", { porSituacao: {} }).pedirRegime).toBe(false);
-    expect(avisosDoCredito("REGULAR", { porSituacao: { REGIME_NAO_INFORMADO: 10 } }).pedirRegime).toBe(false);
+    expect(avisosDoCredito({ regime: "NAO_INFORMADO", total: { porSituacao: { REGIME_NAO_INFORMADO: 10 } } }).pedirRegime).toBe(true);
+    expect(avisosDoCredito({ regime: "NAO_INFORMADO", total: { porSituacao: {} } }).pedirRegime).toBe(false);
+    expect(avisosDoCredito({ regime: "REGULAR", total: { porSituacao: { REGIME_NAO_INFORMADO: 10 } } }).pedirRegime).toBe(false);
   });
 
   it("separa teste de 2026 e o que ficou sem crédito no regime regular", () => {
-    expect(avisosDoCredito("REGULAR", { porSituacao: { PERIODO_TESTE: 5, VEDADO: 7, CLASSIFICACAO_DESCONHECIDA: 3, PERMITIDO: 100 } })).toEqual({
+    expect(avisosDoCredito({ regime: "REGULAR", total: { porSituacao: { PERIODO_TESTE: 5, VEDADO: 7, CLASSIFICACAO_DESCONHECIDA: 3, PERMITIDO: 100 } } })).toEqual({
       pedirRegime: false,
       periodoTesteCents: 5,
       naoCreditadoCents: 10,

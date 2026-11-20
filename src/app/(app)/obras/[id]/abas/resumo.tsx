@@ -16,7 +16,8 @@ import { AcaoVazio, EstadoVazio } from "@/components/estado-vazio";
 import { dataDoRdo } from "@/services/rdo";
 import { podeEditarCadastros, veFinanceiro } from "@/services/acesso";
 import { carregarCreditoIbsCbs } from "@/services/tributacao/custo-liquido-db";
-import { aplicarCredito, avisosDoCredito, haCredito } from "@/services/tributacao/custo-liquido";
+import { avisosDoCredito, modoDoCusto } from "@/services/tributacao/custo-liquido";
+import { custoLiquidoCents } from "@/services/tributacao/credito";
 import { AvisosCreditoIbsCbs } from "@/components/credito-ibs-cbs";
 import type { AbaObraProps } from "./tipos";
 import { MoverEtapaBotoes, RenomearEtapaDialog } from "./etapa-acoes";
@@ -60,8 +61,9 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
 
   const custoTotal = [...realizado.values()].reduce((a, b) => a + b, 0);
   // o líquido só toma o lugar do bruto com regime regular e crédito a recuperar; o bruto fica no detalhe
-  const comCredito = credito ? haCredito(credito.regime, credito.total.creditoCents) : false;
-  const custo = aplicarCredito(custoTotal, credito?.total.creditoCents ?? 0);
+  const comCredito = credito ? modoDoCusto(credito.regime, credito.total.creditoCents).comCredito : false;
+  const creditoCents = Math.max(0, credito?.total.creditoCents ?? 0);
+  const liquidoCents = custoLiquidoCents(custoTotal, creditoCents);
   const orcamento = orcamentoTotal(etapas);
   const avancoObra = avancoDaObra(etapas, avancos);
 
@@ -71,13 +73,13 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
         {veValores && (
           <InfoCard
             titulo={comCredito ? "Custo líquido acumulado" : "Custo acumulado"}
-            valor={formatarMoeda(comCredito ? custo.liquidoCents : custoTotal)}
+            valor={formatarMoeda(comCredito ? liquidoCents : custoTotal)}
             detalhe={comCredito ? `Bruto ${formatarMoeda(custoTotal)}, sem o crédito de IBS/CBS` : undefined}
             destaque
           />
         )}
         {veValores && comCredito && (
-          <InfoCard titulo="Crédito IBS/CBS a recuperar" valor={formatarMoeda(custo.creditoCents)} />
+          <InfoCard titulo="Crédito IBS/CBS a recuperar" valor={formatarMoeda(creditoCents)} />
         )}
         {veValores && (
           <InfoCard
@@ -91,7 +93,7 @@ export async function AbaResumo({ obra, role }: AbaObraProps) {
 
       {credito && (
         <AvisosCreditoIbsCbs
-          avisos={avisosDoCredito(credito.regime, credito.total)}
+          avisos={avisosDoCredito(credito)}
           podeInformarRegime={role === "ADMIN"}
           className="-mt-3"
         />

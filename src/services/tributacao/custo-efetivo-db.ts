@@ -1,7 +1,7 @@
 import type { Prisma, RegimeIbsCbs } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { inputParaData } from "@/lib/format";
-import { ID_EMPRESA } from "@/services/empresa";
+import { carregarRegimeIbsCbs } from "@/services/empresa";
 import { carregarClassificacoes } from "./classificacao-db";
 import {
   creditoDasCompras,
@@ -12,7 +12,7 @@ import {
   type CreditoDoFornecedor,
   type GrupoUnidade,
 } from "./custo-efetivo";
-import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, type CrtEmitente } from "./ibs-cbs";
+import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, SELECT_CREDITO_IBS_CBS, type CrtEmitente } from "./ibs-cbs";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -24,10 +24,7 @@ const selectItem = {
   descricao: true,
   unidade: true,
   totalCents: true,
-  cClassTrib: true,
-  cbsCents: true,
-  ibsUfCents: true,
-  ibsMunCents: true,
+  ...SELECT_CREDITO_IBS_CBS,
   nota: {
     select: {
       id: true,
@@ -54,7 +51,8 @@ function paraCompra(i: ItemLido): CompraParaCusto {
     totalCents: i.totalCents,
     dataEmissao: i.nota.dataCompra,
     crtEmitente: i.nota.crtEmitente,
-    item: { cClassTrib: i.cClassTrib, cbsCents: i.cbsCents, ibsUfCents: i.ibsUfCents, ibsMunCents: i.ibsMunCents },
+    // a linha lida já tem as colunas do crédito (SELECT_CREDITO_IBS_CBS)
+    item: i,
   };
 }
 
@@ -75,11 +73,6 @@ export async function carregarCrtPorFornecedor(ids?: readonly string[], db: Db =
   return mapa;
 }
 
-async function regimeDaEmpresa(db: Db): Promise<RegimeIbsCbs> {
-  const e = await db.empresa.findUnique({ where: { id: ID_EMPRESA }, select: { regimeIbsCbs: true } });
-  return e?.regimeIbsCbs ?? "NAO_INFORMADO";
-}
-
 export type CustoEfetivoDoMaterial = {
   regimeEmpresa: RegimeIbsCbs;
   meses: number;
@@ -96,7 +89,7 @@ export async function carregarCustoEfetivoDoMaterial(materialId: string, { meses
       where: { materialId, nota: { dataCompra: { gte: inputParaData(desde) } } },
       select: selectItem,
     }),
-    regimeDaEmpresa(db),
+    carregarRegimeIbsCbs(db),
   ]);
   const compras = itens.map(paraCompra);
   const [classificacoes, crtPorFornecedor] = await Promise.all([
@@ -120,7 +113,7 @@ export async function carregarCreditoDoFornecedor(fornecedorId: string, { meses 
       where: { nota: { fornecedorId, dataCompra: { gte: inputParaData(desde) } } },
       select: selectItem,
     }),
-    regimeDaEmpresa(db),
+    carregarRegimeIbsCbs(db),
   ]);
   const classificacoes = await carregarClassificacoes(
     itens.map((i) => i.cClassTrib),
