@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
-import { DESCRICAO_IBS_CBS_POR_FORA, parcelasDaNfe, parseNfeXml, type Nfe } from "../nfe-xml";
+import { parcelasDaNfe, parseNfeXml, type Nfe } from "../nfe-xml";
+import { DESCRICAO_IBS_CBS_POR_FORA } from "../tributacao/ibs-cbs";
 import { somaItens } from "../rateio";
 
 const fixture = (nome: string) => readFileSync(path.join(__dirname, "fixtures", nome), "utf8");

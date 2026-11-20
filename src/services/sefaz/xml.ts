@@ -1,6 +1,6 @@
 import { gunzipSync } from "node:zlib";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { decimalParaInteiro, parseNfeXml, type Nfe } from "@/services/nfe-xml";
+import { decimalParaInteiro, lista, no, parseNfeXml, texto, type Nfe } from "@/services/nfe-xml";
 import { normalizarNsu } from "./regras";
 
 export const NS_NFE = "http://www.portalfiscal.inf.br/nfe";
@@ -65,22 +65,6 @@ const parser = new XMLParser({
   parseAttributeValue: false,
   trimValues: true,
 });
-
-function no(v: unknown): No | undefined {
-  return v && typeof v === "object" && !Array.isArray(v) ? (v as No) : undefined;
-}
-
-function lista(v: unknown): unknown[] {
-  if (v === undefined || v === null) return [];
-  return Array.isArray(v) ? v : [v];
-}
-
-function texto(n: No | undefined, campo: string): string | undefined {
-  const v = n?.[campo];
-  if (typeof v === "string") return v.trim() || undefined;
-  if (typeof v === "number") return String(v);
-  return undefined;
-}
 
 function lerXml(xml: string): { ok: true; raiz: No } | { ok: false; erro: string } {
   const conteudo = xml.replace(/^﻿/, "").trim();

@@ -117,3 +117,11 @@ export function rotuloChaveMes(chave: string): string {
   const [ano, mes] = chave.split("-");
   return `${MESES_ABREV[parseInt(mes) - 1]}/${ano.slice(2)}`;
 }
+
+/** CNPJ ou CPF com a máscara usual; outro valor (NIF estrangeiro, por exemplo) volta como veio. */
+export function formatarDocumento(doc: string): string {
+  const d = doc.replace(/\D/g, "");
+  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  return doc;
+}

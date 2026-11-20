@@ -1,6 +1,6 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import type { FormaPagto, TipoItem } from "@prisma/client";
-import { formatarMoeda } from "@/lib/format";
+import { formatarDocumento, formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { extrairCnos, formatarCno } from "./cno";
 import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, type CrtEmitente, type TotaisIbsCbs, type TributacaoIbsCbs } from "./tributacao/ibs-cbs";
@@ -12,6 +12,8 @@ export type ItemNfe = {
   /** Código do produto no fornecedor (cProd). */
   codigo: string | null;
   ncm: string | null;
+  /** Código NBS do serviço (cServ/cNBS): só a NFS-e. */
+  nbs?: string | null;
   qtde: number;
   unidade: string;
   unitCents: number;
@@ -88,12 +90,8 @@ export function unitarioCoerente(
   return { unitCents: c, ajusteCents: Math.round(qtde * c) - vProdCents };
 }
 
-export function formatarDocumento(doc: string): string {
-  const d = doc.replace(/\D/g, "");
-  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
-  return doc;
-}
+// mora em lib/format (telas do client a usam sem carregar o leitor de XML); reexportada para o resto do servidor
+export { formatarDocumento };
 
 export function variantesDocumento(doc: string): string[] {
   const digitos = doc.replace(/\D/g, "");
@@ -249,9 +247,6 @@ export function totalAPagar(
   }
   return { totalCents: vNfTotCents, porForaCents: vNfTotCents - vNfCents, aviso: null };
 }
-
-// A constante mora em tributacao/ibs-cbs.ts (o custo líquido a reconhece sem importar o parser); reexportada aqui.
-export { DESCRICAO_IBS_CBS_POR_FORA };
 
 const NAO_E_NFE = "O arquivo não é o XML de uma NF-e (esperado <nfeProc> ou <NFe> com <infNFe>).";
 

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { formatarMoeda } from "@/lib/format";
+import { formatarDocumento, formatarMoeda } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { formatarCno, normalizarCno } from "@/services/cno";
-import { formatarDocumento } from "@/services/nfe-xml";
+import { ibsCbsDestacadoCents } from "@/services/tributacao/ibs-cbs";
 import type { Nfse, PessoaNfse } from "@/services/nfse-xml";
 
 // Campos e rótulos do DANFSe (NT 008 da NFS-e nacional), desenhados em HTML a partir do XML já lido:
@@ -145,14 +145,15 @@ function Pessoa({ titulo, p, extra }: { titulo: string; p: PessoaNfse; extra?: R
 
 /** NFS-e nacional no estilo do DANFSe, a partir do XML lido (parseNfseXml). */
 export function VisualizacaoNfse({ nfse, className }: { nfse: Nfse; className?: string }) {
-  const { emitente, servico, issqn, valores, federais, ibsCbs } = nfse;
+  const { emitente, servico, issqn, valores, federais } = nfse;
+  const ibsCbs = nfse.itens[0]?.ibsCbs ?? null;
   const extra = nfse.ibsCbsNfse;
   const pisCofinsRetido = federais.tipoRetencaoPisCofins === "1";
   // NT 008: com PIS/COFINS retidos (tpRetPisCofins 1) eles somam às contribuições retidas e o débito próprio é zero
   const contribuicoesRetidas = pisCofinsRetido
     ? (federais.csllCents ?? 0) + (federais.pisCents ?? 0) + (federais.cofinsCents ?? 0)
     : federais.csllCents;
-  const totalIbsCbs = ibsCbs ? (ibsCbs.cbsCents ?? 0) + (ibsCbs.ibsUfCents ?? 0) + (ibsCbs.ibsMunCents ?? 0) : null;
+  const totalIbsCbs = ibsCbs ? ibsCbsDestacadoCents(ibsCbs) : null;
   const cnoDaObra = normalizarCno(servico.obra?.codigo);
 
   return (

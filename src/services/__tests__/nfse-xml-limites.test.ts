@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DESCRICAO_IBS_CBS_POR_FORA, MAX_CARACTERES_XML } from "../nfe-xml";
+import { MAX_CARACTERES_XML } from "../nfe-xml";
+import { DESCRICAO_IBS_CBS_POR_FORA } from "../tributacao/ibs-cbs";
 import { crtDoRegime, diaDoMesSeguinte, pareceNfse, parseNfseXml, type Nfse } from "../nfse-xml";
 import { somaItens } from "../rateio";
 
@@ -126,7 +127,6 @@ describe("parseNfseXml: campos obrigatórios", () => {
   it("sem tomador, sem obra, sem regime: campos nulos", () => {
     const n = ok({ regTrib: "" });
     expect(n.tomador).toBeNull();
-    expect(n.destinatario).toBeNull();
     expect(n.servico.obra).toBeNull();
     expect(n.crtEmitente).toBeNull();
     expect(n.cno).toBeNull();
@@ -199,8 +199,8 @@ describe("parseNfseXml: valores, retenções e parcelas", () => {
     });
     expect(n.retencoes).toEqual({ issCents: 0, federaisCents: 11_000, inssCents: 11_000, irrfCents: 0, contribuicoesCents: 0, totalCents: 11_000 });
     expect(n.parcelas).toEqual([
-      { numero: 1, valorCents: 89_000, vencimento: "2026-10-02", rotulo: "Prestador (valor líquido)" },
-      { numero: 2, valorCents: 11_000, vencimento: "2026-11-20", rotulo: "DARF das retenções federais" },
+      { tipo: "PRESTADOR", numero: 1, valorCents: 89_000, vencimento: "2026-10-02", rotulo: "Prestador (valor líquido)" },
+      { tipo: "FEDERAIS", numero: 2, valorCents: 11_000, vencimento: "2026-11-20", rotulo: "DARF das retenções federais" },
     ]);
     expect(n.totalCents).toBe(100_000);
   });
@@ -260,21 +260,21 @@ describe("parseNfseXml: valores, retenções e parcelas", () => {
     const porFora = n.itens.find((i) => i.descricao === DESCRICAO_IBS_CBS_POR_FORA);
     expect(porFora).toMatchObject({ totalCents: 8_900, tipoSugerido: "ENCARGO", origem: "ACESSORIO", nbs: null });
     expect(somaItens(n.itens)).toBe(n.totalCents);
-    expect(n.parcelas).toEqual([{ numero: 1, valorCents: 108_900, vencimento: "2027-02-11", rotulo: "Prestador (valor líquido + IBS/CBS)" }]);
-    expect(n.ibsCbs).toMatchObject({ cbsCents: 8_800, ibsUfCents: 50, ibsMunCents: 50, pCbs: "8.8" });
+    expect(n.parcelas).toEqual([{ tipo: "PRESTADOR", numero: 1, valorCents: 108_900, vencimento: "2027-02-11", rotulo: "Prestador (valor líquido + IBS/CBS)" }]);
+    expect(n.itens[0].ibsCbs).toMatchObject({ cbsCents: 8_800, ibsUfCents: 50, ibsMunCents: 50, pCbs: "8.8" });
   });
 
   it("IBS/CBS sem CST ou cClassTrib na DPS: nada a conferir", () => {
     const gerado = `<IBSCBS><valores><vBC>1000.00</vBC></valores><totCIBS><vTotNF>1000.00</vTotNF></totCIBS></IBSCBS>`;
     const n = ok({ ibscbs: gerado });
-    expect(n.ibsCbs).toBeNull();
+    expect(n.itens[0].ibsCbs).toBeUndefined();
     expect(n.ibsCbsNfse).toMatchObject({ vTotNfCents: 100_000 });
   });
 
   it("diferimento e crédito presumido somam UF, município e CBS", () => {
     const gerado = `<IBSCBS><valores><vBC>1000.00</vBC><uf><pIBSUF>0.10</pIBSUF><pRedAliqUF>60.00</pRedAliqUF><pAliqEfetUF>0.04</pAliqEfetUF></uf><mun><pIBSMun>0</pIBSMun><pAliqEfetMun>0</pAliqEfetMun></mun><fed><pCBS>0.90</pCBS><pRedAliqCBS>60.00</pRedAliqCBS><pAliqEfetCBS>0.36</pAliqEfetCBS></fed></valores><totCIBS><vTotNF>1000.00</vTotNF><gIBS><vIBSTot>0.40</vIBSTot><gIBSCredPres><pCredPresIBS>1.00</pCredPresIBS><vCredPresIBS>1.00</vCredPresIBS></gIBSCredPres><gIBSUFTot><vDifUF>0.10</vDifUF><vIBSUF>0.40</vIBSUF></gIBSUFTot><gIBSMunTot><vDifMun>0.00</vDifMun><vIBSMun>0.00</vIBSMun></gIBSMunTot></gIBS><gCBS><gCBSCredPres><pCredPresCBS>2.00</pCredPresCBS><vCredPresCBS>2.00</vCredPresCBS></gCBSCredPres><vDifCBS>0.20</vDifCBS><vCBS>3.60</vCBS></gCBS></totCIBS></IBSCBS>`;
     const declarado = `<IBSCBS><valores><trib><gIBSCBS><CST>200</CST><cClassTrib>200001</cClassTrib><cCredPres>01</cCredPres></gIBSCBS></trib></valores></IBSCBS>`;
-    const t = ok({ ibscbs: gerado, ibscbsDps: declarado }).ibsCbs;
+    const t = ok({ ibscbs: gerado, ibscbsDps: declarado }).itens[0].ibsCbs;
     expect(t).toMatchObject({ pRedCbs: "60", pRedIbs: "60", ibsCbsDiferidoCents: 30, cCredPres: "01", credPresCents: 300, cbsCents: 360 });
   });
 });
