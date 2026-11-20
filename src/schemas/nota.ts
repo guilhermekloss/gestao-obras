@@ -24,7 +24,7 @@ export const parcelaSchema = z.object({
   vencimento: dataIso("Vencimento é obrigatório"),
 });
 
-const tipoDocumentoSchema = z.enum(["NF", "RECIBO", "FOLHA", "GUIA", "OUTRO"]);
+const tipoDocumentoSchema = z.enum(["NF", "NFSE", "RECIBO", "FOLHA", "GUIA", "OUTRO"]);
 
 export const notaSchema = z.object({
   id: z.string().max(64).optional(),

@@ -303,3 +303,29 @@ describe("normalizarLeitura — CNO", () => {
     expect(leitura.avisos).toContain("O CNO lido (90.000.1234/67) não tem 12 dígitos e foi ignorado.");
   });
 });
+
+describe("normalizarLeitura: NFS-e", () => {
+  const nfse = (parcial: Partial<DocumentoLido> = {}) =>
+    documento({
+      tipo: "NFSE",
+      numero: "000228",
+      itens: [{ descricao: "Mão de obra", quantidade: null, unidade: null, valorUnitario: null, desconto: null, valorTotal: 150.5, tipo: "SERVICO" }],
+      ...parcial,
+    });
+
+  it("grava como NFSE (não mais como NF), com o número sem zeros à esquerda", () => {
+    const l = ok(nfse());
+    expect(l.tipoDocumento).toBe("NFSE");
+    expect(l.descricaoDocumento).toBe("NFS-e (nota de serviço)");
+    expect(l.numero).toBe("228");
+  });
+
+  it("como nota, exige o número", () => {
+    expect(ok(nfse({ numero: null })).avisos).toContain("Número da nota não encontrado — preencha antes de salvar.");
+  });
+
+  it("item sem tipo reconhecido cai em serviço", () => {
+    const l = ok(nfse({ itens: [], valorTotal: 300 }));
+    expect(l.itens).toEqual([expect.objectContaining({ tipo: "SERVICO", totalCents: 30_000 })]);
+  });
+});

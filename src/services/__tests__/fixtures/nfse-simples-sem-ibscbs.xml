@@ -1,0 +1,92 @@
+<NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse">
+  <!-- Fictícia: baseada no exemplo "sem IBSCBS" da Receita (calculadora RTC, licença MIT), com dados trocados.
+       Prestador ME/EPP do Simples, desconto incondicionado, sem retenção e o CNO só no texto livre. -->
+  <infNFSe Id="NFS41069022298765432000198000000000005726099876543210">
+    <xLocEmi>Curitiba</xLocEmi>
+    <xLocPrestacao>Curitiba</xLocPrestacao>
+    <nNFSe>57</nNFSe>
+    <cLocIncid>4106902</cLocIncid>
+    <xLocIncid>Curitiba</xLocIncid>
+    <xTribNac>Instalação e montagem de aparelhos, máquinas e equipamentos.</xTribNac>
+    <verAplic>EmissorWeb_1.4.0</verAplic>
+    <ambGer>2</ambGer>
+    <tpEmis>1</tpEmis>
+    <cStat>100</cStat>
+    <dhProc>2026-09-03T08:02:11-03:00</dhProc>
+    <nDFSe>90</nDFSe>
+    <emit>
+      <CNPJ>98765432000198</CNPJ>
+      <xNome>ELETRICA FIO TERRA ME</xNome>
+      <enderNac>
+        <xLgr>RUA DO DISJUNTOR</xLgr>
+        <nro>7</nro>
+        <xBairro>REBOUCAS</xBairro>
+        <cMun>4106902</cMun>
+        <UF>PR</UF>
+        <CEP>80230000</CEP>
+      </enderNac>
+    </emit>
+    <valores>
+      <vBC>1400.00</vBC>
+      <pAliqAplic>2.00</pAliqAplic>
+      <vISSQN>28.00</vISSQN>
+      <vLiq>1400.00</vLiq>
+    </valores>
+    <DPS versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse">
+      <infDPS Id="DPS410690222987654320001980000100000000000057">
+        <tpAmb>1</tpAmb>
+        <dhEmi>2026-09-02T17:40:00-03:00</dhEmi>
+        <verAplic>EmissorWeb_1.4.0</verAplic>
+        <serie>1</serie>
+        <nDPS>57</nDPS>
+        <dCompet>2026-08-28</dCompet>
+        <tpEmit>1</tpEmit>
+        <cLocEmi>4106902</cLocEmi>
+        <prest>
+          <CNPJ>98765432000198</CNPJ>
+          <regTrib>
+            <opSimpNac>3</opSimpNac>
+            <regApTribSN>1</regApTribSN>
+            <regEspTrib>0</regEspTrib>
+          </regTrib>
+        </prest>
+        <toma>
+          <CNPJ>12345678000195</CNPJ>
+          <xNome>CONSTRUTORA EXEMPLO LTDA</xNome>
+        </toma>
+        <serv>
+          <locPrest>
+            <cLocPrestacao>4106902</cLocPrestacao>
+          </locPrest>
+          <cServ>
+            <cTribNac>140601</cTribNac>
+            <xDescServ>Instalação do quadro de distribuição e dos pontos de tomada do térreo</xDescServ>
+          </cServ>
+          <infoCompl>
+            <xInfComp>Obra Residencial Jardim, CNO 90.123.45678/12. Pagamento por PIX.</xInfComp>
+          </infoCompl>
+        </serv>
+        <valores>
+          <vServPrest>
+            <vServ>1500.00</vServ>
+          </vServPrest>
+          <vDescCondIncond>
+            <vDescIncond>100.00</vDescIncond>
+          </vDescCondIncond>
+          <trib>
+            <tribMun>
+              <tribISSQN>1</tribISSQN>
+              <tpRetISSQN>1</tpRetISSQN>
+            </tribMun>
+            <totTrib>
+              <pTotTribSN>6.00</pTotTribSN>
+            </totTrib>
+          </trib>
+        </valores>
+      </infDPS>
+    </DPS>
+  </infNFSe>
+  <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+    <SignatureValue>AAAA</SignatureValue>
+  </Signature>
+</NFSe>

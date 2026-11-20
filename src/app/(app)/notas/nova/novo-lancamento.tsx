@@ -1,17 +1,19 @@
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { enviarArquivo, estourouPrazo, MSG_ENVIO_DEMOROU } from "@/lib/envio";
+import { Carregando } from "@/components/carregando";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { dataParaInput, formatarMoeda } from "@/lib/format";
 import { prepararFoto } from "@/lib/imagem";
 import { cn } from "@/lib/utils";
 import { NotaForm, type FornecedorOption, type ObraOption } from "../nota-form";
 import type { NotaFormValues } from "../nota-form-model";
-import { ImportarXmlForm } from "../importar-xml/importar-xml-form";
-import { AvisoNotaExistente } from "../importar-xml/previa-nfe";
+import { AvisoNotaExistente } from "../importar-xml/aviso-nota-existente";
 import type { MaterialCatalogo } from "@/services/materiais";
 import type { ObraDoCno } from "@/services/obras";
 import { lerDocumento, resolverMateriais, type LerDocumentoResult } from "./actions";
@@ -24,6 +26,16 @@ import {
   type Conferencia,
 } from "./conferencia-model";
 import { ArrowLeft, Camera, ClipboardCheck, Loader2, Paperclip, ScanLine, Upload } from "lucide-react";
+
+// o leitor de XML (NF-e e NFS-e) só serve na etapa "xml": fica fora do pacote de quem lança por foto
+const ImportarXmlForm = dynamic(() => import("../importar-xml/importar-xml-form").then((m) => m.ImportarXmlForm), {
+  loading: () => (
+    <Carregando tela="a importação do XML">
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-64 w-full" />
+    </Carregando>
+  ),
+});
 
 // mesmo limite do /api/upload
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -91,7 +103,7 @@ export function NovoLancamento({
       return;
     }
     if (!ehFotoOuPdf(file)) {
-      toast.error("Envie uma foto, um PDF ou o XML da NF-e.");
+      toast.error("Envie uma foto, um PDF ou o XML da NF-e ou da NFS-e.");
       return;
     }
 
@@ -339,8 +351,8 @@ export function NovoLancamento({
               <p className="font-medium">Tem a nota em mãos? Envie e o sistema preenche para você.</p>
               <p className="text-sm text-muted-foreground">
                 {leituraAutomatica
-                  ? "Foto da nota, PDF (DANFE, NFS-e, recibo, boleto) ou o XML da NF-e. Você confere os dados e confirma."
-                  : "XML da NF-e é lido automaticamente; foto e PDF ficam anexados ao lançamento."}
+                  ? "Foto da nota, PDF (DANFE, NFS-e, recibo, boleto) ou o XML da NF-e ou da NFS-e. Você confere os dados e confirma."
+                  : "XML da NF-e e da NFS-e é lido automaticamente; foto e PDF ficam anexados ao lançamento."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

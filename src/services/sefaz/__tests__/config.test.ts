@@ -26,6 +26,7 @@ function empresa(campos: Partial<Empresa> = {}): Empresa {
     capturaAtiva: true,
     ambienteSefaz: "PRODUCAO",
     frequenciaCaptura: "DUAS_VEZES_DIA",
+    regimeIbsCbs: "NAO_INFORMADO",
     certificadoCifrado: cifrar(pem, { 1: CHAVE }),
     certificadoTitular: null,
     certificadoCnpj: "11222333000181",

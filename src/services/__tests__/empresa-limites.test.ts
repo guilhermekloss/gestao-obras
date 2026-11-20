@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const findUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({ prisma: { empresa: { findUnique } } }));
 
-const { carregarEmpresa, cnpjsDaEmpresa, empresaSchema, rotuloCnpj } = await import("../empresa");
+const { carregarEmpresa, carregarRegimeIbsCbs, cnpjsDaEmpresa, empresaSchema, rotuloCnpj } = await import("../empresa");
 
 const base = { razaoSocial: "Construtora Teste Ltda", cnpj: "11.222.333/0001-81", uf: "PR" };
 
@@ -39,6 +39,22 @@ describe("carregarEmpresa / cnpjsDaEmpresa", () => {
     findUnique.mockResolvedValue(null);
     vi.stubEnv("CNPJS_EMPRESA", "11.222.333/0001-81");
     expect(await cnpjsDaEmpresa()).toEqual(["11222333000181"]);
+  });
+});
+
+describe("carregarRegimeIbsCbs", () => {
+  it("o regime do cadastro; sem cadastro, não informado", async () => {
+    findUnique.mockResolvedValue({ id: "principal", regimeIbsCbs: "REGULAR" });
+    expect(await carregarRegimeIbsCbs()).toBe("REGULAR");
+    findUnique.mockResolvedValue(null);
+    expect(await carregarRegimeIbsCbs()).toBe("NAO_INFORMADO");
+  });
+
+  it("com outro cliente (transação) lê só o regime por ele", async () => {
+    const db = { empresa: { findUnique: vi.fn(async (_: object) => ({ regimeIbsCbs: "SIMPLES_NACIONAL" })) } };
+    expect(await carregarRegimeIbsCbs(db as never)).toBe("SIMPLES_NACIONAL");
+    expect(db.empresa.findUnique).toHaveBeenCalledWith({ where: { id: "principal" }, select: { regimeIbsCbs: true } });
+    expect(findUnique).not.toHaveBeenCalled();
   });
 });
 

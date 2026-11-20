@@ -3,6 +3,7 @@ import type { CorrespondenciaFornecedor } from "@/services/correspondencia-forne
 import { normalizarDocumentoCadastro } from "@/services/correspondencia-fornecedor";
 import { normalizarData, type LeituraNormalizada } from "@/services/leitura-documento";
 import { BP_TOTAL } from "@/services/rateio";
+import { exigeNumero } from "@/services/financeiro";
 import {
   errosDeVinculos,
   materialIdDoVinculo,
@@ -94,7 +95,7 @@ export function situacaoDocumento(valor: string): "vazio" | "valido" | "invalido
 export function errosConferencia(c: Conferencia): string[] {
   const erros: string[] = [];
   const v = c.valores;
-  const ehNF = v.tipoDocumento === "NF";
+  const ehNF = exigeNumero(v.tipoDocumento);
 
   const f = c.fornecedor;
   if (f.modo === "pendente") {
@@ -212,7 +213,7 @@ const PENALIDADE_AVISOS_MAX = 40;
 // mede a leitura (não as edições do usuário) e decide quando sugerir a IA
 export function indiceAcerto(leitura: LeituraNormalizada): IndiceAcerto {
   const checagens: [ok: boolean, falta: string][] = [];
-  const ehNota = leitura.tipoDocumento === "NF";
+  const ehNota = exigeNumero(leitura.tipoDocumento);
   const temChave = /NF-e|NFC-e/.test(leitura.descricaoDocumento);
 
   checagens.push([!!leitura.fornecedor.nome, "nome do emitente"]);

@@ -7,17 +7,17 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UFS, carregarEmpresa, rotuloCnpj } from "@/services/empresa";
+import { UFS, carregarEmpresa, carregarRegimeIbsCbs, rotuloCnpj } from "@/services/empresa";
 import { DIAS_AVISO_CERTIFICADO } from "@/services/sefaz/painel";
 import { removerCertificado } from "./actions";
-import { CapturaForm, CertificadoForm, DadosEmpresaForm } from "./formularios";
+import { CapturaForm, CertificadoForm, DadosEmpresaForm, RegimeIbsCbsForm } from "./formularios";
 import { GuiaCertificado } from "./guia-certificado";
 
 export const metadata: Metadata = { title: "Empresa" };
 
 export default async function EmpresaPage() {
   await exigirPapel("ADMIN");
-  const empresa = await carregarEmpresa();
+  const [empresa, regimeIbsCbs] = await Promise.all([carregarEmpresa(), carregarRegimeIbsCbs()]);
   const agora = new Date();
   const validade = empresa?.certificadoValidoAte ?? null;
   const dias = validade ? Math.ceil((validade.getTime() - agora.getTime()) / 86_400_000) : null;
@@ -29,7 +29,7 @@ export default async function EmpresaPage() {
       <div>
         <h1 className="text-2xl md:text-3xl">Empresa</h1>
         <p className="text-sm text-muted-foreground">
-          Dados da empresa dona da plataforma, o certificado digital e a busca automática de NF-e na Sefaz.
+          Dados da empresa dona da plataforma, a apuração de IBS/CBS, o certificado digital e a busca automática de NF-e na Sefaz.
         </p>
       </div>
 
@@ -51,6 +51,16 @@ export default async function EmpresaPage() {
               uf: empresa?.uf ?? "PR",
             }}
           />
+        </CardContent>
+      </Card>
+
+      <Card id="secao-ibs-cbs" className="scroll-mt-24">
+        <CardHeader>
+          <CardTitle>Reforma tributária (IBS/CBS)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RegimeIbsCbsForm regime={regimeIbsCbs} desabilitado={!empresa} />
+          {!empresa && <p className="mt-3 text-sm text-muted-foreground">Salve os dados da empresa para informar a apuração.</p>}
         </CardContent>
       </Card>
 

@@ -82,14 +82,16 @@ describe("gerarNumeroDocumento", () => {
 });
 
 describe("exigeNumero / parseTipoDocumento", () => {
-  it("só NF exige número", () => {
+  it("só documento fiscal (NF e NFS-e) exige número", () => {
     expect(exigeNumero("NF")).toBe(true);
+    expect(exigeNumero("NFSE")).toBe(true);
     expect(exigeNumero("RECIBO")).toBe(false);
     expect(exigeNumero("GUIA")).toBe(false);
   });
 
   it("interpreta o filtro da URL, ignorando valores inválidos", () => {
     expect(parseTipoDocumento("FOLHA")).toBe("FOLHA");
+    expect(parseTipoDocumento("NFSE")).toBe("NFSE");
     expect(parseTipoDocumento("")).toBeUndefined();
     expect(parseTipoDocumento("nf")).toBeUndefined();
     expect(parseTipoDocumento(undefined)).toBeUndefined();

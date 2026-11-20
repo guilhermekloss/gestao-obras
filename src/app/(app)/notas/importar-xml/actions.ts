@@ -9,10 +9,12 @@ import { storage } from "@/lib/storage";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
 import { parcelaSchema, rateioSchema } from "@/schemas/nota";
-import { nomeDaUrlArquivo } from "@/services/arquivos";
+import { nomeDaUrlArquivo, nomeDaUrlXml } from "@/services/arquivos";
 import { descricaoDoLancamento, registrarLancamento, type FornecedorDoLancamento } from "@/services/lancamento";
 import { buscarFornecedorPorDocumento, fornecedorSchema } from "@/services/fornecedores";
-import { formatarDocumento, parseNfeXml } from "@/services/nfe-xml";
+import { formatarDocumento } from "@/lib/format";
+import { MAX_CARACTERES_XML } from "@/services/nfe-xml";
+import { dadosImportaveis, lancamentoDoXml, parseDocumentoXml } from "@/services/documento-xml";
 import { correspondenciaItem, type CorrespondenciaItem } from "@/services/materiais";
 import { carregarBaseMateriais } from "@/services/materiais-db";
 import { obrasPorCno, type ObraDoCno } from "@/services/obras";
@@ -20,7 +22,7 @@ import { obrasPorCno, type ObraDoCno } from "@/services/obras";
 const PAPEIS = ["ADMIN", "ESCRITORIO"] as const;
 
 const importarSchema = z.object({
-  xml: z.string().min(1, "Selecione o arquivo XML"),
+  xml: z.string().min(1, "Selecione o arquivo XML").max(MAX_CARACTERES_XML, "Arquivo grande demais para importar (máximo 1 MB)."),
   nomeArquivo: z.string().optional(),
   // na mesma ordem dos itens do XML
   tipos: z.array(z.enum(["MATERIAL", "SERVICO", "FRETE", "ENCARGO"])).max(500),
@@ -80,8 +82,8 @@ export async function consultarSituacaoImportacao(
   return { notaExistente, fornecedor, obrasDoCno };
 }
 
-// XML reprocessado aqui (a prévia do client não é confiável); do client vêm só as escolhas.
-// Sem `revalidar` no wrapper: revalida e redireciona por conta própria no sucesso.
+// NF-e ou NFS-e nacional, conforme o conteúdo. XML reprocessado aqui (a prévia do client não é confiável);
+// do client vêm só as escolhas. Sem `revalidar` no wrapper: revalida e redireciona por conta própria no sucesso.
 export const importarNfe = acaoDeEscrita(
   { papeis: [...PAPEIS], atividade: "nota.importar_xml" },
   async (user, input: ImportarNfeInput): Promise<ImportarNfeResult> => {
@@ -89,68 +91,40 @@ export const importarNfe = acaoDeEscrita(
     if (!parsed.success) return { ok: false, erro: parsed.error.issues[0].message };
     const d = parsed.data;
 
-    const lido = parseNfeXml(d.xml);
+    const lido = parseDocumentoXml(d.xml);
     if (!lido.ok) return { ok: false, erro: lido.erro };
-    const nfe = lido.nfe;
+    const dados = dadosImportaveis(lido.doc);
 
-    if (d.tipos.length !== nfe.itens.length || d.materiais.length !== nfe.itens.length) {
+    if (d.tipos.length !== dados.itens.length || d.materiais.length !== dados.itens.length) {
       return { ok: false, erro: "Os itens enviados não conferem com o XML — recarregue o arquivo." };
     }
 
-    const existente = await buscarFornecedorPorDocumento(nfe.emitente.documento);
+    const existente = await buscarFornecedorPorDocumento(dados.emitente.documento);
     let fornecedor: FornecedorDoLancamento;
     if (existente) {
       fornecedor = { id: existente.id };
     } else {
-      const dados = fornecedorSchema.safeParse({
-        nome: nfe.emitente.razaoSocial,
-        cnpj: formatarDocumento(nfe.emitente.documento),
-        fone: nfe.emitente.fone ?? undefined,
+      const novo = fornecedorSchema.safeParse({
+        nome: dados.emitente.razaoSocial,
+        cnpj: formatarDocumento(dados.emitente.documento),
+        fone: dados.emitente.fone ?? undefined,
       });
-      if (!dados.success) return { ok: false, erro: dados.error.issues[0].message };
-      fornecedor = { novo: dados.data };
+      if (!novo.success) return { ok: false, erro: novo.error.issues[0].message };
+      fornecedor = { novo: novo.data };
     }
 
     // o arquivo é gravado antes (a nota guarda o endereço) e sai de novo se o lançamento não acontecer
     const anexoUrl = await storage.salvar(Buffer.from(d.xml, "utf8"), "xml");
     const desfazerAnexo = async () => {
-      const nome = nomeDaUrlArquivo(anexoUrl);
+      const nome = nomeDaUrlXml(anexoUrl) ?? nomeDaUrlArquivo(anexoUrl);
       if (nome) await storage.excluir(nome).catch(() => undefined);
     };
 
     let r: Awaited<ReturnType<typeof registrarLancamento>>;
     try {
       r = await registrarLancamento(
-        {
-          fornecedor,
-          tipoDocumento: "NF",
-          numero: nfe.numero,
-          dataCompra: nfe.dataEmissao,
-          totalCents: nfe.totalCents,
-          formaPagto: nfe.formaPagto,
-          obs: `Importada do XML da NF-e${nfe.serie ? ` (série ${nfe.serie})` : ""}`,
-          anexoUrl,
-          anexoNome: d.nomeArquivo || `NFe${nfe.chave}.xml`,
-          chaveNfe: nfe.chave,
-          itens: nfe.itens.map((item, i) => {
-            const escolha = d.materiais[i];
-            return {
-              materialId: escolha.modo === "existente" ? escolha.id : undefined,
-              materialNovo: escolha.modo === "novo" ? { nome: escolha.nome, unidade: escolha.unidade } : undefined,
-              codigoProduto: item.codigo,
-              descricao: item.descricao,
-              tipo: d.tipos[i],
-              qtde: item.qtde,
-              unidade: item.unidade,
-              unitCents: item.unitCents,
-              descontoCents: item.descontoCents,
-              totalCents: item.totalCents,
-            };
-          }),
-          rateios: d.rateios,
-          parcelas: d.parcelas,
-          criadoPor: user.id,
-        },
+        // fiscais só do XML lido aqui: o client manda apenas tipos, materiais, rateio e parcelas
+        lancamentoDoXml(dados, d, { fornecedor, anexoUrl, nomeArquivo: d.nomeArquivo, criadoPor: user.id }),
         // o leitor do XML já ajusta os itens ao total da nota: não há o que confirmar
         { forcar: true },
       );
@@ -164,11 +138,11 @@ export const importarNfe = acaoDeEscrita(
     }
 
     anotarAtividade({
-      descricao: `${descricaoDoLancamento("Importou", { tipoDocumento: "NF", numero: r.numero, totalCents: nfe.totalCents }, r.fornecedorNome)}${r.fornecedorCriado ? " e cadastrou o fornecedor" : ""}`,
+      descricao: `${descricaoDoLancamento("Importou", { tipoDocumento: dados.tipoDocumento, numero: r.numero, totalCents: dados.totalCents }, r.fornecedorNome)}${r.fornecedorCriado ? " e cadastrou o fornecedor" : ""}`,
       entidade: "nota",
       entidadeId: r.notaId,
       obraIds: d.rateios.map((x) => x.obraId),
-      valorCents: nfe.totalCents,
+      valorCents: dados.totalCents,
     });
     revalidatePath("/notas");
     revalidatePath("/notas/recebidas");

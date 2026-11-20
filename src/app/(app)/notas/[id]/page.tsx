@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -10,9 +11,21 @@ import { listarMateriais } from "@/services/materiais-db";
 import { centsParaEditavel, dataParaInput, percentBpParaEditavel } from "@/lib/format";
 import { TIPO_DOCUMENTO_BADGE } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
+import { carregarRegimeIbsCbs } from "@/services/empresa";
+import { analisarIbsCbsDaNota } from "@/services/tributacao/conferencia-db";
+import { IbsCbsDaNota } from "@/components/ibs-cbs-da-nota";
+import { nfseDoAnexo } from "@/services/nfse-anexo";
+import { VisualizacaoNfse } from "../visualizacao-nfse";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, TriangleAlert } from "lucide-react";
 
 export const metadata: Metadata = { title: "Editar lançamento" };
+
+// o XML da NFS-e vira a representação do DANFSe na tela, sem PDF no servidor; vem do storage, então não segura o formulário
+async function NfseDoAnexo({ anexoUrl }: { anexoUrl: string | null }) {
+  const nfse = await nfseDoAnexo(anexoUrl);
+  return nfse && <VisualizacaoNfse nfse={nfse} />;
+}
 
 export default async function EditarNotaPage({
   params,
@@ -32,12 +45,15 @@ export default async function EditarNotaPage({
   });
   if (!nota) notFound();
 
-  const [fornecedores, obras, materiais] = await Promise.all([
+  const [fornecedores, obras, materiais, ibsCbs] = await Promise.all([
     prisma.fornecedor.findMany({ orderBy: { nome: "asc" }, select: { id: true, nome: true, cnpj: true } }),
     // inclui as obras já usadas nesta nota, mesmo concluídas/pausadas depois
     listarObrasParaRateio(nota.rateios.map((r) => r.obraId)),
     listarMateriais(nota.itens.map((i) => i.materialId).filter((m): m is string => !!m)),
+    // a análise só depende do regime da empresa (lido uma vez por requisição), não das outras consultas
+    carregarRegimeIbsCbs().then((regime) => analisarIbsCbsDaNota(nota, regime)),
   ]);
+  const texto = (d: { toString(): string } | null) => (d === null ? null : d.toString());
 
   const defaultValues = {
     fornecedorId: nota.fornecedorId,
@@ -97,8 +113,14 @@ export default async function EditarNotaPage({
       </div>
       {nota.chaveNfe && (
         <p className="text-sm text-muted-foreground">
-          Chave NF-e <span className="font-mono break-all">{nota.chaveNfe}</span>
+          Chave {nota.tipoDocumento === "NFSE" ? "NFS-e" : "NF-e"}{" "}
+          <span className="font-mono break-all">{nota.chaveNfe}</span>
         </p>
+      )}
+      {nota.tipoDocumento === "NFSE" && (
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          <NfseDoAnexo anexoUrl={nota.anexoUrl} />
+        </Suspense>
       )}
       {temParcelaPaga && (
         <p
@@ -120,6 +142,23 @@ export default async function EditarNotaPage({
         materiais={materiais}
         parcelasExistentes={parcelasExistentes}
       />
+      {(ibsCbs.temDados || ibsCbs.achados.length > 0) && (
+        <IbsCbsDaNota
+          analise={ibsCbs}
+          itens={nota.itens.map((i) => ({
+            descricao: i.descricao,
+            cst: i.cst,
+            cClassTrib: i.cClassTrib,
+            ibsCbsBaseCents: i.ibsCbsBaseCents,
+            pCbs: texto(i.pCbs),
+            pIbsUf: texto(i.pIbsUf),
+            pIbsMun: texto(i.pIbsMun),
+            cbsCents: i.cbsCents,
+            ibsUfCents: i.ibsUfCents,
+            ibsMunCents: i.ibsMunCents,
+          }))}
+        />
+      )}
     </div>
   );
 }

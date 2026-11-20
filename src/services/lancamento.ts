@@ -10,11 +10,18 @@ import {
   type ParcelaExistente,
 } from "./parcelas";
 import { erroEtapasDoRateio } from "./obras";
-import { chaveAcessoValida, normalizarNumeroNf } from "./leitura-documento";
+import { chaveDocumentoValida, normalizarNumeroNf, rotuloDaChave } from "./leitura-documento";
 import { criarFornecedorValidado, validarDocumentoFornecedor } from "./fornecedores";
 import { normalizarDocumentoCadastro } from "./correspondencia-fornecedor";
 import { buscarMaterialPorNome, criarMaterialValidado, registrarApelidos } from "./materiais-db";
 import { normalizarUnidade } from "./materiais";
+import {
+  colunasIbsCbs,
+  ibsCbsDoGravado,
+  SELECT_IBS_CBS,
+  type ColunasIbsCbsGravadas,
+  type TributacaoIbsCbs,
+} from "./tributacao/ibs-cbs";
 
 // Todo lançamento (form, leitura, XML, planilha) passa por aqui: as regras e a gravação moram num lugar só.
 
@@ -38,6 +45,11 @@ export type ItemDoLancamento = {
   descontoCents: number;
   // ausente = qtde × unitário − desconto
   totalCents?: number;
+  // Dados fiscais: só do documento reprocessado no servidor (XML), nunca do formulário.
+  // Os três ausentes na edição = o item de mesma descrição mantém os gravados (herdarDadosFiscais).
+  ncm?: string | null;
+  nbs?: string | null;
+  ibsCbs?: TributacaoIbsCbs | null;
 };
 
 export type Lancamento = {
@@ -53,6 +65,8 @@ export type Lancamento = {
   anexoNome?: string;
   // só vale na criação; a edição preserva a chave gravada
   chaveNfe?: string;
+  // CRT do emitente, do XML; ausente na edição = mantém o gravado
+  crtEmitente?: string | null;
   itens: ItemDoLancamento[];
   rateios: { obraId: string; etapaId?: string; fracaoBp: number }[];
   parcelas: { numero: number; valorCents: number; vencimento: string; pagaEm?: Date | null }[];
@@ -65,6 +79,7 @@ export type ResultadoLancamento =
 
 const ROTULO_DOCUMENTO: Record<TipoDocumento, string> = {
   NF: "a NF",
+  NFSE: "a NFS-e",
   RECIBO: "o recibo",
   FOLHA: "a folha",
   GUIA: "a guia",
@@ -80,8 +95,8 @@ export function descricaoDoLancamento(
 }
 
 function mensagemNumeroRepetido(tipo: TipoDocumento, numero: string): string {
-  if (tipo === "NF") {
-    return `Já existe a NF ${numero} deste fornecedor. Confira se a nota não foi lançada antes.`;
+  if (tipo === "NF" || tipo === "NFSE") {
+    return `Já existe a ${tipo === "NF" ? "NF" : "NFS-e"} ${numero} deste fornecedor. Confira se a nota não foi lançada antes.`;
   }
   return numero
     ? `Já existe um lançamento nº ${numero} deste fornecedor. Use outro número ou deixe em branco para gerar automaticamente.`
@@ -90,9 +105,10 @@ function mensagemNumeroRepetido(tipo: TipoDocumento, numero: string): string {
 
 const MSG_OBRA_REPETIDA = "A mesma obra aparece mais de uma vez no rateio. Junte as linhas em uma só.";
 
-// NF sem zeros à esquerda, como o nNF do XML: a duplicata (fornecedor + número) depende disso.
+// NF e NFS-e sem zeros à esquerda, como o nNF/nNFSe do XML: a duplicata (fornecedor + número) depende disso
+// (a mesma nota lida da foto como "000228" e depois importada do XML como "228").
 export function numeroDoLancamento(tipo: TipoDocumento, numero: string): string {
-  return tipo === "NF" ? normalizarNumeroNf(numero) : numero.trim();
+  return exigeNumero(tipo) ? normalizarNumeroNf(numero) : numero.trim();
 }
 
 // Só os dígitos do CNPJ/CPF: "12.345.678/0001-95" e "12345678000195" são o mesmo fornecedor.
@@ -167,10 +183,11 @@ async function recusaDeDuplicidade(db: Db, l: Lancamento, numero: string, digita
 
   const chave = l.id ? undefined : l.chaveNfe;
   if (chave) {
-    if (!chaveAcessoValida(chave)) return { ok: false, erro: "Chave de acesso inválida" };
+    if (!chaveDocumentoValida(chave)) return { ok: false, erro: "Chave de acesso inválida" };
     const mesma = await db.notaFiscal.findUnique({ where: { chaveNfe: chave }, select: { id: true, numero: true } });
     if (mesma) {
-      return { ok: false, erro: `Esta NF-e já foi lançada (NF ${mesma.numero}).`, notaExistenteId: mesma.id };
+      const r = rotuloDaChave(chave);
+      return { ok: false, erro: `Esta ${r.documento} já foi lançada (${r.sigla} ${mesma.numero}).`, notaExistenteId: mesma.id };
     }
   }
   return null;
@@ -180,11 +197,40 @@ async function recusaDeDuplicidade(db: Db, l: Lancamento, numero: string, digita
 function recusaDeUnicidade(erro: unknown, l: Lancamento, numero: string): Recusa | null {
   if (!(erro instanceof Prisma.PrismaClientKnownRequestError) || erro.code !== "P2002") return null;
   const alvo = String(erro.meta?.target ?? "");
-  if (alvo.includes("chaveNfe")) return { ok: false, erro: "Esta NF-e acabou de ser lançada por outra pessoa." };
+  if (alvo.includes("chaveNfe")) {
+    return { ok: false, erro: `Esta ${rotuloDaChave(l.chaveNfe ?? "").documento} acabou de ser lançada por outra pessoa.` };
+  }
   if (alvo.includes("fornecedorId")) return { ok: false, erro: mensagemNumeroRepetido(l.tipoDocumento, numero) };
   if (alvo.includes("obraId")) return { ok: false, erro: MSG_OBRA_REPETIDA };
   if (alvo.includes("cnpj")) return { ok: false, erro: "Já existe um fornecedor com este CNPJ/CPF." };
   return null;
+}
+
+/** Item como está no banco: só o que a edição precisa para não perder os dados fiscais. */
+export type ItemFiscalGravado = { descricao: string; ncm: string | null; nbs: string | null } & ColunasIbsCbsGravadas;
+
+const SELECAO_FISCAL = {
+  descricao: true,
+  ncm: true,
+  nbs: true,
+  ...SELECT_IBS_CBS,
+} as const satisfies Record<keyof ItemFiscalGravado, true>;
+
+function tributacaoGravada(g: ItemFiscalGravado): TributacaoIbsCbs | null {
+  if (!g.cst || !g.cClassTrib) return null;
+  return { ...ibsCbsDoGravado(g), cst: g.cst, cClassTrib: g.cClassTrib };
+}
+
+// A edição pelo formulário não traz NCM nem IBS/CBS: o item de mesma descrição herda o que o documento trouxe
+// (na ordem, para itens repetidos). Item novo ou com descrição trocada fica sem dados fiscais.
+export function herdarDadosFiscais(itens: ItemDoLancamento[], gravados: ItemFiscalGravado[]): ItemDoLancamento[] {
+  const fila = new Map<string, ItemFiscalGravado[]>();
+  for (const g of gravados) fila.set(g.descricao.trim(), [...(fila.get(g.descricao.trim()) ?? []), g]);
+  return itens.map((item) => {
+    if (item.ncm !== undefined || item.nbs !== undefined || item.ibsCbs !== undefined) return item;
+    const g = fila.get(item.descricao.trim())?.shift();
+    return g ? { ...item, ncm: g.ncm, nbs: g.nbs, ibsCbs: tributacaoGravada(g) } : item;
+  });
 }
 
 function totalDoItem(i: ItemDoLancamento): number {
@@ -240,10 +286,14 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
     obs: l.obs || null,
     anexoUrl: l.anexoUrl || null,
     anexoNome: l.anexoNome || null,
+    ...(l.crtEmitente !== undefined ? { crtEmitente: l.crtEmitente } : {}),
   };
 
   let notaId = l.id;
+  let itens = l.itens;
   if (notaId) {
+    const gravados = await tx.itemNota.findMany({ where: { notaId }, select: SELECAO_FISCAL, orderBy: { id: "asc" } });
+    itens = herdarDadosFiscais(l.itens, gravados);
     await tx.itemNota.deleteMany({ where: { notaId } });
     await tx.rateioNota.deleteMany({ where: { notaId } });
     await tx.notaFiscal.update({ where: { id: notaId }, data: dadosNota });
@@ -272,10 +322,10 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
   });
 
   const materialIds: (string | null)[] = [];
-  for (const item of l.itens) materialIds.push(await resolverMaterial(tx, item));
+  for (const item of itens) materialIds.push(await resolverMaterial(tx, item));
 
   await tx.itemNota.createMany({
-    data: l.itens.map((item, i) => ({
+    data: itens.map((item, i) => ({
       notaId: idDaNota,
       materialId: materialIds[i],
       descricao: item.descricao,
@@ -285,6 +335,9 @@ export async function gravarLancamento(tx: Tx, l: Lancamento) {
       unitCents: item.unitCents,
       descontoCents: item.descontoCents,
       totalCents: totalDoItem(item),
+      ncm: item.ncm ?? null,
+      nbs: item.nbs ?? null,
+      ...colunasIbsCbs(item.ibsCbs),
     })),
   });
 

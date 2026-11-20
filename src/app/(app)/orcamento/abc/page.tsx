@@ -6,6 +6,7 @@ import { formatarMoeda, formatarPercentBp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { listarObrasParaFiltro } from "@/services/obras";
 import { carregarCurvaAbc, type ClasseAbc } from "@/services/analises";
+import { carregarModoDoCusto } from "@/services/tributacao/custo-liquido-db";
 import { ComboboxFiltro } from "@/components/combobox-filtro";
 import { SelectNativo } from "@/components/select-nativo";
 import { Badge } from "@/components/ui/badge";
@@ -46,21 +47,22 @@ function formatarQtde(qtde: number): string {
 export default async function CurvaAbcPage({
   searchParams,
 }: {
-  searchParams: Promise<{ obra?: string; de?: string; ate?: string; tipo?: string }>;
+  searchParams: Promise<{ obra?: string; de?: string; ate?: string; tipo?: string; custo?: string }>;
 }) {
   await exigirPapel("ADMIN", "ESCRITORIO");
-  const { obra, de, ate, tipo: tipoParam } = await searchParams;
+  const { obra, de, ate, tipo: tipoParam, custo: custoParam } = await searchParams;
   const tipo = TIPOS.find((t) => t.value === tipoParam)?.value;
 
-  const [obras, curva] = await Promise.all([
-    listarObrasParaFiltro(),
-    carregarCurvaAbc({
-      obraId: obra || undefined,
-      de: dataDoFiltro(de, false),
-      ate: dataDoFiltro(ate, true),
-      tipo,
-    }),
-  ]);
+  // a opção só existe com crédito a recuperar; com ele, o líquido é o padrão (como no Orçamento). Fora do regime
+  // regular a curva é sempre a bruta e as notas com destaque nem são lidas.
+  const [obras, { comCredito, modo }] = await Promise.all([listarObrasParaFiltro(), carregarModoDoCusto(obra || undefined, custoParam)]);
+  const curva = await carregarCurvaAbc({
+    obraId: obra || undefined,
+    de: dataDoFiltro(de, false),
+    ate: dataDoFiltro(ate, true),
+    tipo,
+    liquido: modo === "LIQUIDO",
+  });
   const { insumos, resumo, totalCents } = curva;
   const linhas = insumos.map((i, idx) => ({ ...i, ordem: idx + 1 }));
 
@@ -113,6 +115,7 @@ export default async function CurvaAbcPage({
         <p className="text-sm text-muted-foreground">
           Itens de nota agrupados por descrição e unidade, do maior custo para o menor.
           Com obra selecionada, entra só a parte rateada para ela.
+          {modo === "LIQUIDO" && " O custo de cada insumo é líquido do crédito de IBS/CBS."}
         </p>
       </div>
 
@@ -148,6 +151,15 @@ export default async function CurvaAbcPage({
             ))}
           </SelectNativo>
         </div>
+        {comCredito && (
+          <div className="grid gap-1">
+            <label htmlFor="filtro-custo" className="text-xs text-muted-foreground">Custo</label>
+            <SelectNativo id="filtro-custo" name="custo" defaultValue={modo === "LIQUIDO" ? "liquido" : "bruto"} className="w-44">
+              <option value="liquido">Líquido de IBS/CBS</option>
+              <option value="bruto">Bruto</option>
+            </SelectNativo>
+          </div>
+        )}
         <Button type="submit" variant="secondary">Filtrar</Button>
       </form>
 
@@ -171,7 +183,7 @@ export default async function CurvaAbcPage({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        {insumos.length} insumo(s) · custo total {formatarMoeda(totalCents)}
+        {insumos.length} insumo(s) · custo {modo === "LIQUIDO" ? "líquido " : ""}total {formatarMoeda(totalCents)}
       </p>
 
       <ListaDeDados

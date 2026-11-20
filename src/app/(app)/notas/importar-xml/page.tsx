@@ -9,7 +9,7 @@ import { xmlDaRecebida } from "@/services/sefaz/painel";
 import { AvisoDePagina } from "@/components/aviso-de-pagina";
 import { ImportarXmlForm } from "./importar-xml-form";
 
-export const metadata: Metadata = { title: "Importar XML da NF-e" };
+export const metadata: Metadata = { title: "Importar XML da NF-e ou NFS-e" };
 
 export default async function ImportarXmlPage({ searchParams }: { searchParams: Promise<{ recebida?: string }> }) {
   await exigirPapel("ADMIN", "ESCRITORIO");
@@ -24,10 +24,10 @@ export default async function ImportarXmlPage({ searchParams }: { searchParams: 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div>
-        <h1 className="text-2xl md:text-3xl">Importar XML da NF-e</h1>
+        <h1 className="text-2xl md:text-3xl">Importar XML da NF-e ou NFS-e</h1>
         <p className="text-sm text-muted-foreground">
-          Envie o arquivo .xml que o fornecedor manda junto com a nota. Fornecedor, itens, total e
-          parcelas são preenchidos a partir dele; você só define o rateio entre as obras.
+          Envie o arquivo .xml que o fornecedor manda junto com a nota (NF-e ou NFS-e do padrão nacional).
+          Fornecedor, itens, total e parcelas são preenchidos a partir dele; você só define o rateio entre as obras.
         </p>
       </div>
       {recebida && !xmlRecebido && (

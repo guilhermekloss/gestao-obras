@@ -9,6 +9,8 @@ import { TIPO_DOCUMENTO_BADGE } from "./financeiro";
 import { normalizarDescricao } from "./materiais";
 import { carregarAlertasDaCaptura } from "./sefaz/painel";
 import { desempenhoCusto, totalDesempenho } from "./desempenho-custo";
+import { liquidarItensDasNotas } from "./tributacao/custo-liquido-db";
+import { DESCRICAO_IBS_CBS_POR_FORA, SELECT_CREDITO_IBS_CBS } from "./tributacao/ibs-cbs";
 
 export type ClasseAbc = "A" | "B" | "C";
 
@@ -441,12 +443,14 @@ type FiltroAbc = {
   de?: Date;
   ate?: Date;
   tipo?: TipoItem;
+  /** Custo de cada item líquido do crédito de IBS/CBS (regime regular, notas de 2027 em diante). */
+  liquido?: boolean;
 };
 
 // Sem filtro de obra a nota entra inteira, inclusive sem rateio (compra da empresa).
 export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc> {
   // sem filtro nenhum, reaproveita a leitura de notas da requisição (mesmo resultado da consulta abaixo)
-  if (!filtro.obraId && !filtro.de && !filtro.ate && !filtro.tipo) {
+  if (!filtro.obraId && !filtro.de && !filtro.ate && !filtro.tipo && !filtro.liquido) {
     const todas = await notasParaAnalise();
     return curvaAbc(
       todas.map((n) => ({
@@ -466,24 +470,37 @@ export async function carregarCurvaAbc(filtro: FiltroAbc = {}): Promise<CurvaAbc
     };
   }
 
-  const notas = await prisma.notaFiscal.findMany({
-    where,
-    select: {
-      fornecedorId: true,
-      // sem filtro de obra, "" não casa com nenhum rateio (a fração não é usada)
-      rateios: { where: { obraId: filtro.obraId ?? "" }, select: { fracaoBp: true } },
-      itens: {
-        where: filtro.tipo ? { tipo: filtro.tipo } : undefined,
-        select: { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true },
-      },
-    },
-  });
+  const tipo = filtro.tipo;
+  // sem filtro de obra, "" não casa com nenhum rateio (a fração não é usada)
+  const rateios = { where: { obraId: filtro.obraId ?? "" }, select: { fracaoBp: true } } as const;
+  const selectItem = { descricao: true, unidade: true, tipo: true, qtde: true, totalCents: true } as const;
+  const notas = filtro.liquido
+    ? await liquidarItensDasNotas(
+        await prisma.notaFiscal.findMany({
+          where,
+          select: {
+            fornecedorId: true,
+            dataCompra: true,
+            rateios,
+            itens: {
+              // a linha do IBS/CBS por fora vem junto do tipo pedido: ela marca a nota, e o líquido dos produtos depende dela.
+              // O líquido de cada item só depende dele e dessa marca: filtrar os outros itens antes não muda o resultado.
+              where: tipo ? { OR: [{ tipo }, { descricao: DESCRICAO_IBS_CBS_POR_FORA }] } : undefined,
+              select: { ...selectItem, ...SELECT_CREDITO_IBS_CBS },
+            },
+          },
+        }),
+      )
+    : await prisma.notaFiscal.findMany({
+        where,
+        select: { fornecedorId: true, rateios, itens: { where: tipo ? { tipo } : undefined, select: selectItem } },
+      });
 
   return curvaAbc(
     notas.map((n) => ({
       fornecedorId: n.fornecedorId,
       fracaoBp: filtro.obraId ? (n.rateios[0]?.fracaoBp ?? 0) : BP_TOTAL,
-      itens: n.itens.map((i) => ({ ...i, qtde: Number(i.qtde) })),
+      itens: n.itens.filter((i) => !tipo || i.tipo === tipo).map((i) => ({ ...i, qtde: Number(i.qtde) })),
     })),
   );
 }

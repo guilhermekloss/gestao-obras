@@ -99,6 +99,28 @@ describe("calcularDependencia", () => {
     expect(a.fatores.exclusividade).toBe(0);
   });
 
+  it("o CRT de cada fornecedor sai da mesma leitura: o da nota mais recente com CRT (empate no dia: a lançada por último)", async () => {
+    const comCrt = (fornecedorId: string, dataCompra: Date, crtEmitente: string | null, createdAt: Date) => ({
+      ...nota(fornecedorId, dataCompra, 100, [], []),
+      crtEmitente,
+      createdAt,
+    });
+    findMany.mockResolvedValue([
+      comCrt("A", new Date(2026, 8, 1, 12), "1", new Date(2026, 8, 1)),
+      comCrt("A", new Date(2026, 9, 1, 12), "3", new Date(2026, 9, 1, 8)),
+      comCrt("A", new Date(2026, 9, 1, 12), "1", new Date(2026, 9, 1, 9)),
+      // a nota mais nova sem CRT (lançamento manual) não apaga o regime
+      comCrt("A", new Date(2026, 9, 5, 12), null, new Date(2026, 9, 5)),
+      comCrt("B", new Date(2026, 9, 1, 12), null, new Date(2026, 9, 1)),
+    ]);
+    count.mockResolvedValue(1);
+    const r = await calcularDependencia(agora);
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany.mock.calls[0][0].select).toMatchObject({ crtEmitente: true, createdAt: true, dataCompra: true });
+    expect(r.get("A")?.crt).toBe("1");
+    expect(r.get("B")?.crt).toBeNull();
+  });
+
   it("sem notas devolve mapa vazio", async () => {
     findMany.mockResolvedValue([]);
     count.mockResolvedValue(3);

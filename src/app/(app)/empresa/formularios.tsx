@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CampoForm } from "@/components/campo-form";
 import { SelectNativo } from "@/components/select-nativo";
-import { configurarCaptura, enviarCertificado, salvarEmpresa, type EstadoForm } from "./actions";
+import { REGIME_IBS_CBS_LABELS } from "@/services/tributacao/ibs-cbs";
+import { configurarCaptura, enviarCertificado, salvarEmpresa, salvarRegimeIbsCbs, type EstadoForm } from "./actions";
 
 function useAvisoDoEstado(estado: EstadoForm, aoDarCerto?: () => void) {
   const anterior = useRef(estado);
@@ -71,6 +72,40 @@ export function DadosEmpresaForm({ inicial, ufs }: { inicial: EmpresaForm; ufs: 
           <Save className="size-4" /> {pendente ? "Salvando..." : "Salvar dados"}
         </Button>
       </div>
+    </form>
+  );
+}
+
+export function RegimeIbsCbsForm({
+  regime,
+  desabilitado,
+}: {
+  regime: keyof typeof REGIME_IBS_CBS_LABELS;
+  desabilitado: boolean;
+}) {
+  const [estado, enviar, pendente] = useActionState<EstadoForm, FormData>(salvarRegimeIbsCbs, { ok: true });
+  useAvisoDoEstado(estado);
+  return (
+    <form action={enviar} className="grid gap-4">
+      <CampoForm
+        id="regimeIbsCbs"
+        rotulo="Como a empresa apura IBS/CBS"
+        tituloAjuda="Apuração de IBS/CBS"
+        ajuda="Pergunte ao contador. Optante do Simples que escolheu recolher IBS/CBS por fora do DAS conta como regime regular."
+        dica="Só no regime regular o IBS/CBS das notas vira crédito e sai do custo da obra. No Simples, ou sem informar, ele fica no custo."
+      >
+        <SelectNativo id="regimeIbsCbs" name="regimeIbsCbs" defaultValue={regime} disabled={desabilitado} className="max-w-xs">
+          {Object.entries(REGIME_IBS_CBS_LABELS).map(([valor, rotulo]) => (
+            <option key={valor} value={valor}>
+              {rotulo}
+            </option>
+          ))}
+        </SelectNativo>
+      </CampoForm>
+      <Erro estado={estado} />
+      <Button type="submit" variant="outline" disabled={pendente || desabilitado} className="w-fit">
+        <Save className="size-4" /> {pendente ? "Salvando..." : "Salvar apuração"}
+      </Button>
     </form>
   );
 }

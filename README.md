@@ -46,7 +46,7 @@ Em construtora pequena e média, o custo da obra costuma viver em planilhas: uma
 
 **Custo e financeiro**
 - Lançamento de NF, recibo, folha e guia com **rateio entre obras** e parcelas a pagar. Lançamento sem NF ganha número automático, para que todo custo entre na obra.
-- **Leitura automática da nota** por foto, PDF ou XML da NF-e: texto do PDF, código de barras/QR e OCR local. Uma tela de conferência mostra os dados ao lado do documento e só grava depois da confirmação. IA (Gemini) é opcional, para releitura quando a confiança é baixa.
+- **Leitura automática da nota** por foto, PDF ou XML da NF-e e da NFS-e: texto do PDF, código de barras/QR e OCR local. Uma tela de conferência mostra os dados ao lado do documento e só grava depois da confirmação. IA (Gemini) é opcional, para releitura quando a confiança é baixa.
 - **Captura automática de NF-e na Sefaz** com o certificado A1 da empresa: as notas emitidas contra o CNPJ aparecem sem ninguém digitar.
 - Contas a pagar por urgência e fluxo mensal.
 - Catálogo de materiais que se liga sozinho aos itens das notas pela descrição.
@@ -60,6 +60,13 @@ Em construtora pequena e média, o custo da obra costuma viver em planilhas: uma
 - Orçamento × realizado por obra e etapa, curva ABC de insumos, desembolso mensal contra a linha de base e alerta de tendência de estouro.
 - **Score de dependência de fornecedor**: mostra quanto do gasto está concentrado em poucos fornecedores (nenhum dos concorrentes pesquisados oferece).
 - Dashboard com filtro por obra e central de alertas.
+
+**Reforma tributária (IBS/CBS)**
+- Lê o IBS e a CBS destacados em cada item da NF-e e da NFS-e, com a classificação tributária oficial da Receita.
+- Calcula o crédito a recuperar (só no regime regular, a partir de 2027) e mostra o custo líquido no orçamento, na obra, na curva ABC e no material.
+- Compara o custo efetivo por fornecedor: o preço da nota menos o crédito que a empresa aproveita.
+- Confere o imposto que o fornecedor destacou e avisa o que não bate. Só avisa: não bloqueia o lançamento.
+- Detalhes, limitações e como atualizar a tabela da Receita: [`docs/reforma-tributaria.md`](docs/reforma-tributaria.md).
 
 **Navegação e preenchimento**
 - Busca global (Ctrl+K) por tela, ação, obra, fornecedor, lançamento e material.
@@ -171,6 +178,7 @@ npm run test:mutation   # teste de mutação (Stryker)
 | [`plano-evolucao.md`](docs/plano-evolucao.md) | Benchmark de mercado, mapa de funcionalidades e roadmap |
 | [`leitura-nota-fiscal.md`](docs/leitura-nota-fiscal.md) | Como funciona a leitura de foto, PDF e XML |
 | [`captura-sefaz.md`](docs/captura-sefaz.md) | Captura automática de NF-e com certificado A1 |
+| [`reforma-tributaria.md`](docs/reforma-tributaria.md) | IBS/CBS: dados, regra de crédito, conferência e atualização da tabela da Receita |
 | [`assistente-e-fluxos.md`](docs/assistente-e-fluxos.md) | Assistente de navegação e auditoria dos fluxos |
 | [`seguranca.md`](docs/seguranca.md) | Camadas de segurança, riscos aceitos, incidente |
 | [`deploy-gcp.md`](docs/deploy-gcp.md) | Infraestrutura e primeiro deploy |

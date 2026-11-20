@@ -46,3 +46,13 @@ export function nomeDaUrlArquivo(url: string): string | null {
 export function urlArquivoValida(url: string): boolean {
   return nomeDaUrlArquivo(url) !== null;
 }
+
+// O XML importado (NF-e/NFS-e) fica guardado como anexo, mas não é servido pela rota de arquivos: renderizado
+// pelo navegador, XML pode executar script. Só o servidor o lê (para mostrar a NFS-e ou desfazer o envio).
+const NOME_XML = /^\d{10,16}-[0-9a-f]{8,32}\.xml$/;
+
+export function nomeDaUrlXml(url: string): string | null {
+  if (!url.startsWith(PREFIXO_URL)) return null;
+  const nome = url.slice(PREFIXO_URL.length);
+  return NOME_XML.test(nome) ? nome : null;
+}

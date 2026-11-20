@@ -261,3 +261,22 @@ describe("materiais dos itens", () => {
     expect(comMaterialIds(c.valores, ["x"]).itens.map((i) => i.materialId)).toEqual(["x", ""]);
   });
 });
+
+describe("NFS-e lida da foto/PDF", () => {
+  const NFSE: LeituraNormalizada = { ...LEITURA, tipoDocumento: "NFSE", descricaoDocumento: "NFS-e (nota de serviço)" };
+
+  it("como a NF, exige número e CNPJ/CPF do prestador novo", () => {
+    const c: Conferencia = { ...conferenciaInicial(NFSE, SEM_CORRESPONDENCIA, OPTS), conferido: true };
+    expect(c.valores.tipoDocumento).toBe("NFSE");
+    c.fornecedor = { modo: "novo", nome: "Fulano", documento: "" };
+    c.valores = { ...c.valores, numero: "" };
+    expect(errosConferencia(c)).toEqual([
+      "Fornecedor: informe o CNPJ/CPF do emitente da nota.",
+      "Documento: informe o número da nota.",
+    ]);
+  });
+
+  it("o índice cobra CNPJ e número, sem chave de NF-e", () => {
+    expect(indiceAcerto({ ...NFSE, numero: "" }).faltas).toEqual(["número da nota"]);
+  });
+});

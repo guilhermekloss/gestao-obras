@@ -1,14 +1,19 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import type { FormaPagto, TipoItem } from "@prisma/client";
-import { formatarMoeda } from "@/lib/format";
+import { formatarDocumento, formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { extrairCnos, formatarCno } from "./cno";
+import { crtValido, DESCRICAO_IBS_CBS_POR_FORA, type CrtEmitente, type TotaisIbsCbs, type TributacaoIbsCbs } from "./tributacao/ibs-cbs";
 
-type ItemNfe = {
+export type { TotaisIbsCbs, TributacaoIbsCbs } from "./tributacao/ibs-cbs";
+
+export type ItemNfe = {
   descricao: string;
   /** Código do produto no fornecedor (cProd). */
   codigo: string | null;
   ncm: string | null;
+  /** Código NBS do serviço (cServ/cNBS): só a NFS-e. */
+  nbs?: string | null;
   qtde: number;
   unidade: string;
   unitCents: number;
@@ -16,6 +21,8 @@ type ItemNfe = {
   totalCents: number;
   origem: "PRODUTO" | "ACESSORIO" | "AJUSTE";
   tipoSugerido: TipoItem;
+  /** Grupo imposto/IBSCBS; ausente na nota anterior à reforma e nos itens acessórios. */
+  ibsCbs?: TributacaoIbsCbs;
 };
 
 type DuplicataNfe = {
@@ -42,7 +49,15 @@ export type Nfe = {
   /** CNO da obra (12 dígitos), quando a nota cita um; liga a nota à obra. */
   cno: string | null;
   itens: ItemNfe[];
+  /** Valor a pagar: vNF, ou vNFTot quando o IBS/CBS vem por fora (ver totalAPagar). */
   totalCents: number;
+  /** ICMSTot/vNF e total/vNFTot (com IBS/CBS/IS por fora; nulo quando a nota não traz). */
+  vNfCents: number;
+  vNfTotCents: number | null;
+  /** CRT do emitente; nulo quando ausente ou fora da tabela. */
+  crtEmitente: CrtEmitente | null;
+  /** total/IBSCBSTot; nulo na nota anterior à reforma. */
+  totaisIbsCbs: TotaisIbsCbs | null;
   duplicatas: DuplicataNfe[];
   formaPagto: FormaPagto;
   avisos: string[];
@@ -75,13 +90,6 @@ export function unitarioCoerente(
   return { unitCents: c, ajusteCents: Math.round(qtde * c) - vProdCents };
 }
 
-export function formatarDocumento(doc: string): string {
-  const d = doc.replace(/\D/g, "");
-  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
-  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
-  return doc;
-}
-
 export function variantesDocumento(doc: string): string[] {
   const digitos = doc.replace(/\D/g, "");
   return Array.from(new Set([digitos, formatarDocumento(digitos)]));
@@ -103,7 +111,7 @@ export function mapearFormaPagto(tPag: string | undefined): FormaPagto {
   return (tPag && T_PAG[tPag.padStart(2, "0")]) || "BOLETO";
 }
 
-type No = Record<string, unknown>;
+export type No = Record<string, unknown>;
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -115,45 +123,157 @@ const parser = new XMLParser({
   trimValues: true,
 });
 
-function no(v: unknown): No | undefined {
+export function no(v: unknown): No | undefined {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as No) : undefined;
 }
 
-function lista(v: unknown): No[] {
+export function lista(v: unknown): No[] {
   if (v === undefined || v === null) return [];
   return (Array.isArray(v) ? v : [v]).map(no).filter((x): x is No => x !== undefined);
 }
 
-function texto(n: No | undefined, campo: string): string | undefined {
+export function texto(n: No | undefined, campo: string): string | undefined {
   const v = n?.[campo];
   if (typeof v === "string") return v.trim() || undefined;
   if (typeof v === "number") return String(v);
   return undefined;
 }
 
-function centavos(n: No | undefined, campo: string): number {
+export function centavos(n: No | undefined, campo: string): number {
   return decimalParaInteiro(texto(n, campo), 2) ?? 0;
+}
+
+// Ausente = nulo (não zero): no IBS/CBS, "sem o campo" e "R$ 0,00" dizem coisas diferentes.
+export function centavosOuNulo(n: No | undefined, campo: string): number | null {
+  return decimalParaInteiro(texto(n, campo), 2);
+}
+
+export function somaOuNulo(valores: (number | null)[]): number | null {
+  const presentes = valores.filter((v): v is number => v !== null);
+  return presentes.length > 0 ? presentes.reduce((a, v) => a + v, 0) : null;
+}
+
+// Alíquota em % como texto exato ("0.9000" vira "0.9"), sem passar por ponto flutuante.
+export function percentual(n: No | undefined, campo: string): string | null {
+  const v = texto(n, campo);
+  if (!v || !/^\d{1,3}(?:\.\d{1,4})?$/.test(v)) return null;
+  return v.replace(/^0+(?=\d)/, "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
+// Grupo imposto/IBSCBS do item (NT 2025.002). Sem CST ou cClassTrib o grupo é ignorado: não há o que conferir.
+export function lerIbsCbs(imposto: No | undefined): TributacaoIbsCbs | undefined {
+  const g = no(imposto?.IBSCBS);
+  const cst = texto(g, "CST");
+  const cClassTrib = texto(g, "cClassTrib");
+  if (!g || !cst || !cClassTrib) return undefined;
+
+  const base = no(g.gIBSCBS);
+  const uf = no(base?.gIBSUF);
+  const mun = no(base?.gIBSMun);
+  const cbs = no(base?.gCBS);
+  const mono = no(g.gIBSCBSMono);
+  const credPres = no(g.gCredPresOper);
+  return {
+    cst,
+    cClassTrib,
+    ibsCbsBaseCents: centavosOuNulo(base, "vBC"),
+    pCbs: percentual(cbs, "pCBS"),
+    pIbsUf: percentual(uf, "pIBSUF"),
+    pIbsMun: percentual(mun, "pIBSMun"),
+    pRedCbs: percentual(no(cbs?.gRed), "pRedAliq"),
+    pRedIbs: percentual(no(uf?.gRed), "pRedAliq") ?? percentual(no(mun?.gRed), "pRedAliq"),
+    // monofásico (combustível): ad rem, sem base nem alíquota; o IBS vem num total só
+    cbsCents: mono ? centavosOuNulo(mono, "vTotCBSMonoItem") : centavosOuNulo(cbs, "vCBS"),
+    ibsUfCents: mono ? centavosOuNulo(mono, "vTotIBSMonoItem") : centavosOuNulo(uf, "vIBSUF"),
+    ibsMunCents: mono ? null : centavosOuNulo(mun, "vIBSMun"),
+    ibsCbsDiferidoCents: somaOuNulo([uf, mun, cbs].map((x) => centavosOuNulo(no(x?.gDif), "vDif"))),
+    cCredPres: texto(credPres, "cCredPres") ?? null,
+    credPresCents: somaOuNulo([
+      centavosOuNulo(no(credPres?.gIBSCredPres), "vCredPres"),
+      centavosOuNulo(no(credPres?.gCBSCredPres), "vCredPres"),
+    ]),
+  };
+}
+
+function lerTotaisIbsCbs(total: No | undefined): TotaisIbsCbs | null {
+  const t = no(total?.IBSCBSTot);
+  if (!t) return null;
+  const gIbs = no(t.gIBS);
+  const gCbs = no(t.gCBS);
+  const gMono = no(t.gMono);
+  return {
+    ibsCbsBaseCents: centavos(t, "vBCIBSCBS"),
+    cbsCents: centavos(gCbs, "vCBS"),
+    ibsUfCents: centavos(no(gIbs?.gIBSUF), "vIBSUF"),
+    ibsMunCents: centavos(no(gIbs?.gIBSMun), "vIBSMun"),
+    ibsCbsDiferidoCents: centavos(no(gIbs?.gIBSUF), "vDif") + centavos(no(gIbs?.gIBSMun), "vDif") + centavos(gCbs, "vDif"),
+    credPresCents: centavos(gIbs, "vCredPres") + centavos(gCbs, "vCredPres"),
+    cbsMonoCents: centavos(gMono, "vCBSMono"),
+    ibsMonoCents: centavos(gMono, "vIBSMono"),
+  };
+}
+
+/**
+ * Valor a pagar da nota. vNF é o total "tradicional"; vNFTot (NT 2025.002) soma o IBS/CBS/IS cobrado por fora.
+ * Quando vNFTot passa do vNF, vale ele e a diferença vira um item acessório (a soma dos itens continua fechando).
+ * Exceção: se as duplicatas somam o vNF e não o vNFTot, o fornecedor está cobrando o vNF; vale o que bate com elas.
+ * Sem duplicatas, o mesmo vale para a soma dos pagamentos (detPag, sem tPag 90): em 2026 o destaque de teste infla o
+ * vNFTot, mas o pagamento continua no vNF.
+ */
+export function totalAPagar(
+  vNfCents: number,
+  vNfTotCents: number | null,
+  somaDuplicatasCents: number | null,
+  somaPagamentosCents: number | null = null,
+): { totalCents: number; porForaCents: number; aviso: string | null } {
+  if (vNfTotCents === null || vNfTotCents <= vNfCents) return { totalCents: vNfCents, porForaCents: 0, aviso: null };
+  if (somaDuplicatasCents === vNfCents) {
+    return {
+      totalCents: vNfCents,
+      porForaCents: 0,
+      aviso: `A nota informa ${formatarMoeda(vNfTotCents)} com IBS/CBS por fora (vNFTot), mas as duplicatas somam o vNF (${formatarMoeda(vNfCents)}): foi usado o vNF. Confira com o fornecedor.`,
+    };
+  }
+  // duplicatas informadas mandam; os pagamentos só desempatam quando não há duplicatas
+  if (somaDuplicatasCents === null && somaPagamentosCents === vNfCents) {
+    return {
+      totalCents: vNfCents,
+      porForaCents: 0,
+      aviso: `A nota informa ${formatarMoeda(vNfTotCents)} com IBS/CBS por fora (vNFTot), mas os pagamentos somam o vNF (${formatarMoeda(vNfCents)}): foi usado o vNF. Confira com o fornecedor.`,
+    };
+  }
+  return { totalCents: vNfTotCents, porForaCents: vNfTotCents - vNfCents, aviso: null };
 }
 
 const NAO_E_NFE = "O arquivo não é o XML de uma NF-e (esperado <nfeProc> ou <NFe> com <infNFe>).";
 
-export function parseNfeXml(xml: string): ResultadoNfe {
+/** Maior XML fiscal aceito, em caracteres (o corpo da server action tem limite de 1 MB). */
+export const MAX_CARACTERES_XML = 1_000_000;
+
+// Entrada não confiável: limite de tamanho, sem DOCTYPE (documento fiscal nunca traz; recusar evita XXE e
+// expansão de entidades) e validação antes de montar a árvore. Comum à NF-e e à NFS-e.
+export function lerArvoreXml(xml: string, naoReconhecido: string): { ok: true; raiz: No } | { ok: false; erro: string } {
+  if (xml.length > MAX_CARACTERES_XML) return { ok: false, erro: "Arquivo grande demais para importar (máximo 1 MB)." };
   const conteudo = xml.replace(/^﻿/, "").trim();
   if (!conteudo) return { ok: false, erro: "Arquivo vazio." };
-  // NF-e nunca traz DOCTYPE; recusar evita XXE/expansão de entidades.
-  if (/<!DOCTYPE/i.test(conteudo)) return { ok: false, erro: NAO_E_NFE };
+  if (/<!DOCTYPE/i.test(conteudo)) return { ok: false, erro: naoReconhecido };
 
   const validacao = XMLValidator.validate(conteudo);
   if (validacao !== true) {
     return { ok: false, erro: `XML inválido (linha ${validacao.err.line}): ${validacao.err.msg}` };
   }
 
-  let raiz: No;
   try {
-    raiz = parser.parse(conteudo) as No;
+    return { ok: true, raiz: parser.parse(conteudo) as No };
   } catch (e) {
     return { ok: false, erro: `XML inválido: ${e instanceof Error ? e.message : "erro de leitura"}` };
   }
+}
+
+export function parseNfeXml(xml: string): ResultadoNfe {
+  const arvore = lerArvoreXml(xml, NAO_E_NFE);
+  if (!arvore.ok) return arvore;
+  const raiz = arvore.raiz;
 
   const nfeNo = no(no(raiz.nfeProc)?.NFe) ?? no(raiz.NFe);
   const inf = no(nfeNo?.infNFe);
@@ -214,6 +334,7 @@ export function parseNfeXml(xml: string): ResultadoNfe {
         `Item ${i + 1} (${descricao}): o unitário do XML tem frações de centavo; ${formatarMoeda(ajusteCents)} entraram como desconto para o total do item bater com a nota.`,
       );
     }
+    const ibsCbs = lerIbsCbs(no(det.imposto));
     itens.push({
       descricao,
       codigo: texto(prod, "cProd") ?? null,
@@ -225,14 +346,15 @@ export function parseNfeXml(xml: string): ResultadoNfe {
       totalCents: calcularTotalItem(qtde, unitCents, descontoCents),
       origem: "PRODUTO",
       tipoSugerido: "MATERIAL",
+      ...(ibsCbs ? { ibsCbs } : {}),
     });
   }
 
-  const tot = no(no(inf.total)?.ICMSTot);
-  const totalCents = centavos(tot, "vNF");
-  if (totalCents <= 0) return { ok: false, erro: "NF-e sem valor total (total/ICMSTot/vNF)." };
-
-  fecharNoTotal(itens, tot, totalCents, avisos);
+  const total = no(inf.total);
+  const tot = no(total?.ICMSTot);
+  const vNfCents = centavos(tot, "vNF");
+  if (vNfCents <= 0) return { ok: false, erro: "NF-e sem valor total (total/ICMSTot/vNF)." };
+  const vNfTotCents = centavosOuNulo(total, "vNFTot");
 
   const duplicatas: DuplicataNfe[] = lista(no(inf.cobr)?.dup).map((d, i) => ({
     numero: texto(d, "nDup") ?? String(i + 1).padStart(3, "0"),
@@ -240,17 +362,24 @@ export function parseNfeXml(xml: string): ResultadoNfe {
     valorCents: centavos(d, "vDup"),
   }));
   const somaDup = duplicatas.reduce((a, d) => a + d.valorCents, 0);
+  // detPag pode repetir: vale o de maior valor; tPag 90 ("sem pagamento") é ignorado
+  const pagamentos = lista(no(inf.pag)?.detPag)
+    .map((p) => ({ tPag: texto(p, "tPag"), valor: centavos(p, "vPag") }))
+    .filter((p) => p.tPag && p.tPag !== "90")
+    .sort((a, b) => b.valor - a.valor);
+  const somaPagamentos = pagamentos.length > 0 ? pagamentos.reduce((a, p) => a + p.valor, 0) : null;
+  const aPagar = totalAPagar(vNfCents, vNfTotCents, duplicatas.length > 0 ? somaDup : null, somaPagamentos);
+  const totalCents = aPagar.totalCents;
+
+  fecharNoTotal(itens, tot, totalCents, aPagar.porForaCents, avisos);
+
+  if (aPagar.aviso) avisos.push(aPagar.aviso);
   if (duplicatas.length > 0 && somaDup !== totalCents) {
     avisos.push(
       `A soma das duplicatas (${formatarMoeda(somaDup)}) difere do total da nota (${formatarMoeda(totalCents)}) — ajuste as parcelas antes de importar.`,
     );
   }
 
-  // detPag pode repetir: vale o de maior valor; tPag 90 ("sem pagamento") é ignorado
-  const pagamentos = lista(no(inf.pag)?.detPag)
-    .map((p) => ({ tPag: texto(p, "tPag"), valor: centavos(p, "vPag") }))
-    .filter((p) => p.tPag && p.tPag !== "90")
-    .sort((a, b) => b.valor - a.valor);
   const formaPagto = mapearFormaPagto(pagamentos[0]?.tPag);
 
   const cnos = cnosDaNfe(inf, dets);
@@ -261,7 +390,24 @@ export function parseNfeXml(xml: string): ResultadoNfe {
 
   return {
     ok: true,
-    nfe: { chave, numero, serie, dataEmissao, emitente, destinatario, cno, itens, totalCents, duplicatas, formaPagto, avisos },
+    nfe: {
+      chave,
+      numero,
+      serie,
+      dataEmissao,
+      emitente,
+      destinatario,
+      cno,
+      itens,
+      totalCents,
+      vNfCents,
+      vNfTotCents,
+      crtEmitente: crtValido(texto(emit, "CRT")),
+      totaisIbsCbs: lerTotaisIbsCbs(total),
+      duplicatas,
+      formaPagto,
+      avisos,
+    },
   };
 }
 
@@ -284,8 +430,8 @@ function cnosDaNfe(inf: No, dets: No[]): string[] {
   return [...new Set(textos.flatMap((t) => extrairCnos(t)))];
 }
 
-// Soma dos itens = vNF exato, para o custo por obra (itens × rateio) bater com o financeiro.
-function fecharNoTotal(itens: ItemNfe[], tot: No | undefined, totalCents: number, avisos: string[]) {
+// Soma dos itens = total a pagar exato, para o custo por obra (itens × rateio) bater com o financeiro.
+function fecharNoTotal(itens: ItemNfe[], tot: No | undefined, totalCents: number, porForaCents: number, avisos: string[]) {
   const acessorio = (descricao: string, valorCents: number, tipo: TipoItem, origem: ItemNfe["origem"]) => {
     if (valorCents > 0) {
       itens.push({
@@ -313,6 +459,8 @@ function fecharNoTotal(itens: ItemNfe[], tot: No | undefined, totalCents: number
     centavos(tot, "vFCPST") +
     centavos(tot, "vII");
   acessorio("Impostos e despesas acessórias (IPI, ST, seguro, outras)", encargos, "ENCARGO", "ACESSORIO");
+  // IBS/CBS cobrado por fora (vNFTot − vNF): é custo até virar crédito (ver tributacao/credito.ts)
+  acessorio(DESCRICAO_IBS_CBS_POR_FORA, porForaCents, "ENCARGO", "ACESSORIO");
 
   const soma = itens.reduce((a, i) => a + i.totalCents, 0);
   const sobra = totalCents - soma;

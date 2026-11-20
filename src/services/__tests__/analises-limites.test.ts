@@ -10,11 +10,16 @@ const avancoPorEtapa = vi.fn();
 const medicoesTodas = vi.fn();
 const notasParaAnalise = vi.fn();
 const carregarAlertasDaCaptura = vi.fn();
+const liquidarItensDasNotas = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: { etapa: { findMany: etapaFindMany }, parcela: { findMany: parcelaFindMany }, notaFiscal: { findMany: notaFindMany } },
 }));
 vi.mock("../custos", () => ({ realizadoPorEtapaTodas, realizadoPorObra, avancoPorEtapa, medicoesTodas, notasParaAnalise }));
 vi.mock("../sefaz/painel", () => ({ carregarAlertasDaCaptura }));
+vi.mock("../tributacao/custo-liquido-db", () => ({
+  CAMPOS_TRIBUTARIOS: { cClassTrib: true, cbsCents: true, ibsUfCents: true, ibsMunCents: true },
+  liquidarItensDasNotas,
+}));
 
 const { alertasOrcamento, alertasParcelasVencidas, carregarAlertas, carregarCurvaAbc, curvaAbc } = await import("../analises");
 
@@ -144,6 +149,43 @@ describe("carregarCurvaAbc", () => {
         },
       },
     });
+  });
+
+  it("líquido: sempre a consulta própria, com data e campos tributários, e o total do item vem já sem o crédito", async () => {
+    const dataCompra = new Date(2027, 1, 10, 12);
+    notaFindMany.mockResolvedValue([{ ...notaDoBanco([], "2"), dataCompra }]);
+    liquidarItensDasNotas.mockImplementation(async (notas: { itens: { totalCents: number }[] }[]) =>
+      notas.map((n) => ({ ...n, itens: n.itens.map((i) => ({ ...i, totalCents: i.totalCents - 110 })) })),
+    );
+    const curva = await carregarCurvaAbc({ liquido: true });
+    expect(notasParaAnalise).not.toHaveBeenCalled();
+    expect(liquidarItensDasNotas).toHaveBeenCalledTimes(1);
+    expect(curva.insumos[0]).toMatchObject({ custoCents: 890 });
+    expect(notaFindMany.mock.calls[0][0].select).toMatchObject({
+      dataCompra: true,
+      itens: { select: { totalCents: true, cClassTrib: true, cbsCents: true, ibsUfCents: true, ibsMunCents: true } },
+    });
+  });
+
+  it("líquido com tipo: o tipo e a linha do IBS/CBS por fora vêm do banco; a linha por fora só marca a nota e sai da curva", async () => {
+    const dataCompra = new Date(2027, 1, 10, 12);
+    const porFora = { descricao: "IBS/CBS destacados na nota (cobrados por fora)", unidade: "UN", tipo: "ENCARGO", qtde: "1", totalCents: 300 };
+    notaFindMany.mockResolvedValue([{ ...notaDoBanco([], "2"), dataCompra, itens: [...notaDoBanco([], "2").itens, porFora] }]);
+    liquidarItensDasNotas.mockImplementation(async (notas: unknown[]) => notas);
+    const curva = await carregarCurvaAbc({ liquido: true, tipo: "MATERIAL" });
+    expect(notaFindMany.mock.calls[0][0].select.itens.where).toEqual({
+      OR: [{ tipo: "MATERIAL" }, { descricao: "IBS/CBS destacados na nota (cobrados por fora)" }],
+    });
+    // a nota chega ao cálculo do líquido com a linha por fora (é ela que diz que o imposto está fora do total)
+    expect(liquidarItensDasNotas.mock.calls[0][0][0].itens).toHaveLength(2);
+    expect(curva.insumos.map((i) => i.tipo)).toEqual(["MATERIAL"]);
+  });
+
+  it("sem o modo líquido, nada de tributação é lido nem calculado", async () => {
+    notaFindMany.mockResolvedValue([notaDoBanco([], "2")]);
+    await carregarCurvaAbc({ obraId: "o1" });
+    expect(liquidarItensDasNotas).not.toHaveBeenCalled();
+    expect(notaFindMany.mock.calls[0][0].select.dataCompra).toBeUndefined();
   });
 });
 

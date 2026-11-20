@@ -5,6 +5,7 @@ Um só ponto de entrada em **Lançamentos → Nova NF** (`/notas/nova`):
 | Entrada | Como é lida | Precisão | Onde |
 |---|---|---|---|
 | **XML da NF-e** | Parser determinístico (fluxo já existente) | Exata — é o documento fiscal | `services/nfe-xml.ts` + `notas/importar-xml/` |
+| **XML da NFS-e nacional** | Parser determinístico, mesma tela (detecta pelo conteúdo) | Exata | `services/nfse-xml.ts` + `services/documento-xml.ts` |
 | **PDF digital** (DANFE, NFS-e, boleto, guia, recibo) | Camada de texto do PDF → regras por tipo de documento → conferência | Exata na prática (99% dos campos no corpus) | `services/leitor-nativo/` + `services/leitura-documento.ts` |
 | **Foto do celular** ou PDF escaneado | Código de barras/QR + OCR (Tesseract local ou Cloud Vision) → mesmas regras | Boa, com avisos do que conferir (81% dos campos no corpus; ver abaixo) | idem |
 | **Manual** | Formulário de sempre, logo abaixo da área de envio | — | `notas/nota-form.tsx` |
@@ -29,6 +30,35 @@ alertas, dashboard e fornecedores — nada novo precisa ser consultado pelas out
 
 Se a leitura falhar (foto ilegível, PDF escaneado sem texto, fila de leitura cheia), o arquivo continua
 anexado e o formulário fica aberto para preenchimento manual — o usuário nunca perde o envio.
+
+## XML da NFS-e do padrão nacional
+
+A tela **Importar XML** aceita também a NFS-e nacional (leiaute 1.01, com o grupo IBS/CBS): tem `infNFSe`, é
+NFS-e; senão, NF-e (`parseDocumentoXml`). As defesas são as mesmas da NF-e (`lerArvoreXml`: até 1 MB, sem
+`DOCTYPE`, `XMLValidator` antes da árvore) e o servidor relê o XML na importação; do client vêm só tipo,
+material, rateio e parcelas. Grava `tipoDocumento: NFSE`, a chave de 50 posições em `chaveNfe` (duplicidade pela
+chave e por fornecedor + número sem zeros à esquerda) e um item `SERVICO` com o NBS e o IBS/CBS.
+
+**Valores.** A construtora paga o líquido ao prestador e recolhe as retenções em guia; o custo da obra é o valor
+do serviço. Por isso:
+
+| O quê | Valor |
+|---|---|
+| Total da nota = soma dos itens (custo) | `vServ` − descontos (+ IBS/CBS por fora a partir de 2027) |
+| Parcela 1 (prestador), vence na emissão | `vLiq` (+ IBS/CBS por fora: `vTotNF`) |
+| Parcela "Guia do ISS retido" (`tpRetISSQN` 2 ou 3) | `vISSQN`, dia 10 do mês seguinte à competência |
+| Parcela "DARF das retenções federais" (INSS, IRRF, PIS/COFINS/CSLL) | o resto do retido, dia 20 do mês seguinte |
+
+O retido sai de `vServ − descontos − vLiq` (o líquido é calculado pela Sefin; os campos de retenção federal mudaram
+de sentido entre versões). Se os campos informados não fecham com isso, vale o líquido e aparece um aviso. Os
+prazos são os usuais (ISS varia por município) e a tela pede conferência; a observação da nota lista as guias.
+
+**Regime do prestador** (`prest/regTrib/opSimpNac`) vira o CRT da NF-e: não optante → 3, MEI → 4, ME/EPP → 1, ou
+2 quando apura algo por fora do Simples (`regApTribSN` 2/3). **CNO**: `serv/obra/cObra` e, sem ele, o texto livre.
+
+**Visualização.** `notas/visualizacao-nfse.tsx` desenha a NFS-e no estilo do DANFSe (NT 008) a partir do XML lido,
+sem PDF: aparece na prévia do import, e `services/nfse-anexo.ts` (`nfseDoAnexo`) lê o XML anexado para mostrá-la na
+nota. O XML anexado não é servido pela rota de arquivos (renderizado no navegador, XML pode executar script).
 
 ## Conferência humana: o que bloqueia o "Confirmar"
 
@@ -153,7 +183,7 @@ genérico. Os rótulos impressos ("VALOR TOTAL DA NOTA", "Valor do Documento"...
 dígito verificador é árbitro: chave de acesso, CNPJ/CPF e linha digitável. Erros típicos de OCR (O↔0, l↔1, S↔5)
 só são corrigidos quando exatamente uma correção faz o dígito verificador fechar.
 
-Convenções: NFS-e usa o valor **bruto** do serviço como total, com o líquido e as retenções (ISS, INSS) nas
+Convenções: NFS-e (gravada como `NFSE`) usa o valor **bruto** do serviço como total, com o líquido e as retenções (ISS, INSS) nas
 observações; DAS entra com emitente "Simples Nacional" e o CNPJ impresso como destinatário (contribuinte); boleto e
 guia tiram valor e vencimento do código de barras quando ele fecha.
 

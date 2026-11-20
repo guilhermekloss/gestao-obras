@@ -5,6 +5,7 @@ import { formatarMoeda } from "@/lib/format";
 import { calcularTotalItem } from "./rateio";
 import { unitarioCoerente } from "./nfe-xml";
 import { normalizarCno } from "./cno";
+import { exigeNumero } from "./financeiro";
 
 // Só tipos simples, nullable e describe: no JSON Schema da API, regex/min/max não são garantidos.
 // A validação de verdade acontece em normalizarLeitura.
@@ -121,6 +122,21 @@ export function chaveAcessoValida(chave: string): boolean {
   return d.length === 44 && dvModulo11(d.slice(0, 43)) === Number(d[43]);
 }
 
+// NFS-e nacional: 50 dígitos. Só o formato: a chave vem do XML assinado, conferida com emitente e número no leitor.
+export function chaveNfseValida(chave: string): boolean {
+  return /^\d{50}$/.test(chave);
+}
+
+/** Chave que pode ir para NotaFiscal.chaveNfe: NF-e (44, com DV) ou NFS-e nacional (50). */
+export function chaveDocumentoValida(chave: string): boolean {
+  return chaveAcessoValida(chave) || chaveNfseValida(chave);
+}
+
+/** Nome do documento pela chave: a de 50 posições é da NFS-e nacional; a de 44, da NF-e (sigla "NF", como na tela). */
+export function rotuloDaChave(chave: string): { documento: string; sigla: string } {
+  return chave.length === 50 ? { documento: "NFS-e", sigla: "NFS-e" } : { documento: "NF-e", sigla: "NF" };
+}
+
 // Leiaute da chave: cUF(2) AAMM(4) CNPJ(14) mod(2) série(3) nNF(9) tpEmis(1) cNF(8) DV(1).
 export function dadosDaChave(chave: string) {
   const d = digitos(chave);
@@ -185,7 +201,7 @@ const DESCRICAO_TIPO: Record<DocumentoLido["tipo"], string> = {
 const TIPO_DOCUMENTO: Record<DocumentoLido["tipo"], TipoDocumento> = {
   NFE: "NF",
   NFCE: "NF",
-  NFSE: "NF",
+  NFSE: "NFSE",
   RECIBO: "RECIBO",
   GUIA: "GUIA",
   BOLETO: "OUTRO",
@@ -195,6 +211,7 @@ const TIPO_DOCUMENTO: Record<DocumentoLido["tipo"], TipoDocumento> = {
 
 const TIPO_ITEM_PADRAO: Record<TipoDocumento, TipoItem> = {
   NF: "MATERIAL",
+  NFSE: "SERVICO",
   RECIBO: "SERVICO",
   FOLHA: "SERVICO",
   GUIA: "ENCARGO",
@@ -233,7 +250,7 @@ export function normalizarLeitura(lido: DocumentoLido, hoje: string): ResultadoL
 
   const avisos: string[] = [];
   const tipoDocumento = TIPO_DOCUMENTO[lido.tipo];
-  const ehNota = tipoDocumento === "NF";
+  const ehNota = exigeNumero(tipoDocumento);
 
   if (lido.legibilidade !== "BOA") {
     avisos.push(

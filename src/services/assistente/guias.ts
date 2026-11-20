@@ -101,7 +101,7 @@ export const GUIAS: Guia[] = [
       "Registrar cada compra ou despesa da empresa, com os itens, a divisão entre obras e as parcelas.",
     passoAPasso: [
       "Em Lançamentos, clique em \"Novo lançamento\".",
-      "Se tem a nota em mãos, clique em \"Tirar foto\" ou \"Enviar arquivo\" (foto, PDF ou XML da NF-e).",
+      "Se tem a nota em mãos, clique em \"Tirar foto\" ou \"Enviar arquivo\" (foto, PDF ou XML da NF-e ou da NFS-e).",
       "Confira os dados no pop-up \"Conferir dados da nota\" e clique em \"Confirmar e lançar\".",
       "Para ajustar mais coisas, clique em \"Editar no formulário completo\". Para uma segunda leitura, clique em \"Analisar com IA\".",
       "Sem arquivo, preencha as seções Documento, Itens, Rateio entre obras e Pagamento.",
@@ -118,6 +118,54 @@ export const GUIAS: Guia[] = [
     dicas: [
       "Fornecedor ou material novo? Crie na hora, pelo botão ao lado do campo.",
       "Cada seção do formulário mostra um resumo e avisa onde falta corrigir.",
+    ],
+  },
+  {
+    id: "importar-xml",
+    titulo: "Importar XML da NF-e ou da NFS-e",
+    papeis: ["ADMIN", "ESCRITORIO"],
+    link: "/notas/importar-xml",
+    rotas: ["/notas/importar-xml"],
+    paraQueServe: "Lançar uma ou mais notas a partir do XML que o fornecedor enviou, sem digitar nada.",
+    passoAPasso: [
+      "Em Lançamentos, clique em \"Importar XML\".",
+      "Clique em \"Escolher arquivo .xml\" e escolha o arquivo. O sistema reconhece sozinho se é NF-e ou NFS-e.",
+      "Confira a prévia: dados da nota, itens, rateio entre obras e parcelas.",
+      "Se aparecer o bloco de conferência do IBS/CBS, leia os avisos antes de importar.",
+      "Clique em \"Importar nota\".",
+    ],
+    regras: [
+      "O servidor lê o XML de novo na importação. O que vale é o arquivo enviado, não o que está na tela.",
+      "A NFS-e não traz vencimentos: o valor líquido vai ao prestador na emissão, e cada retenção vira uma guia.",
+      "Nota que já foi lançada, pela chave ou pelo mesmo fornecedor e número, não entra de novo.",
+    ],
+    dicas: [
+      "Foto ou PDF de NFS-e também entra, pela tela Novo lançamento. Só o XML traz a chave de acesso de 50 dígitos.",
+    ],
+  },
+  {
+    id: "conferencia-tributaria",
+    titulo: "Avisos da conferência do IBS/CBS",
+    papeis: ["ADMIN", "ESCRITORIO"],
+    link: "/notas",
+    rotas: [],
+    paraQueServe:
+      "Entender os avisos sobre o imposto (IBS e CBS) que o fornecedor destacou na nota, e o que fazer com cada um.",
+    passoAPasso: [
+      "Abra a nota em Lançamentos, ou importe o XML. A conferência aparece no card \"IBS/CBS\" e, na importação, em \"Conferência do IBS/CBS\".",
+      "Leia primeiro \"Vale conferir com o fornecedor\". Cada aviso diz de qual item ele fala.",
+      "Depois veja \"Para saber\". Esses itens não pedem ação.",
+      "Para os avisos de classificação, alíquota ou valor, confirme com o fornecedor ou com o contador.",
+    ],
+    regras: [
+      "Os avisos só informam. Nada disso impede importar ou salvar a nota.",
+      "Classificação inexistente, ou que não valia na data da nota, deixa o item sem crédito até alguém conferir.",
+      "CST, NCM ou NBS diferente do que a classificação prevê pode ser erro do fornecedor na escolha da classificação.",
+      "Quando base × alíquota não bate com o valor destacado, o aviso mostra a conta e o valor da nota.",
+      "A soma dos totais da nota só é conferida na prévia do XML, não na nota já salva.",
+    ],
+    dicas: [
+      "O app compara a nota com a tabela oficial da Receita. Ele não corrige a nota: a correção é com o fornecedor.",
     ],
   },
   {
@@ -245,6 +293,55 @@ export const GUIAS: Guia[] = [
       "A curva ABC do Orçamento agrupa os insumos pelo nome e pela unidade.",
     ],
     dicas: ["Catálogo limpo deixa a curva ABC mais certa."],
+  },
+  {
+    id: "custo-efetivo-fornecedor",
+    titulo: "Custo efetivo por fornecedor",
+    papeis: ["ADMIN", "ESCRITORIO"],
+    link: "/materiais",
+    rotas: [],
+    paraQueServe:
+      "Comparar fornecedores pelo preço que a empresa paga de fato, já descontado o crédito de IBS/CBS.",
+    passoAPasso: [
+      "Em Materiais, abra o material e desça até \"Quanto custa de verdade por fornecedor\".",
+      "Escolha o período: 6, 12 ou 24 meses.",
+      "Cada linha é um fornecedor, com o preço médio por unidade desde a data indicada.",
+      "Compare o preço da nota com o custo efetivo. O custo efetivo é o preço menos o crédito de IBS/CBS que a empresa aproveita.",
+      "Quando o mais barato na nota não é o mais barato de verdade, a tela avisa e marca \"Mais barato de verdade\".",
+    ],
+    regras: [
+      "Só compara a mesma unidade: UN e M² não se misturam. Cada unidade vira um grupo.",
+      "O preço médio é ponderado pela quantidade, não é a média dos preços unitários.",
+      "Fornecedor do Simples costuma destacar pouco ou nenhum imposto, então o preço dele sai cheio.",
+      "Compra de 2026, ou empresa fora do regime regular, não tem crédito: o custo efetivo é igual ao preço, e a tela avisa.",
+    ],
+    dicas: ["Para o crédito valer, o regime da empresa precisa estar informado na tela Empresa."],
+  },
+  {
+    id: "credito-custo-liquido",
+    titulo: "Crédito de IBS/CBS e custo líquido",
+    papeis: ["ADMIN", "ESCRITORIO"],
+    link: "/orcamento",
+    rotas: [],
+    paraQueServe:
+      "Entender quanto do imposto da compra volta como crédito e quanto a obra custa de verdade depois dele.",
+    passoAPasso: [
+      "Em Orçamento, escolha a obra no filtro \"Obra\" e clique em \"Ver\".",
+      "No bloco de crédito, leia \"Realizado bruto\", \"Crédito IBS/CBS a recuperar\" e \"Custo líquido\".",
+      "Para ver o número sem o crédito, clique em \"Ver o bruto\". Para voltar, clique em \"Ver o líquido\".",
+      "No modo líquido, a coluna \"Realizado líquido\" de cada etapa já sai sem o crédito.",
+      "Para ver os insumos sem o crédito, clique em \"Curva ABC de insumos\" e escolha \"Líquido de IBS/CBS\".",
+    ],
+    regras: [
+      "Só o regime regular gera crédito, e só a partir de 2027. Em 2026 o imposto da nota fica no custo.",
+      "O crédito é o IBS/CBS que o fornecedor destacou na nota, quando a classificação do item permite aproveitá-lo.",
+      "Nota com classificação desconhecida, ou fora da vigência na data da compra, não gera crédito até alguém conferir.",
+      "O custo líquido nunca fica abaixo de zero.",
+      "Contas a pagar e o fluxo mensal mostram o valor bruto das parcelas. O crédito só muda o custo da obra.",
+    ],
+    dicas: [
+      "Crédito zerado numa nota que deveria ter? Abra a nota e veja o bloco IBS/CBS: ele mostra o motivo.",
+    ],
   },
   {
     id: "orcamento",
@@ -457,6 +554,27 @@ export const GUIAS: Guia[] = [
       "O certificado tem de ser e-CNPJ A1 (arquivo .pfx ou .p12). e-CPF e A3 (cartão ou token) não servem.",
       "O A1 vale 1 ano. O sistema avisa 30 dias antes de vencer.",
     ],
+  },
+  {
+    id: "regime-ibs-cbs",
+    titulo: "Regime de IBS/CBS da empresa",
+    papeis: ["ADMIN"],
+    link: "/empresa",
+    rotas: [],
+    paraQueServe:
+      "Informar como a empresa apura IBS/CBS. Essa escolha decide se o imposto das compras vira crédito e sai do custo da obra.",
+    passoAPasso: [
+      "Em Empresa, vá ao cartão \"Reforma tributária (IBS/CBS)\".",
+      "Em \"Como a empresa apura IBS/CBS\", escolha a opção.",
+      "Clique em \"Salvar apuração\".",
+    ],
+    regras: [
+      "Regime regular: o IBS/CBS destacado nas notas vira crédito e sai do custo da obra.",
+      "Simples Nacional ou \"Não informado\": o imposto fica no custo, e nenhum crédito é calculado.",
+      "Optante do Simples que recolhe IBS/CBS por fora do DAS conta como regime regular.",
+      "A troca vale na hora: os números são recalculados, sem precisar lançar as notas de novo.",
+    ],
+    dicas: ["Na dúvida sobre o regime, pergunte ao contador da empresa antes de salvar."],
   },
   {
     id: "conta",

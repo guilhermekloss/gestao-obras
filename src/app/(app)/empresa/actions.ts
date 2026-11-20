@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { acaoDeEscrita, type ActionResult } from "@/lib/acao";
 import { anotarAtividade } from "@/lib/atividade";
 import { cifrar } from "@/lib/cofre";
-import { ID_EMPRESA, carregarEmpresa, empresaSchema } from "@/services/empresa";
+import { ID_EMPRESA, REGIME_IBS_CBS_LABELS, carregarEmpresa, empresaSchema, regimeIbsCbsSchema } from "@/services/empresa";
 import { MAX_BYTES_PFX, prepararCertificado } from "@/services/sefaz/pfx";
 
 export type EstadoForm = ActionResult & { mensagem?: string };
@@ -30,6 +30,19 @@ export const salvarEmpresa = acaoDeEscrita(
     await prisma.empresa.upsert({ where: { id: ID_EMPRESA }, create: { id: ID_EMPRESA, ...r.data }, update: r.data });
     anotarAtividade({ descricao: `Atualizou os dados da empresa (${r.data.razaoSocial})` });
     return { ok: true, mensagem: "Dados da empresa salvos." };
+  },
+);
+
+export const salvarRegimeIbsCbs = acaoDeEscrita(
+  { papeis: ["ADMIN"], atividade: "empresa.editar", revalidar: REVALIDAR },
+  async (_usuario, _anterior: EstadoForm, form: FormData): Promise<EstadoForm> => {
+    const r = regimeIbsCbsSchema.safeParse(form.get("regimeIbsCbs"));
+    if (!r.success) return { ok: false, erro: r.error.issues[0].message };
+    const empresa = await carregarEmpresa();
+    if (!empresa) return { ok: false, erro: "Salve os dados da empresa primeiro." };
+    await prisma.empresa.update({ where: { id: ID_EMPRESA }, data: { regimeIbsCbs: r.data } });
+    anotarAtividade({ descricao: `Definiu a apuração de IBS/CBS da empresa: ${REGIME_IBS_CBS_LABELS[r.data]}` });
+    return { ok: true, mensagem: "Apuração de IBS/CBS salva." };
   },
 );
 

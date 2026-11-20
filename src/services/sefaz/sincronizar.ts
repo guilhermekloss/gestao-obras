@@ -2,7 +2,7 @@ import type { OrigemExecucaoSefaz, Prisma, StatusExecucaoSefaz } from "@prisma/c
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { registrarAtividade } from "@/lib/atividade";
-import { formatarDocumento } from "@/services/nfe-xml";
+import { formatarDocumento } from "@/lib/format";
 import { ErroSefaz, clienteSefaz, type ClienteSefaz } from "./cliente";
 import { carregarFonte, montarConfig } from "./config";
 import {

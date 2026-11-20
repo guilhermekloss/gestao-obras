@@ -11,14 +11,25 @@ import { EditarMaterialDialog, MesclarMaterialButton } from "../material-dialogs
 import { excluirMaterial, removerApelido } from "../actions";
 import { Trash2 } from "lucide-react";
 import { LinkVoltar } from "@/components/link-voltar";
+import { carregarCustoEfetivoDoMaterial } from "@/services/tributacao/custo-efetivo-db";
+import { MESES_PADRAO, PERIODOS_MESES } from "@/services/tributacao/custo-efetivo";
+import { CustoEfetivoCard } from "./custo-efetivo-card";
 
 export const metadata: Metadata = { title: "Material" };
 
-export default async function MaterialDetalhePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MaterialDetalhePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ meses?: string }>;
+}) {
   const user = await exigirPapel("ADMIN", "ESCRITORIO");
   const { id } = await params;
+  const { meses: mesesTexto } = await searchParams;
+  const meses = PERIODOS_MESES.find((m) => String(m) === mesesTexto) ?? MESES_PADRAO;
 
-  const [material, outros] = await Promise.all([
+  const [material, outros, custo] = await Promise.all([
     prisma.material.findUnique({
       where: { id },
       include: {
@@ -32,6 +43,7 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
       },
     }),
     prisma.material.findMany({ where: { NOT: { id } }, select: { id: true, nome: true, unidade: true }, orderBy: { nome: "asc" } }),
+    carregarCustoEfetivoDoMaterial(id, { meses }),
   ]);
   if (!material) notFound();
 
@@ -95,6 +107,8 @@ export default async function MaterialDetalhePage({ params }: { params: Promise<
           </div>
         </div>
       </div>
+
+      <CustoEfetivoCard custo={custo} materialId={material.id} podeInformarRegime={user.role === "ADMIN"} />
 
       <Card>
         <CardHeader>

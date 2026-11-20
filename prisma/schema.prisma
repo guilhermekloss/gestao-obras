@@ -42,6 +42,16 @@ enum TipoDocumento {
   FOLHA
   GUIA
   OUTRO
+  /// NFS-e do padrão nacional.
+  NFSE
+}
+
+/// Como a empresa apura IBS/CBS. Só o regime regular dá crédito; nos demais o tributo da nota é custo.
+enum RegimeIbsCbs {
+  NAO_INFORMADO
+  /// Regime regular, inclusive o optante do Simples que escolheu apurar IBS/CBS por fora.
+  REGULAR
+  SIMPLES_NACIONAL
 }
 
 enum CondicaoTrabalho {
@@ -255,7 +265,10 @@ model NotaFiscal {
   fornecedor      Fornecedor       @relation(fields: [fornecedorId], references: [id])
   numero          String
   tipoDocumento   TipoDocumento    @default(NF)
+  /// Chave de acesso: 44 dígitos na NF-e, 50 posições na NFS-e nacional.
   chaveNfe        String?          @unique
+  /// CRT do emitente (emit/CRT): 1 Simples, 2 Simples com excesso de sublimite, 3 Normal, 4 MEI.
+  crtEmitente     String?
   dataCompra      DateTime
   totalCents      Int
   formaPagto      FormaPagto
@@ -276,18 +289,44 @@ model NotaFiscal {
 }
 
 model ItemNota {
-  id            String     @id @default(cuid())
-  notaId        String
-  nota          NotaFiscal @relation(fields: [notaId], references: [id], onDelete: Cascade)
-  descricao     String
-  tipo          TipoItem   @default(MATERIAL)
-  qtde          Decimal    @db.Decimal(12, 3)
-  unidade       String
-  unitCents     Int
-  descontoCents Int        @default(0)
-  totalCents    Int
-  materialId    String?
-  material      Material?  @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  id                  String     @id @default(cuid())
+  notaId              String
+  nota                NotaFiscal @relation(fields: [notaId], references: [id], onDelete: Cascade)
+  descricao           String
+  tipo                TipoItem   @default(MATERIAL)
+  qtde                Decimal    @db.Decimal(12, 3)
+  unidade             String
+  unitCents           Int
+  descontoCents       Int        @default(0)
+  totalCents          Int
+  materialId          String?
+  material            Material?  @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  /// NCM (produto) ou NBS (serviço) como veio no documento.
+  ncm                 String?
+  nbs                 String?
+  // IBS/CBS do item, lidos do documento fiscal (grupo IBSCBS da NF-e). Nulos = sem o grupo (nota anterior à
+  // reforma, lançamento manual). cst/cClassTrib sem FK: o XML pode trazer código que a tabela ainda não tem.
+  /// CST do IBS/CBS (3 dígitos).
+  cst                 String?
+  /// Classificação tributária (6 dígitos), ver ClassificacaoTributaria.
+  cClassTrib          String?
+  ibsCbsBaseCents     Int?
+  /// Alíquotas em % (pCBS, pIBSUF, pIBSMun), antes da redução.
+  pCbs                Decimal?   @db.Decimal(7, 4)
+  pIbsUf              Decimal?   @db.Decimal(7, 4)
+  pIbsMun             Decimal?   @db.Decimal(7, 4)
+  /// Redução da alíquota em % (gRed/pRedAliq); nula = sem redução. A do IBS vem da UF (a do município é a mesma).
+  pRedCbs             Decimal?   @db.Decimal(7, 4)
+  pRedIbs             Decimal?   @db.Decimal(7, 4)
+  /// Valores destacados (já com redução e diferimento). No monofásico (CST 620) o IBS vem num valor só, em ibsUfCents.
+  cbsCents            Int?
+  ibsUfCents          Int?
+  ibsMunCents         Int?
+  /// Soma dos valores diferidos (gDif/vDif) de CBS e IBS: não cobrados nesta etapa.
+  ibsCbsDiferidoCents Int?
+  /// Crédito presumido da operação (gCredPresOper), do emitente: código e soma de IBS + CBS.
+  cCredPres           String?
+  credPresCents       Int?
 
   @@index([notaId])
   @@index([materialId])
@@ -523,5 +562,65 @@ model Empresa {
   certificadoValidoAte    DateTime?
   certificadoEnviadoEm    DateTime?
   certificadoEnviadoPorId String?
+  /// Como a empresa apura IBS/CBS: sem regime regular não há crédito.
+  regimeIbsCbs            RegimeIbsCbs      @default(NAO_INFORMADO)
   atualizadoEm            DateTime          @updatedAt
+}
+
+/// Tabela oficial de classificação tributária (cClassTrib) do IBS/CBS, da calculadora da Receita Federal.
+/// Carga por migration (scripts/tributacao/gerar-carga-classificacao.ts); cada release da Receita vira uma migration nova.
+model ClassificacaoTributaria {
+  /// cClassTrib (6 dígitos).
+  codigo                      String
+  inicioVigencia              DateTime  @db.Date
+  fimVigencia                 DateTime? @db.Date
+  /// CST do IBS/CBS (3 dígitos) e o nome dele.
+  cst                         String
+  descricaoCst                String
+  descricao                   String
+  /// CLTR_TIPO_ALIQUOTA: Padrão, Uniforme setorial, Fixa, Sem alíquota...
+  tipoAliquota                String
+  /// CLTR_NOMENCLATURA: NCM, NBS, NBS ou NCM, Não possui...
+  nomenclatura                String?
+  /// Redução da alíquota em % (PERCENTUAL_REDUCAO); 0 ou nula = sem redução.
+  pRedCbs                     Decimal?  @db.Decimal(7, 4)
+  pRedIbs                     Decimal?  @db.Decimal(7, 4)
+  /// O adquirente pode apropriar como crédito a CBS / o IBS destacado (CLTR_IN_APROPRIACAO_CREDITOS_ADQUIRENTES_CBS/_IBS).
+  apropriaCreditoCbs          Boolean
+  apropriaCreditoIbs          Boolean
+  /// Dá crédito presumido ao adquirente / ao fornecedor (CLTR_IN_CREDITO_PRESUMIDO_ADQUIRENTE/_FORNECEDOR).
+  creditoPresumidoAdquirente  Boolean
+  creditoPresumidoFornecedor  Boolean
+  /// A nota deve trazer o estorno de crédito (gEstornoCred, CLTR_IND_GESTORNOCRED).
+  indEstornoCredito           Boolean
+  /// A nota deve trazer o crédito presumido da operação (gCredPresOper, CLTR_IND_GCREDPRESOPER).
+  indCreditoPresumidoOperacao Boolean
+  /// O fornecedor mantém ou anula o crédito das compras dele: "Manutenção" ou "Anulação" (CLTR_CREDITO_OPERACAO_ANTECEDENTE).
+  creditoOperacaoAntecedente  String?
+  /// O CST pede o grupo de redução (gRed) / de diferimento (gDif) (SITR_IND_GRED/_GDIF).
+  indReducao                  Boolean
+  indDiferimento              Boolean
+
+  @@id([codigo, inicioVigencia])
+  @@index([cst])
+}
+
+/// NCM/NBS que a Receita liga a cada cClassTrib (NCM_APLICAVEL, NBS_APLICAVEL e, na NFS-e, CLASSIF_NBS_INDOP_LC).
+model ClassificacaoNomenclatura {
+  id             Int       @id @default(autoincrement())
+  /// "NCM" ou "NBS".
+  tipo           String
+  /// Código ou prefixo (capítulo, posição): vale para todo código que começa por ele.
+  codigo         String
+  cClassTrib     String
+  /// Exceção: o código fica fora da regra do prefixo mais largo do mesmo cClassTrib (EXCECAO_NCM_APLICAVEL).
+  excecao        Boolean   @default(false)
+  /// Só nas linhas da NFS-e (CLASSIF_NBS_INDOP_LC): item da LC 116 e indicador de operação (cIndOp).
+  itemLc116      String?
+  cIndOp         String?
+  inicioVigencia DateTime  @db.Date
+  fimVigencia    DateTime? @db.Date
+
+  @@index([tipo, codigo])
+  @@index([cClassTrib])
 }

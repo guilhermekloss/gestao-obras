@@ -6,8 +6,10 @@ import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/list
 import { ConfirmButton } from "@/components/confirm-button";
 import { NovoFornecedorDialog, EditarFornecedorDialog } from "./fornecedor-dialogs";
 import { DependenciaBadge } from "./dependencia-badge";
+import { RegimeFornecedorBadge } from "./regime-badge";
 import { excluirFornecedor } from "./actions";
 import { calcularDependencia } from "@/services/dependencia";
+import { regimeDoCrt } from "@/services/tributacao/ibs-cbs";
 import { formatarMoeda } from "@/lib/format";
 import { ChevronRight, Trash2 } from "lucide-react";
 
@@ -16,6 +18,7 @@ export const metadata: Metadata = { title: "Fornecedores" };
 export default async function FornecedoresPage() {
   const user = await exigirPapel("ADMIN", "ESCRITORIO");
 
+  // o regime (CRT) de cada fornecedor sai da mesma leitura de notas da dependência
   const [fornecedores, dependencia] = await Promise.all([
     prisma.fornecedor.findMany({
       orderBy: { nome: "asc" },
@@ -50,6 +53,12 @@ export default async function FornecedoresPage() {
       celula: ({ dep }) => (dep ? formatarMoeda(dep.gastoCents) : "—"),
     },
     { id: "nfs", titulo: "NFs", numerica: true, celula: ({ f }) => f._count.notas },
+    {
+      id: "regime",
+      titulo: "Regime",
+      papel: "estado",
+      celula: ({ dep }) => (dep ? <RegimeFornecedorBadge regime={regimeDoCrt(dep.crt)} /> : null),
+    },
     {
       id: "dependencia",
       titulo: "Dependência",
