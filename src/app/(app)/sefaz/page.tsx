@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ManifestacaoSefaz, SituacaoDocumentoSefaz, StatusDocumentoSefaz, StatusExecucaoSefaz } from "@prisma/client";
 import { Ban, FileSearch, RotateCcw, ShieldCheck } from "lucide-react";
 import { exigirPapel } from "@/lib/auth";
-import { formatarData, formatarMoeda, formatarTempoRelativo } from "@/lib/format";
+import { formatarData, formatarDocumento, formatarMoeda, formatarTempoRelativo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AbasDaPagina } from "@/components/abas-da-pagina";
 import { ConfirmButton } from "@/components/confirm-button";
@@ -14,7 +14,6 @@ import { StatusBadge, type Estado } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatarDocumento } from "@/services/nfe-xml";
 import {
   DIAS_AVISO_CERTIFICADO,
   MANIFESTACAO_LABELS,

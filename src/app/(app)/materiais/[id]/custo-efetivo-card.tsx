@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/lista-de-dados";
 import { StatusBadge } from "@/components/status-badge";
-import { AvisoRegimeCredito } from "@/components/aviso-regime-credito";
+import { AvisoRegimeCredito } from "@/components/credito-ibs-cbs";
 import { RegimeFornecedorBadge } from "../../fornecedores/regime-badge";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import type { CustoEfetivoDoMaterial } from "@/services/tributacao/custo-efetivo-db";
@@ -86,11 +86,11 @@ function Grupo({ grupo, mostrarUnidade }: { grupo: GrupoUnidade; mostrarUnidade:
 export function CustoEfetivoCard({
   custo,
   materialId,
-  admin,
+  podeInformarRegime,
 }: {
   custo: CustoEfetivoDoMaterial;
   materialId: string;
-  admin: boolean;
+  podeInformarRegime: boolean;
 }) {
   return (
     <Card>
@@ -116,7 +116,7 @@ export function CustoEfetivoCard({
         </nav>
       </CardHeader>
       <CardContent className="space-y-4">
-        <AvisoRegimeCredito regime={custo.regimeEmpresa} admin={admin} />
+        <AvisoRegimeCredito regime={custo.regimeEmpresa} podeInformarRegime={podeInformarRegime} />
         {custo.grupos.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sem compras deste material nos últimos {custo.meses} meses.</p>
         ) : (

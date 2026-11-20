@@ -11,7 +11,7 @@ import { listarMateriais } from "@/services/materiais-db";
 import { centsParaEditavel, dataParaInput, percentBpParaEditavel } from "@/lib/format";
 import { TIPO_DOCUMENTO_BADGE } from "@/services/financeiro";
 import type { ParcelaExistente } from "@/services/parcelas";
-import { carregarEmpresa } from "@/services/empresa";
+import { carregarRegimeIbsCbs } from "@/services/empresa";
 import { analisarIbsCbsDaNota } from "@/services/tributacao/conferencia-db";
 import { IbsCbsDaNota } from "@/components/ibs-cbs-da-nota";
 import { nfseDoAnexo } from "@/services/nfse-anexo";
@@ -51,7 +51,7 @@ export default async function EditarNotaPage({
     listarObrasParaRateio(nota.rateios.map((r) => r.obraId)),
     listarMateriais(nota.itens.map((i) => i.materialId).filter((m): m is string => !!m)),
     // a análise só depende do regime da empresa (lido uma vez por requisição), não das outras consultas
-    carregarEmpresa().then((empresa) => analisarIbsCbsDaNota(nota, empresa?.regimeIbsCbs ?? "NAO_INFORMADO")),
+    carregarRegimeIbsCbs().then((regime) => analisarIbsCbsDaNota(nota, regime)),
   ]);
   const texto = (d: { toString(): string } | null) => (d === null ? null : d.toString());
 

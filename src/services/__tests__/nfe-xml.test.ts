@@ -6,11 +6,11 @@ import {
   decimalParaInteiro,
   unitarioCoerente,
   mapearFormaPagto,
-  formatarDocumento,
   variantesDocumento,
   parcelasDaNfe,
   type Nfe,
 } from "../nfe-xml";
+import { formatarDocumento } from "@/lib/format";
 import { calcularTotalItem, somaItens } from "../rateio";
 import { validarParcelas } from "../parcelas";
 

@@ -90,9 +90,6 @@ export function unitarioCoerente(
   return { unitCents: c, ajusteCents: Math.round(qtde * c) - vProdCents };
 }
 
-// mora em lib/format (telas do client a usam sem carregar o leitor de XML); reexportada para o resto do servidor
-export { formatarDocumento };
-
 export function variantesDocumento(doc: string): string[] {
   const digitos = doc.replace(/\D/g, "");
   return Array.from(new Set([digitos, formatarDocumento(digitos)]));

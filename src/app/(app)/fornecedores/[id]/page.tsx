@@ -9,7 +9,7 @@ import { LINK_DA_LINHA, ListaDeDados, type ColunaDados } from "@/components/list
 import { EditarFornecedorDialog } from "../fornecedor-dialogs";
 import { DependenciaBadge } from "../dependencia-badge";
 import { RegimeFornecedorBadge } from "../regime-badge";
-import { AvisoRegimeCredito } from "@/components/aviso-regime-credito";
+import { AvisoRegimeCredito } from "@/components/credito-ibs-cbs";
 import { calcularDependencia, PESOS } from "@/services/dependencia";
 import { calcularCreditoDoFornecedor } from "@/services/tributacao/custo-efetivo-db";
 import { regimeDoCrt } from "@/services/tributacao/ibs-cbs";
@@ -168,7 +168,7 @@ export default async function FornecedorDetalhePage({
           </div>
 
           <div className="space-y-1 text-sm text-muted-foreground">
-            <AvisoRegimeCredito regime={credito.regimeEmpresa} admin={user.role === "ADMIN"} />
+            <AvisoRegimeCredito regime={credito.regimeEmpresa} podeInformarRegime={user.role === "ADMIN"} />
             {credito.modo === "NOMINAL_PERIODO_TESTE" && (
               <p>Compras de antes de 2027 não geram crédito de IBS/CBS: o custo ainda é o preço da nota.</p>
             )}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatarMoeda } from "@/lib/format";
-import { formatarDocumento, mapearFormaPagto, parcelasDaNfe, parseNfeXml, unitarioCoerente, variantesDocumento, type Nfe } from "../nfe-xml";
+import { formatarDocumento, formatarMoeda } from "@/lib/format";
+import { mapearFormaPagto, parcelasDaNfe, parseNfeXml, unitarioCoerente, variantesDocumento, type Nfe } from "../nfe-xml";
 
 const CHAVE = "35260811222333000181550010000123451000012345";
 

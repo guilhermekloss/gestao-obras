@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { RegimeIbsCbs } from "@prisma/client";
 import { formatarMoeda } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AvisosCredito, ModoCusto } from "@/services/tributacao/custo-liquido";
@@ -49,6 +50,43 @@ function Valor({ titulo, cents, sinal, destaque = false }: { titulo: string; cen
   );
 }
 
+/** Onde o ADMIN informa como a empresa apura IBS/CBS (seção da tela Empresa). */
+export const HREF_REGIME_IBS_CBS = "/empresa#secao-ibs-cbs";
+
+/**
+ * O aviso de regime não informado, igual em todas as telas; `complemento` é o efeito naquela tela (ex.: o custo efetivo
+ * igual ao bruto). O link só para quem pode corrigir (ADMIN).
+ */
+export function RegimeNaoInformado({ podeInformarRegime, complemento }: { podeInformarRegime: boolean; complemento?: string }) {
+  return (
+    <>
+      O regime de IBS/CBS da empresa não foi informado, então nada vira crédito{complemento ? `: ${complemento}` : ""}.
+      {podeInformarRegime && (
+        <>
+          {" "}
+          <Link href={HREF_REGIME_IBS_CBS} className="text-primary underline-offset-4 hover:underline">
+            Informar o regime
+          </Link>
+        </>
+      )}
+    </>
+  );
+}
+
+/** Explica por que o efetivo é igual ao bruto quando a empresa não credita IBS/CBS; nada se a empresa é regular. */
+export function AvisoRegimeCredito({ regime, podeInformarRegime }: { regime: RegimeIbsCbs; podeInformarRegime: boolean }) {
+  if (regime === "REGULAR") return null;
+  return (
+    <p className="text-sm text-muted-foreground">
+      {regime === "NAO_INFORMADO" ? (
+        <RegimeNaoInformado podeInformarRegime={podeInformarRegime} complemento="o custo efetivo é igual ao bruto" />
+      ) : (
+        "A empresa está no Simples Nacional e não aproveita crédito de IBS/CBS, então o custo efetivo é igual ao bruto."
+      )}
+    </p>
+  );
+}
+
 /** Avisos curtos sobre o IBS/CBS que não virou crédito; o do regime só para quem pode corrigir (ADMIN). */
 export function AvisosCreditoIbsCbs({
   avisos,
@@ -61,14 +99,7 @@ export function AvisosCreditoIbsCbs({
 }) {
   const linhas: React.ReactNode[] = [];
   if (avisos.pedirRegime && podeInformarRegime) {
-    linhas.push(
-      <>
-        Há IBS/CBS destacado nas notas, mas o regime da empresa não foi informado, então nada vira crédito.{" "}
-        <Link href="/empresa#secao-ibs-cbs" className="text-primary underline-offset-4 hover:underline">
-          Informar o regime
-        </Link>
-      </>,
-    );
+    linhas.push(<RegimeNaoInformado podeInformarRegime />);
   }
   if (avisos.periodoTesteCents > 0) {
     linhas.push(`O IBS/CBS destacado em 2026 (${formatarMoeda(avisos.periodoTesteCents)}) é de teste e não gera crédito.`);

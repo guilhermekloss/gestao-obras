@@ -7,7 +7,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UFS, carregarEmpresa, rotuloCnpj } from "@/services/empresa";
+import { UFS, carregarEmpresa, carregarRegimeIbsCbs, rotuloCnpj } from "@/services/empresa";
 import { DIAS_AVISO_CERTIFICADO } from "@/services/sefaz/painel";
 import { removerCertificado } from "./actions";
 import { CapturaForm, CertificadoForm, DadosEmpresaForm, RegimeIbsCbsForm } from "./formularios";
@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Empresa" };
 
 export default async function EmpresaPage() {
   await exigirPapel("ADMIN");
-  const empresa = await carregarEmpresa();
+  const [empresa, regimeIbsCbs] = await Promise.all([carregarEmpresa(), carregarRegimeIbsCbs()]);
   const agora = new Date();
   const validade = empresa?.certificadoValidoAte ?? null;
   const dias = validade ? Math.ceil((validade.getTime() - agora.getTime()) / 86_400_000) : null;
@@ -59,7 +59,7 @@ export default async function EmpresaPage() {
           <CardTitle>Reforma tributária (IBS/CBS)</CardTitle>
         </CardHeader>
         <CardContent>
-          <RegimeIbsCbsForm regime={empresa?.regimeIbsCbs ?? "NAO_INFORMADO"} desabilitado={!empresa} />
+          <RegimeIbsCbsForm regime={regimeIbsCbs} desabilitado={!empresa} />
           {!empresa && <p className="mt-3 text-sm text-muted-foreground">Salve os dados da empresa para informar a apuração.</p>}
         </CardContent>
       </Card>

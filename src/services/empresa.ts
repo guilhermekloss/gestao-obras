@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Empresa, Prisma, RegimeIbsCbs } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { documentoValido } from "./leitura-documento";
-import { formatarDocumento } from "./nfe-xml";
+import { formatarDocumento } from "@/lib/format";
 import { normalizarCnpj } from "./sefaz/xml";
 
 export { REGIME_IBS_CBS_LABELS } from "./tributacao/ibs-cbs";

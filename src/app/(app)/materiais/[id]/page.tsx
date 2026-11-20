@@ -108,7 +108,7 @@ export default async function MaterialDetalhePage({
         </div>
       </div>
 
-      <CustoEfetivoCard custo={custo} materialId={material.id} admin={user.role === "ADMIN"} />
+      <CustoEfetivoCard custo={custo} materialId={material.id} podeInformarRegime={user.role === "ADMIN"} />
 
       <Card>
         <CardHeader>

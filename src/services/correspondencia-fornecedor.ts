@@ -1,4 +1,4 @@
-import { formatarDocumento } from "./nfe-xml";
+import { formatarDocumento } from "@/lib/format";
 import { documentoValido } from "./leitura-documento";
 export type FornecedorCadastro = { id: string; nome: string; cnpj: string | null };
 
